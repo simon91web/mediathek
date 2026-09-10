@@ -1,0 +1,20 @@
+# Transkription. Exakt gepinnt, weil genau dieses Paar unter Python 3.14
+# nachweislich läuft — ctranslate2 veröffentlicht Windows-Wheels mit
+# Verzögerung, und ein Sprung kann die CUDA-Anbindung ändern.
+faster-whisper==1.2.1
+ctranslate2==4.8.1
+
+# NUR cuBLAS, KEIN cuDNN.
+#
+# Nachgemessen an ctranslate2.dll: zur Laufzeit werden genau zwei
+# CUDA-Bibliotheken referenziert, nvcuda.dll (aus dem Treiber) und
+# cublas64_12.dll. Ein cudnn-Symbol kommt im Binary nicht vor.
+#
+# Die verbreitete Anleitung "installiere auch nvidia-cudnn-cu12" galt für
+# ctranslate2 bis 4.4 und kostet hier 700 MB für nichts. Das cudnn64_9.dll in
+# jenem Paket ist ohnehin nur ein Verteiler-Stub, dessen eigene
+# Unterbibliotheken nicht mitgeliefert werden.
+nvidia-cublas-cu12>=12.4,<13
+
+# Text aus PDF-Anhängen für die Suche.
+pypdf>=5.1,<7

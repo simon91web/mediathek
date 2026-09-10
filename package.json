@@ -13,7 +13,9 @@
     "e2e": "tsx --tsconfig tsconfig.scripts.json e2e/prepare.ts && playwright test",
     "e2e:ui": "tsx --tsconfig tsconfig.scripts.json e2e/prepare.ts && playwright test --ui",
     "doktor": "tsx --tsconfig tsconfig.scripts.json scripts/doktor.ts",
-    "fixtures": "tsx --tsconfig tsconfig.scripts.json scripts/fixtures.ts"
+    "fixtures": "tsx --tsconfig tsconfig.scripts.json scripts/fixtures.ts",
+    "setup:python": "node scripts/setup-python.mjs",
+    "probe:whisper": "node scripts/setup-python.mjs --probe-only"
   },
   "engines": {
     "node": ">=22"

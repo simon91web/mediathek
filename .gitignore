@@ -17,3 +17,7 @@ tools/.venv/
 
 .env
 .env.local
+
+# Python-Bytecode
+__pycache__/
+*.pyc

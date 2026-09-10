@@ -1,8 +1,9 @@
 import "server-only";
 
 import { spawn } from "node:child_process";
-import path from "node:path";
 
+import { findPythonEnv } from "@/lib/jobs/python";
+import { locateFfmpeg } from "@/lib/media/locate";
 import { isReadonly, readSettings } from "@/lib/settings";
 
 /*
@@ -23,6 +24,8 @@ export type Features = {
   ffmpeg: ToolState;
   /** Verzeichnis, in dem ffmpeg gefunden wurde. */
   ffmpegDir: string | null;
+  /** Python-Umgebung für die Transkription. */
+  python: ToolState;
   claude: ToolState;
 };
 
@@ -62,33 +65,6 @@ function probe(command: string, args: string[]): Promise<boolean> {
   });
 }
 
-async function findFfmpeg(
-  configured: string | null,
-): Promise<{ state: ToolState; dir: string | null }> {
-  /*
-   * Reihenfolge absichtlich mit den Einstellungen zuerst: ffmpeg ist auf
-   * dieser Maschine nicht systemweit installiert, sondern liegt in einem
-   * entpackten Ordner. Eine ausdrückliche Einstellung muss einen veralteten
-   * PATH-Eintrag schlagen können.
-   *
-   * "ffmpeg-Pfad" bedeutet immer das VERZEICHNIS: der übliche Windows-Build
-   * ist ein shared build, bei dem neben ffmpeg.exe sieben DLLs liegen. Eine
-   * einzeln kopierte ffmpeg.exe startet nicht.
-   */
-  const candidates: Array<string | null> = [
-    configured,
-    process.env.MEDIATHEK_FFMPEG_DIR ?? null,
-    null, // PATH
-  ];
-
-  for (const dir of candidates) {
-    const ffprobe = dir ? path.join(dir, "ffprobe.exe") : "ffprobe";
-    if (await probe(ffprobe, ["-version"])) {
-      return { state: "ok", dir };
-    }
-  }
-  return { state: "fehlt", dir: null };
-}
 
 export async function getFeatures(force = false): Promise<Features> {
   const cached = globalForFeatures.mediathekFeatures;
@@ -99,8 +75,9 @@ export async function getFeatures(force = false): Promise<Features> {
   const settings = await readSettings();
   const readonly = isReadonly();
 
-  const [ffmpeg, claude] = await Promise.all([
-    findFfmpeg(settings.ffmpegDir),
+  const [ffmpeg, python, claude] = await Promise.all([
+    locateFfmpeg(),
+    findPythonEnv(),
     probe("claude", ["--version"]),
   ]);
 
@@ -114,8 +91,9 @@ export async function getFeatures(force = false): Promise<Features> {
       ? false
       : settings.authorMode || process.env.NODE_ENV === "development",
     readonly,
-    ffmpeg: ffmpeg.state,
-    ffmpegDir: ffmpeg.dir,
+    ffmpeg: ffmpeg ? "ok" : "fehlt",
+    ffmpegDir: ffmpeg?.dir ?? null,
+    python: python ? "ok" : "fehlt",
     claude: claude ? "ok" : "fehlt",
   };
 

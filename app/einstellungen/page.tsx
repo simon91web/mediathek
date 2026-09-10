@@ -2,10 +2,12 @@ import type { Metadata } from "next";
 import { AlertTriangle, Check, X } from "lucide-react";
 
 import { SettingsControls } from "@/components/library/settings-controls";
+import { WhisperSettings } from "@/components/library/whisper-settings";
 import { Card, SectionTitle } from "@/components/ui/basis";
 import { getFeatures } from "@/lib/features";
 import { getLibrary } from "@/lib/library";
-import { libraryStateDir, settingsFile } from "@/lib/settings";
+import { searchIndexStatus } from "@/lib/search";
+import { libraryStateDir, readSettings, settingsFile } from "@/lib/settings";
 import { formatBytes } from "@/lib/library/media-kind";
 import { plural } from "@/lib/utils";
 
@@ -19,7 +21,13 @@ const WATCH_LABEL = {
 } as const;
 
 export default async function EinstellungenPage() {
-  const [library, features] = await Promise.all([getLibrary(), getFeatures()]);
+  const [library, features, settings] = await Promise.all([
+    getLibrary(),
+    getFeatures(),
+    readSettings(),
+  ]);
+  // Nur ablesen, nicht anstoßen: der Index baut sich beim ersten Suchen.
+  const searchStatus = searchIndexStatus();
 
   const byKind = { video: 0, audio: 0, text: 0 };
   let bytes = 0;
@@ -41,7 +49,7 @@ export default async function EinstellungenPage() {
           <Row label="Inhalt">
             {plural(library.items.length, "Beitrag", "Beiträge")} ·{" "}
             {byKind.video} Video, {byKind.audio} Audio, {byKind.text} Text ·{" "}
-            {plural(library.courses.length, "Kurs", "Kurse")}
+            {plural(library.topics.length, "Thema", "Themen")}
             {bytes > 0 ? ` · ${formatBytes(bytes)} Medien` : ""}
           </Row>
           <Row label="Zuletzt gelesen">
@@ -61,6 +69,15 @@ export default async function EinstellungenPage() {
                 {library.watch.error}
               </span>
             ) : null}
+          </Row>
+          <Row label="Suchindex">
+            {searchStatus.state === "fertig"
+              ? `${searchStatus.blocks} Textblöcke`
+              : searchStatus.state === "baut"
+                ? "wird gerade aufgebaut"
+                : searchStatus.state === "abgebrochen"
+                  ? "zu groß — es wird wörtlich gesucht"
+                  : "wird beim ersten Suchen gebaut"}
           </Row>
           <Row label="Index">
             {library.cache.writable ? (
@@ -83,9 +100,23 @@ export default async function EinstellungenPage() {
         ffmpegDir={features.ffmpegDir}
       />
 
+      {features.python === "ok" ? (
+        <WhisperSettings
+          model={settings.whisperModel}
+          language={settings.whisperLanguage}
+          gpuReady={features.python === "ok"}
+        />
+      ) : null}
+
       <section>
         <SectionTitle>Werkzeuge auf dieser Maschine</SectionTitle>
         <Card className="space-y-3">
+          <ToolRow
+            state={features.python}
+            label="Python für die Transkription"
+            okText="eingerichtet — Beiträge lassen sich transkribieren"
+            missingText={'fehlt; einrichten mit "npm run setup:python"'}
+          />
           <ToolRow
             state={features.ffmpeg}
             label="ffmpeg"

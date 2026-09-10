@@ -16,7 +16,7 @@ import type { Slug, WatchMode } from "./types";
  *
  * Deshalb dreistufig:
  *   1. fs.watch mit recursive -- auf lokalem NTFS die richtige Wahl.
- *   2. Flache Watches auf medien/ und kurse/ -- fangen neue Ordner.
+ *   2. Flache Watches auf medien/ und themen/ -- fangen neue Ordner.
  *   3. IMMER ein Poller, der zugleich prüft, ob der Watcher lügt.
  *
  * Findet der Poller eine Änderung, die der Watcher nicht gemeldet hat, wird
@@ -55,8 +55,8 @@ function slugFromRelative(relative: string): Slug | "alles" | null {
     const slug = parts[1].toLowerCase();
     return isSlug(slug) ? slug : "alles";
   }
-  // Kurse, Themen, Sammlungen und das Glossar wirken auf die ganze Ansicht.
-  if (["kurse", "themen", "sammlungen"].includes(parts[0])) return "alles";
+  // Themen, Sammlungen und das Glossar wirken auf die ganze Ansicht.
+  if (["themen", "sammlungen"].includes(parts[0])) return "alles";
   if (parts[0] === "glossar.txt") return "alles";
   return null;
 }
@@ -64,10 +64,10 @@ function slugFromRelative(relative: string): Slug | "alles" | null {
 type Snapshot = Map<string, string>;
 
 /**
- * Schlüssel für den Zustand der Kursdateien im Abdruck. Das "@" ist im
+ * Schlüssel für den Zustand der Themendateien im Abdruck. Das "@" ist im
  * Slug-Muster verboten, kann also nie mit einem Beitrag kollidieren.
  */
-const COURSES_KEY = "@kurse";
+const TOPICS_KEY = "@themen";
 
 /**
  * Ein billiger Zustandsabdruck der Bibliothek für den Poller: je
@@ -108,17 +108,17 @@ async function takeSnapshot(): Promise<Snapshot> {
   }
 
   try {
-    const courses = await fs.readdir(paths.courses, { withFileTypes: true });
+    const topics = await fs.readdir(paths.topics, { withFileTypes: true });
     const parts: string[] = [];
-    for (const file of courses) {
+    for (const file of topics) {
       if (!file.isFile()) continue;
-      const info = await fs.stat(path.join(paths.courses, file.name));
+      const info = await fs.stat(path.join(paths.topics, file.name));
       parts.push(`${file.name}:${info.size}:${Math.round(info.mtimeMs)}`);
     }
     parts.sort();
-    snapshot.set(COURSES_KEY, parts.join("|"));
+    snapshot.set(TOPICS_KEY, parts.join("|"));
   } catch {
-    // Kein kurse/-Ordner ist in Ordnung.
+    // Kein themen/-Ordner ist in Ordnung.
   }
 
   return snapshot;
@@ -127,7 +127,7 @@ async function takeSnapshot(): Promise<Snapshot> {
 function diffSnapshots(before: Snapshot, after: Snapshot): Slug[] | "alles" {
   const changed: Slug[] = [];
   for (const [key, value] of after) {
-    if (key === COURSES_KEY) {
+    if (key === TOPICS_KEY) {
       if (before.get(key) !== value) return "alles";
       continue;
     }
@@ -225,7 +225,7 @@ export function startWatching(options: StartWatchingOptions): WatchHandle {
   if (mode !== "recursive") {
     for (const [dir, base] of [
       [paths.items, "medien"],
-      [paths.courses, "kurse"],
+      [paths.topics, "themen"],
     ] as const) {
       try {
         const watcher = fsSync.watch(

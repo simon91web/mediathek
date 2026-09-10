@@ -164,11 +164,11 @@ export type Item = {
   changedAtMs: number;
 };
 
-export type Course = {
+export type Topic = {
   slug: Slug;
   title: string;
   description: string;
-  /** Reihenfolge = Kursreihenfolge. Arten dürfen sich mischen. */
+  /** Reihenfolge = Reihenfolge im Thema. Arten dürfen sich mischen. */
   itemSlugs: Slug[];
   /** Genannt, aber nicht in der Bibliothek vorhanden. */
   missingSlugs: Slug[];
@@ -188,10 +188,10 @@ export type LibraryState = {
   /** Sortiert: aufgenommen absteigend, dann Titel. */
   items: Item[];
   bySlug: Map<Slug, Item>;
-  courses: Course[];
-  coursesBySlug: Map<Slug, Course>;
-  /** Welche Kurse enthalten diesen Beitrag. */
-  coursesByItem: Map<Slug, Course[]>;
+  topics: Topic[];
+  topicsBySlug: Map<Slug, Topic>;
+  /** Welche Themen enthalten diesen Beitrag. */
+  topicsByItem: Map<Slug, Topic[]>;
   /** Rückverweise: berechnet, nicht geschrieben. */
   backlinks: Map<Slug, Reference[]>;
   tags: Array<{ tag: string; count: number }>;

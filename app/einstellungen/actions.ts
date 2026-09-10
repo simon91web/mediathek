@@ -5,7 +5,9 @@ import { revalidatePath } from "next/cache";
 import { getFeatures, invalidateFeatures } from "@/lib/features";
 import { reloadLibrary } from "@/lib/library";
 import { invalidateTranscripts } from "@/lib/library/transcript";
-import { isReadonly, writeSettings } from "@/lib/settings";
+import { invalidateSearchIndex } from "@/lib/search";
+import { isReadonly, WHISPER_MODELS, writeSettings } from "@/lib/settings";
+import type { WhisperModel } from "@/lib/settings";
 
 /*
  * Schreibende Vorgänge laufen als Server Action, nicht als Route Handler.
@@ -30,6 +32,7 @@ export type ActionResult =
 export async function reloadLibraryAction(): Promise<ActionResult> {
   try {
     invalidateTranscripts();
+    invalidateSearchIndex();
     const result = await reloadLibrary({ force: true });
     revalidatePath("/", "layout");
     return {
@@ -123,5 +126,46 @@ export async function setFfmpegDirAction(
     message: trimmed
       ? `ffmpeg wird aus ${trimmed} verwendet.`
       : "Der eingetragene Pfad wurde entfernt; es gilt wieder der Suchpfad.",
+  };
+}
+
+/**
+ * Whisper-Modell und Sprache.
+ *
+ * Die Wahl gilt nur auf dieser Maschine — auf einem Rechner ohne
+ * NVIDIA-Karte wäre large-v3-turbo etwa Echtzeit und damit unbrauchbar,
+ * dort ist "small" richtig.
+ */
+export async function setWhisperAction(input: {
+  model: string;
+  language: string;
+}): Promise<ActionResult> {
+  const model = WHISPER_MODELS.includes(input.model as WhisperModel)
+    ? (input.model as WhisperModel)
+    : null;
+  if (!model) {
+    return { ok: false, error: "Dieses Modell ist nicht vorgesehen." };
+  }
+
+  const written = await writeSettings({
+    whisperModel: model,
+    // Leer heißt: Sprache erkennen lassen.
+    whisperLanguage: input.language.trim().slice(0, 8),
+  });
+  if (!written.ok) {
+    return {
+      ok: false,
+      error: `Die Einstellung konnte nicht gespeichert werden: ${written.error}`,
+    };
+  }
+
+  revalidatePath("/einstellungen");
+  return {
+    ok: true,
+    message:
+      `Neue Transkriptionen laufen mit ${model}` +
+      (input.language.trim()
+        ? ` und der Sprache ${input.language.trim()}.`
+        : " und automatischer Spracherkennung."),
   };
 }

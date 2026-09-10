@@ -21,7 +21,7 @@ Diese Datei sagt, **was hier nicht kaputtgehen darf** — keine Feature-Liste.
 Alles, was Menschen lesen, ist deutsch: UI-Texte, Fehlermeldungen,
 Kommentare im Code, Commit-Messages. Bezeichner im Code sind englisch
 (`items`, `chapters`, `references`). **Routen sind deutsch** (`/medien`,
-`/kurse`, `/importieren`, `/einstellungen`), und die Dateien in der
+`/themen`, `/importieren`, `/einstellungen`), und die Dateien in der
 Bibliothek ebenso (`medien/`, `beitrag.md`, `anhaenge/`, `titel:`).
 
 ## Die Bibliothek ist die Wahrheit, nicht die Datenbank
@@ -35,7 +35,7 @@ Bibliotheksordner, den der Nutzer weitergibt:
   medien/<slug>/video.mp4|audio.m4a ← bestimmt die Art; fehlt sie, ist es Text
   medien/<slug>/transcript.json|.vtt, poster.jpg   ← generiert
   medien/<slug>/anhaenge/**         ← PDFs, Infografiken, Präsentationen
-  kurse/<slug>.md                   ← geordnete Verweise
+  themen/<slug>.md                  ← geordnete Verweise
   library.json                      ← GENERIERTER Index, jederzeit löschbar
 ```
 
@@ -54,6 +54,20 @@ Daraus folgen Regeln, die nicht verhandelbar sind:
 - **Maschinenlokales gehört nach `%LOCALAPPDATA%\Mediathek`** — Programmpfade,
   Autorenmodus, Job-Zustände. Laufwerksbuchstaben von Kollege A gelten nicht
   für Kollege B.
+
+## „Themen", nicht „Kurse"
+
+Ein **Thema** ist der Einstieg in ein Wissensgebiet — eine Datei
+`themen/<slug>.md`, deren Wikilinks in ihrer Reihenfolge die Reihenfolge des
+Themas sind. Bewusst **kein** Kurs: die Mediathek ist auch Simons eigene
+Wissensdatenbank, nicht nur Einarbeitungsmaterial, und niemand muss etwas
+„durcharbeiten".
+
+Daraus folgt eine Festlegung für Etappe 3: es gibt **keinen zweiten Ordner**
+für Wissensgebiete. Dieselbe Themendatei bekommt dort zusätzlich Synonyme
+(die die Suchanfrage erweitern) und einzelne Fundstellen
+(`[[slug#12:40]]`, `[[slug#anker]]`) neben den ganzen Beiträgen. Wer eine
+Parallelstruktur anlegt, baut die Verweise doppelt.
 
 ## Der Vertrag mit Claude Code
 
@@ -111,6 +125,77 @@ Claude Code muss keine Beziehung doppelt pflegen.
 - **`slugify` ersetzt deutsche Umlaute VOR der NFD-Zerlegung.** Andernfalls
   wird aus „ü" ein „u", und „Überflug" hieße `uberflug` statt `ueberflug`.
 
+## Transkription
+
+Die Kette ist: Knopf → Server Action → Auftragsschlange → `tools/transcribe.py`
+→ JSON-Lines auf stdout → Fortschritt per Ereignisstrom → `transcript.json`.
+
+Nachgemessen auf dieser Maschine, und deshalb so gebaut:
+
+- **ctranslate2 4.8.1 braucht kein cuDNN.** Aus `ctranslate2.dll` extrahiert:
+  nur `nvcuda.dll` und `cublas64_12.dll` werden zur Laufzeit referenziert.
+  `tools/requirements.txt` installiert deshalb allein `nvidia-cublas-cu12` —
+  `nvidia-cudnn-cu12` wären 700 MB für nichts.
+- **cuBLAS muss VOR den Suchpfad**, nicht über `os.add_dll_directory()`. Das
+  wirkt für ctranslate2 nachweislich nicht (es lädt per einfachem
+  `LoadLibrary`), und es ist der Rat, den man überall liest. Gesetzt wird der
+  Pfad in `lib/jobs/python.ts`; `transcribe.py` heilt sich zusätzlich selbst,
+  damit ein Aufruf von Hand aus dem Terminal auch geht.
+- **`PYTHONUTF8=1` ist Pflicht.** Python 3.14 nutzt beim Pipe cp1252; der
+  erste Umlaut in einer Meldung würde den Lauf mitten in einem
+  90-Minuten-Video töten.
+- **Fachbegriffe gehen als `hotwords`, nicht als `initial_prompt`.**
+  Nachgemessen an derselben Aufnahme: ohne alles 11 Segmente (2,8 s Schnitt)
+  und „Eliös 3"; mit `initial_prompt` 5 Segmente (längstes 18 s) und „Elios
+  3"; mit `hotwords` 7 Segmente (längstes 10,3 s) und „Elios 3". Der
+  Anfangs-Prompt wirkt als Kontext und lässt das Modell viel längere Blöcke
+  bilden — bei „Klick auf die Transkriptzeile springt zur Stelle" landet man
+  dann bis zu achtzehn Sekunden daneben.
+- **`condition_on_previous_text=False`.** Sonst hält sich das Modell an einer
+  Fehltranskription fest und vergiftet den Rest eines langen Laufs.
+- **Der Probelauf muss ein echtes Encode fahren.** `WhisperModel(…,
+  device="cuda")` meldet Erfolg auch ohne cuBLAS; der Fehler kommt erst beim
+  ersten `encode()`. Eine Prüfung, die nur das Modell lädt, ist wertlos.
+- **`float16` gibt es auf CPU nicht.** Ein Rückfall muss Modell UND Rechenart
+  umschreiben, sonst läuft man in einen stillen Ersatz.
+- **`taskkill /PID … /T`** beim Abbrechen: ohne `/T` überlebt das von Python
+  gestartete `ffmpeg.exe`. Zusätzlich hängt `tools/procutil.py` die Kinder an
+  ein Win32-Job-Objekt, das beim Sterben des Elternteils aufräumt.
+- **Nach einem Serverabsturz wird keine gespeicherte Prozesskennung getötet** —
+  sie kann inzwischen einem unbeteiligten Programm gehören. Der Auftrag wird
+  auf „fehler" gesetzt, mit Knopf zum Wiederholen.
+
+## Suche
+
+Zwei Kanäle in `lib/search/index.ts`, und das ist keine Umständlichkeit:
+
+1. **MiniSearch** für Rangfolge und Präfixe. Findet „vorflug" in
+   „Vorflugkontrolle", aber **nicht** „kontrolle" — MiniSearch kennt keine
+   Wortmitte, und bei deutschen Komposita ist genau das der wichtige Fall.
+2. **Ein wörtlicher Teilstring-Durchgang** über dieselben Blöcke. Schließt die
+   Lücke und ist bei Anfragen in Anführungszeichen der einzige zuständige
+   Kanal.
+
+Weitere Festlegungen:
+
+- **Indiziert werden Blöcke, nicht Segmente** (~40 Wörter, an Kapitelgrenzen
+  geschnitten). Faktor zehn weniger Dokumente; die genaue Sekunde wird
+  nachträglich aus den Segmenten bestimmt (`refineStart`) — ohne diesen
+  Schritt landet man bis zu dreißig Sekunden zu früh.
+- **`storeFields` enthält nicht den Text.** Snippets kommen beim Anzeigen aus
+  der Blockliste. Ohne diese Sparsamkeit landet der Index bei fünfhundert
+  Beiträgen im Gigabyte-Bereich.
+- **Snippets sind Offsets, kein HTML.** Bibliotheksinhalte sind Fremdtext;
+  `dangerouslySetInnerHTML` verbietet sich dafür.
+- **`MEDIATHEK_SUCHE_MAX_MB`** (400) ist die Notbremse: reißt die Grenze,
+  bricht der Aufbau ab und es wird nur noch wörtlich gesucht — langsamer,
+  aber vollständig, und nie ein überlaufender Speicher.
+- **Der Auszug aus Anhängen liegt in `anhaenge/.text/`** und geht bewusst
+  NICHT in den Fingerprint ein (das kostete ein zusätzliches `readdir` je
+  Beitrag). Deshalb ruft `lib/jobs/extract-job.ts` `reloadLibrary` mit
+  `force: true` — ohne das bliebe `hasText` falsch und der Text für die Suche
+  unsichtbar.
+
 ## Der Verzeichnis-Beobachter
 
 Die zentrale Zusage — „Claude Code trägt ein, die App zeigt es" — hängt an
@@ -167,11 +252,28 @@ Mediendatei, kein `tools/` und keine `.env` im Paket liegt.
 | `MEDIATHEK_POLL_MS` | Poll-Abstand des Beobachters, Standard 30 s. |
 | `HOSTNAME=127.0.0.1` | Für den Produktionsstart Pflicht: **ohne sie bindet Next standalone auf `0.0.0.0`** und die Mediathek wäre im Firmennetz offen. |
 
+## Einrichten
+
+```bash
+npm install
+npm run fixtures        # Entwicklungsbibliothek (braucht ffmpeg)
+npm run setup:python    # nur für Transkription; --cpu ohne NVIDIA-Karte
+npm run dev
+```
+
+`npm run setup:python` endet mit einem Probelauf und sagt auf Deutsch, ob die
+Grafikkarte nutzbar ist. Auf dieser Maschine: RTX 4070, float16,
+`large-v3-turbo` — rund fünfundzwanzigmal schneller als Echtzeit.
+
 ## Stand
 
-Etappe 1 ist umgesetzt: Bibliothek, drei Medienarten, Player mit Kapiteln,
-Textansicht mit Ankern, Anhänge, Editor, Import, Autorenmodus.
+**Etappe 1:** Bibliothek, drei Medienarten, Player mit Kapiteln, Textansicht
+mit Ankern, Anhänge, Editor, Import, Autorenmodus.
 
-Noch offen (siehe Plan): Transkription per Whisper und Volltextsuche
-(Etappe 2), Claude-Code-Brücke und Wissensnetz aus Themenseiten und
-Sammlungen (Etappe 3), portables Viewer-Paket (Etappe 4).
+**Etappe 2:** Transkription per Whisper (GPU mit CPU-Rückfall),
+Auftragsschlange mit Ereignisstrom, Kachelbilder (Video: Einzelbild mit
+Schwarzbild-Prüfung, Audio: Wellenform), Textauszug aus PDF-Anhängen,
+Volltextsuche über alles.
+
+Noch offen (siehe Plan): Claude-Code-Brücke und Wissensnetz aus Themenseiten
+und Sammlungen (Etappe 3), portables Viewer-Paket (Etappe 4).

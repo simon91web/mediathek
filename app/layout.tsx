@@ -3,6 +3,7 @@ import Link from "next/link";
 
 import { LibraryWatcher } from "@/components/library/library-watcher";
 import { NavLinks } from "@/components/nav-links";
+import { SearchBox } from "@/components/search/search-box";
 import "./globals.css";
 
 export const metadata: Metadata = {
@@ -41,6 +42,9 @@ export default function RootLayout({
               Mediathek
             </Link>
             <NavLinks />
+            <div className="ml-auto">
+              <SearchBox compact />
+            </div>
           </div>
         </header>
 

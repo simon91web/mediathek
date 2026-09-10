@@ -1,0 +1,8 @@
+# Für Maschinen ohne NVIDIA-Karte: dasselbe ohne cuBLAS.
+#
+# Die Transkription läuft dann auf der CPU mit compute_type "int8" und einem
+# kleineren Modell. Auf einem heutigen Bürorechner sind das grob sechs bis
+# zehn Minuten je Stunde Aufnahme — langsamer, aber brauchbar.
+faster-whisper==1.2.1
+ctranslate2==4.8.1
+pypdf>=5.1,<7

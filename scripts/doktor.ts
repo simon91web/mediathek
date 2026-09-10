@@ -33,7 +33,7 @@ async function main() {
   line(
     `Gelesen in ${library.scanDurationMs} ms — ` +
       `${plural(library.items.length, "Beitrag", "Beiträge")}, ` +
-      `${plural(library.courses.length, "Kurs", "Kurse")}`,
+      `${plural(library.topics.length, "Thema", "Themen")}`,
   );
   if (!library.cache.writable && library.cache.note) {
     line(`Index: ${library.cache.note}`);
@@ -94,9 +94,9 @@ async function main() {
         plural(backlinks.length, "Rückverweis", "Rückverweise"),
       );
     }
-    const courses = library.coursesByItem.get(item.slug) ?? [];
-    if (courses.length > 0) {
-      details.push(`Kurse: ${courses.map((c) => c.title).join(", ")}`);
+    const topics = library.topicsByItem.get(item.slug) ?? [];
+    if (topics.length > 0) {
+      details.push(`Themen: ${topics.map((c) => c.title).join(", ")}`);
     }
     if (details.length > 0) line(`        ${details.join(" · ")}`);
 
@@ -118,22 +118,22 @@ async function main() {
     line();
   }
 
-  for (const course of library.courses) {
+  for (const topic of library.topics) {
     line(
-      `Kurs   ${course.slug.padEnd(28)} ` +
-        plural(course.itemSlugs.length, "Teil", "Teile"),
+      `Thema   ${topic.slug.padEnd(28)} ` +
+        plural(topic.itemSlugs.length, "Teil", "Teile"),
     );
-    line(`        ${course.title}`);
-    for (const slug of course.itemSlugs) {
-      const missing = course.missingSlugs.includes(slug);
+    line(`        ${topic.title}`);
+    for (const slug of topic.itemSlugs) {
+      const missing = topic.missingSlugs.includes(slug);
       line(`          ${missing ? "FEHLT  " : "       "}${slug}`);
     }
-    for (const problem of course.problems) {
+    for (const problem of topic.problems) {
       problemCount += 1;
       line(`        ! ${problem.kind}: ${problem.message}`);
     }
-    if (course.missingSlugs.length > 0) {
-      problemCount += course.missingSlugs.length;
+    if (topic.missingSlugs.length > 0) {
+      problemCount += topic.missingSlugs.length;
     }
     line();
   }

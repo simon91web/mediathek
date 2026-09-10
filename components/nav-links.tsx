@@ -8,7 +8,8 @@ import { cn } from "@/lib/utils";
 /** Routen sind deutsch — wie in den übrigen Werkzeugen. */
 const NAV_ITEMS = [
   { href: "/medien", label: "Mediathek" },
-  { href: "/kurse", label: "Kurse" },
+  { href: "/themen", label: "Themen" },
+  { href: "/suche", label: "Suche" },
   { href: "/importieren", label: "Importieren" },
   { href: "/einstellungen", label: "Einstellungen" },
 ] as const;

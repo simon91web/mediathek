@@ -5,7 +5,7 @@ import { AlertTriangle } from "lucide-react";
 
 import { MarkdownText } from "@/components/markdown";
 import { ItemCard } from "@/components/media/item-card";
-import { getCourse, getLibrary } from "@/lib/library";
+import { getTopic, getLibrary } from "@/lib/library";
 import { isSlug } from "@/lib/library/slug";
 import { plural } from "@/lib/utils";
 
@@ -16,11 +16,11 @@ export async function generateMetadata({
 }): Promise<Metadata> {
   const { slug } = await params;
   if (!isSlug(slug)) return { title: "Nicht gefunden" };
-  const course = await getCourse(slug);
-  return { title: course?.title ?? "Nicht gefunden" };
+  const topic = await getTopic(slug);
+  return { title: topic?.title ?? "Nicht gefunden" };
 }
 
-export default async function KursPage({
+export default async function ThemaPage({
   params,
 }: {
   params: Promise<{ slug: string }>;
@@ -28,40 +28,40 @@ export default async function KursPage({
   const { slug } = await params;
   if (!isSlug(slug)) notFound();
 
-  const [course, library] = await Promise.all([getCourse(slug), getLibrary()]);
-  if (!course) notFound();
+  const [topic, library] = await Promise.all([getTopic(slug), getLibrary()]);
+  if (!topic) notFound();
 
-  // Die Reihenfolge der Datei gewinnt — sie ist die Kursreihenfolge.
-  const items = course.itemSlugs
+  // Die Reihenfolge der Datei gewinnt — sie ist die Reihenfolge im Thema.
+  const items = topic.itemSlugs
     .map((entry) => library.bySlug.get(entry))
     .filter((item): item is NonNullable<typeof item> => item !== undefined);
 
   return (
     <div className="space-y-6">
       <div>
-        <p className="text-xs tracking-wide text-schrift-3 uppercase">Kurs</p>
+        <p className="text-xs tracking-wide text-schrift-3 uppercase">Thema</p>
         <h1 className="mt-1 text-2xl font-semibold tracking-tight">
-          {course.title}
+          {topic.title}
         </h1>
         <p className="mt-1 text-sm text-schrift-2">
           {plural(items.length, "Teil", "Teile")}
         </p>
-        {course.description ? (
+        {topic.description ? (
           <div className="prosa mt-3 max-w-prose text-[15px]">
-            <MarkdownText>{course.description}</MarkdownText>
+            <MarkdownText>{topic.description}</MarkdownText>
           </div>
         ) : null}
       </div>
 
-      {course.missingSlugs.length > 0 ? (
+      {topic.missingSlugs.length > 0 ? (
         <p className="flex items-start gap-2 rounded-xl border border-warnung/40 bg-warnung-grund px-4 py-3 text-sm text-warnung">
           <AlertTriangle aria-hidden className="mt-0.5 size-4 shrink-0" />
           <span>
-            {course.missingSlugs.length === 1
-              ? "Dieser Kurs nennt einen Beitrag, den es nicht gibt: "
-              : `Dieser Kurs nennt ${course.missingSlugs.length} Beiträge, die es nicht gibt: `}
+            {topic.missingSlugs.length === 1
+              ? "Dieses Thema nennt einen Beitrag, den es nicht gibt: "
+              : `Dieses Thema nennt ${topic.missingSlugs.length} Beiträge, die es nicht gibt: `}
             <span className="font-mono text-xs">
-              {course.missingSlugs.join(", ")}
+              {topic.missingSlugs.join(", ")}
             </span>
             . Vermutlich wurde ein Ordner umbenannt.
           </span>
@@ -85,8 +85,8 @@ export default async function KursPage({
       </ol>
 
       <p className="text-sm">
-        <Link href="/kurse" className="text-akzent hover:underline">
-          ← Alle Kurse
+        <Link href="/themen" className="text-akzent hover:underline">
+          ← Alle Themen
         </Link>
       </p>
     </div>

@@ -6,7 +6,7 @@ import { readMp4Info } from "@/lib/media/mp4-duration";
 import { parseItemMarkdown } from "./beitrag-md";
 import { emptyCache, sameFingerprint } from "./cache";
 import type { LibraryCache } from "./cache";
-import { parseCourseMarkdown } from "./courses";
+import { parseTopicMarkdown } from "./topics";
 import { isSlug } from "./slug";
 import {
   attachmentMime,
@@ -17,7 +17,7 @@ import {
 } from "./media-kind";
 import type {
   Attachment,
-  Course,
+  Topic,
   FileStamp,
   Fingerprint,
   Item,
@@ -341,52 +341,52 @@ async function scanItem(
   return { item, problem: null };
 }
 
-async function scanCourses(
+async function scanTopics(
   cache: LibraryCache,
   force: boolean,
 ): Promise<{
-  courses: Course[];
-  cacheEntries: LibraryCache["courses"];
+  topics: Topic[];
+  cacheEntries: LibraryCache["topics"];
   problems: ScanProblem[];
 }> {
   const problems: ScanProblem[] = [];
-  const cacheEntries: LibraryCache["courses"] = {};
-  const courses: Course[] = [];
+  const cacheEntries: LibraryCache["topics"] = {};
+  const topics: Topic[] = [];
 
   let entries: string[];
   try {
-    entries = (await fs.readdir(paths.courses, { withFileTypes: true }))
+    entries = (await fs.readdir(paths.topics, { withFileTypes: true }))
       .filter((entry) => entry.isFile() && /\.md$/i.test(entry.name))
       .map((entry) => entry.name);
   } catch {
-    // Kein kurse/-Ordner ist völlig in Ordnung.
-    return { courses, cacheEntries, problems };
+    // Kein themen/-Ordner ist völlig in Ordnung.
+    return { topics, cacheEntries, problems };
   }
 
   for (const name of entries) {
     const slug = path.parse(name).name.toLowerCase();
     if (!isSlug(slug)) {
       problems.push({
-        path: path.join(paths.courses, name),
+        path: path.join(paths.topics, name),
         message:
-          "Der Dateiname ist als Kurs-Kennung nicht brauchbar " +
+          "Der Dateiname taugt nicht als Kennung eines Themas " +
           "(erlaubt: Kleinbuchstaben, Ziffern, Bindestriche).",
       });
       continue;
     }
 
-    const file = path.join(paths.courses, name);
+    const file = path.join(paths.topics, name);
     const info = await stamp(file);
     if (!info) continue;
 
-    const cached = cache.courses[slug];
+    const cached = cache.topics[slug];
     if (
       !force &&
       cached &&
       cached.size === info.size &&
       cached.mtimeMs === info.mtimeMs
     ) {
-      courses.push(cached.course);
+      topics.push(cached.topic);
       cacheEntries[slug] = cached;
       continue;
     }
@@ -404,8 +404,8 @@ async function scanCourses(
       continue;
     }
 
-    const parsed = parseCourseMarkdown(raw, slug);
-    const course: Course = {
+    const parsed = parseTopicMarkdown(raw, slug);
+    const topic: Topic = {
       slug,
       title: parsed.title,
       description: parsed.description,
@@ -415,12 +415,12 @@ async function scanCourses(
       changedAtMs: info.mtimeMs,
       problems: parsed.problems,
     };
-    courses.push(course);
-    cacheEntries[slug] = { size: info.size, mtimeMs: info.mtimeMs, course };
+    topics.push(topic);
+    cacheEntries[slug] = { size: info.size, mtimeMs: info.mtimeMs, topic };
   }
 
-  courses.sort((a, b) => a.title.localeCompare(b.title, "de"));
-  return { courses, cacheEntries, problems };
+  topics.sort((a, b) => a.title.localeCompare(b.title, "de"));
+  return { topics, cacheEntries, problems };
 }
 
 export type ScanResult = {
@@ -520,22 +520,22 @@ export async function scanLibrary(options: {
 
   const bySlug = new Map(items.map((item) => [item.slug, item]));
 
-  const courseResult = await scanCourses(cache, force);
-  problems.push(...courseResult.problems);
-  for (const course of courseResult.courses) {
-    course.missingSlugs = course.itemSlugs.filter((slug) => !bySlug.has(slug));
+  const topicResult = await scanTopics(cache, force);
+  problems.push(...topicResult.problems);
+  for (const topic of topicResult.topics) {
+    topic.missingSlugs = topic.itemSlugs.filter((slug) => !bySlug.has(slug));
   }
 
-  const coursesBySlug = new Map(
-    courseResult.courses.map((course) => [course.slug, course]),
+  const topicsBySlug = new Map(
+    topicResult.topics.map((topic) => [topic.slug, topic]),
   );
-  const coursesByItem = new Map<Slug, Course[]>();
-  for (const course of courseResult.courses) {
-    for (const slug of course.itemSlugs) {
+  const topicsByItem = new Map<Slug, Topic[]>();
+  for (const topic of topicResult.topics) {
+    for (const slug of topic.itemSlugs) {
       if (!bySlug.has(slug)) continue;
-      const list = coursesByItem.get(slug);
-      if (list) list.push(course);
-      else coursesByItem.set(slug, [course]);
+      const list = topicsByItem.get(slug);
+      if (list) list.push(topic);
+      else topicsByItem.set(slug, [topic]);
     }
   }
 
@@ -580,9 +580,9 @@ export async function scanLibrary(options: {
     scanDurationMs: Date.now() - startedAt,
     items,
     bySlug,
-    courses: courseResult.courses,
-    coursesBySlug,
-    coursesByItem,
+    topics: topicResult.topics,
+    topicsBySlug,
+    topicsByItem,
     backlinks,
     tags,
     problems,
@@ -598,7 +598,7 @@ export async function scanLibrary(options: {
       generatedAtMs: Date.now(),
       libraryPath: paths.library,
       items: nextCacheItems,
-      courses: courseResult.cacheEntries,
+      topics: topicResult.cacheEntries,
     },
     reparsed,
   };

@@ -88,8 +88,8 @@ test.describe("Mediathek", () => {
     ).toHaveCount(0);
   });
 
-  test("ein Kurs führt der Reihe nach durch die Beiträge", async ({ page }) => {
-    await page.goto("/kurse/drohnen-grundlagen");
+  test("ein Thema führt der Reihe nach durch die Beiträge", async ({ page }) => {
+    await page.goto("/themen/drohnen-grundlagen");
     await expect(
       page.getByRole("heading", { name: "Drohnen-Grundlagen", level: 1 }),
     ).toBeVisible();

@@ -4,24 +4,24 @@ import { findWikilinks } from "./wikilink";
 import type { ItemProblem, Slug } from "./types";
 
 /*
- * Ein Kurs ist eine kleine, handgeschriebene Datei in kurse/. Die Reihenfolge
- * der Wikilinks im Text ist die Kursreihenfolge — es braucht keinen
+ * Ein Thema ist eine kleine, handgeschriebene Datei in themen/. Die Reihenfolge
+ * der Wikilinks im Text ist die Reihenfolge im Thema — es braucht keinen
  * Marker-Block, weil die Datei ohnehin nur aus dieser Liste besteht:
  *
  *   ---
  *   titel: Drohnen-Grundlagen
  *   schlagworte: [drohne]
  *   ---
- *   Was man nach diesem Kurs kann.
+ *   Was man nach diesem Thema kann.
  *
  *   - [[vorflugkontrolle-elios-3]]
  *   - [[akku-pruefen]] optional mit Anmerkung
  *
- * Arten dürfen sich mischen: ein Kurs kann ein Video, ein Sprachmemo und
+ * Arten dürfen sich mischen: ein Thema kann ein Video, ein Sprachmemo und
  * einen Text enthalten.
  */
 
-export type ParsedCourse = {
+export type ParsedTopic = {
   title: string;
   description: string;
   itemSlugs: Slug[];
@@ -29,7 +29,7 @@ export type ParsedCourse = {
   problems: ItemProblem[];
 };
 
-export function parseCourseMarkdown(raw: string, slug: Slug): ParsedCourse {
+export function parseTopicMarkdown(raw: string, slug: Slug): ParsedTopic {
   const split = splitFrontmatter(raw);
   const head = parseItemFrontmatter(split.frontmatterText);
   const problems: ItemProblem[] = [...split.problems, ...head.problems];
@@ -46,14 +46,14 @@ export function parseCourseMarkdown(raw: string, slug: Slug): ParsedCourse {
     problems.push({
       kind: "bezug",
       message:
-        "Dieser Kurs nennt keine Beiträge. Erwartet werden Verweise wie " +
-        "[[akku-pruefen]], deren Reihenfolge die Kursreihenfolge ist.",
+        "Dieses Thema nennt keine Beiträge. Erwartet werden Verweise wie " +
+        "[[akku-pruefen]], deren Reihenfolge die Reihenfolge im Thema ist.",
     });
   }
 
   /*
    * Für die Beschreibung werden die Verweiszeilen entfernt: sie sind die
-   * Inhaltsliste und werden von der Kursseite selbst dargestellt.
+   * Inhaltsliste und werden von der Themenseite selbst dargestellt.
    */
   const description = split.body
     .split("\n")

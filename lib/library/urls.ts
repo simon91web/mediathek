@@ -36,8 +36,8 @@ export function itemHref(slug: Slug, opts?: { t?: number; anchor?: string }): st
   return `/medien/${slug}`;
 }
 
-export function courseHref(slug: Slug): string {
-  return `/kurse/${slug}`;
+export function topicHref(slug: Slug): string {
+  return `/themen/${slug}`;
 }
 
 export function editHref(slug: Slug): string {

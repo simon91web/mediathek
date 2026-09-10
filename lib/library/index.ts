@@ -4,7 +4,7 @@ import { readCache, writeCache } from "./cache";
 import { scanLibrary } from "./scan";
 import { store } from "./store";
 import type {
-  Course,
+  Topic,
   Item,
   LibraryState,
   MediaKind,
@@ -120,9 +120,9 @@ export async function getItem(slug: string): Promise<Item | null> {
   return library.bySlug.get(slug) ?? null;
 }
 
-export async function getCourse(slug: string): Promise<Course | null> {
+export async function getTopic(slug: string): Promise<Topic | null> {
   const library = await getLibrary();
-  return library.coursesBySlug.get(slug) ?? null;
+  return library.topicsBySlug.get(slug) ?? null;
 }
 
 /** Rückverweise auf diesen Beitrag — berechnet, nicht in der Datei gespeichert. */
@@ -131,16 +131,16 @@ export async function getBacklinks(slug: string): Promise<Reference[]> {
   return library.backlinks.get(slug) ?? [];
 }
 
-/** Die Kurse, in denen dieser Beitrag vorkommt. */
-export async function getCoursesForItem(slug: string): Promise<Course[]> {
+/** Die Themen, in denen dieser Beitrag vorkommt. */
+export async function getTopicsForItem(slug: string): Promise<Topic[]> {
   const library = await getLibrary();
-  return library.coursesByItem.get(slug) ?? [];
+  return library.topicsByItem.get(slug) ?? [];
 }
 
 export type ItemFilter = {
   kinds?: readonly MediaKind[];
   tags?: readonly string[];
-  course?: Slug;
+  topic?: Slug;
   search?: string;
   sort?: "neu" | "titel" | "dauer";
   limit?: number;
@@ -148,7 +148,7 @@ export type ItemFilter = {
 };
 
 /**
- * Gefilterte Liste für Mediathek und Kursseiten. Die Volltextsuche über
+ * Gefilterte Liste für Mediathek und Themenseiten. Die Volltextsuche über
  * Transkripte ist bewusst nicht hier, sondern in lib/search — das hier ist
  * nur das Filtern der Kacheln.
  */
@@ -158,11 +158,11 @@ export async function listItems(
   const library = await getLibrary();
   let items = library.items;
 
-  if (filter.course) {
-    const course = library.coursesBySlug.get(filter.course);
-    if (!course) return { items: [], total: 0 };
-    // Kursreihenfolge gewinnt über jede andere Sortierung.
-    const ordered = course.itemSlugs
+  if (filter.topic) {
+    const topic = library.topicsBySlug.get(filter.topic);
+    if (!topic) return { items: [], total: 0 };
+    // Reihenfolge im Thema gewinnt über jede andere Sortierung.
+    const ordered = topic.itemSlugs
       .map((slug) => library.bySlug.get(slug))
       .filter((item): item is Item => item !== undefined);
     items = ordered;
@@ -189,7 +189,7 @@ export async function listItems(
     );
   }
 
-  if (!filter.course && filter.sort && filter.sort !== "neu") {
+  if (!filter.topic && filter.sort && filter.sort !== "neu") {
     items = [...items];
     if (filter.sort === "titel") {
       items.sort((a, b) => a.title.localeCompare(b.title, "de"));
@@ -204,4 +204,4 @@ export async function listItems(
   return { items: items.slice(offset, offset + limit), total };
 }
 
-export type { Course, Item, LibraryState, Reference, Slug };
+export type { Topic, Item, LibraryState, Reference, Slug };

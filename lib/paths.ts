@@ -20,7 +20,7 @@ export const paths = {
   library: LIBRARY_DIR,
   /** Ein Unterordner je Beitrag, Ordnername = Slug. */
   items: path.join(LIBRARY_DIR, "medien"),
-  courses: path.join(LIBRARY_DIR, "kurse"),
+  /** Ein Thema je Datei: geordnete Beiträge plus Synonyme für die Suche. */
   topics: path.join(LIBRARY_DIR, "themen"),
   collections: path.join(LIBRARY_DIR, "sammlungen"),
   glossary: path.join(LIBRARY_DIR, "glossar.txt"),

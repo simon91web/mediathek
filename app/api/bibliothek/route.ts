@@ -24,7 +24,7 @@ export async function GET() {
       scannedAtMs: library.scannedAtMs,
       scanDurationMs: library.scanDurationMs,
       items: library.items.length,
-      courses: library.courses.length,
+      topics: library.topics.length,
       problems: library.problems.length,
       watch: library.watch,
       cache: library.cache,

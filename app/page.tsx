@@ -49,35 +49,35 @@ export default async function StartPage() {
         </section>
       ) : null}
 
-      {library.courses.length > 0 ? (
+      {library.topics.length > 0 ? (
         <section>
           <SectionTitle
             hint={
-              <Link href="/kurse" className="hover:text-akzent">
-                alle Kurse →
+              <Link href="/themen" className="hover:text-akzent">
+                alle Themen →
               </Link>
             }
           >
-            Kurse
+            Themen
           </SectionTitle>
           <ul className="grid grid-cols-1 gap-3 sm:grid-cols-2 lg:grid-cols-3">
-            {library.courses.slice(0, 6).map((course) => (
-              <li key={course.slug}>
+            {library.topics.slice(0, 6).map((topic) => (
+              <li key={topic.slug}>
                 <Link
-                  href={`/kurse/${course.slug}`}
+                  href={`/themen/${topic.slug}`}
                   className="block rounded-xl border border-rand bg-grund-2 p-4 transition-colors hover:border-akzent/50"
                 >
-                  <p className="font-medium">{course.title}</p>
+                  <p className="font-medium">{topic.title}</p>
                   <p className="mt-1 text-xs text-schrift-2">
                     {plural(
-                      course.itemSlugs.length - course.missingSlugs.length,
+                      topic.itemSlugs.length - topic.missingSlugs.length,
                       "Teil",
                       "Teile",
                     )}
                   </p>
-                  {course.description ? (
+                  {topic.description ? (
                     <p className="mt-2 line-clamp-2 text-sm text-schrift-2">
-                      {course.description}
+                      {topic.description}
                     </p>
                   ) : null}
                 </Link>

@@ -19,6 +19,27 @@ import { paths } from "@/lib/paths";
  * soll.
  */
 
+/**
+ * Modelle, die für deutsche Fachvorträge in Frage kommen.
+ *
+ * Nachgemessen auf einer RTX 4070: large-v3-turbo transkribiert etwa
+ * fünfundzwanzigmal schneller als Echtzeit, ein 90-Minuten-Beitrag also in
+ * knapp vier Minuten. Es ist large-v3s Encoder mit einem
+ * Vier-Schichten-Decoder — bei nah mikrofoniertem Vortragston liegt der
+ * Unterschied zu large-v3 im Bereich eines Prozentpunkts, bei einem
+ * Vielfachen der Laufzeit.
+ *
+ * "medium" fehlt bewusst: schlechteres Deutsch (Training vor v3) UND
+ * langsamer als turbo, dessen winziger Decoder mediums 24 Schichten schlägt.
+ */
+export const WHISPER_MODELS = [
+  "large-v3-turbo",
+  "large-v3",
+  "small",
+] as const;
+
+export type WhisperModel = (typeof WHISPER_MODELS)[number];
+
 export type Settings = {
   /** Nur wer das setzt, darf schreiben. Standard: aus. */
   authorMode: boolean;
@@ -26,12 +47,17 @@ export type Settings = {
   ffmpegDir: string | null;
   /** Zuletzt geöffnete Bibliothek — für den Start ohne Umgebungsvariable. */
   lastLibraryDir: string | null;
+  whisperModel: WhisperModel;
+  /** Leer heißt: Sprache erkennen lassen. */
+  whisperLanguage: string;
 };
 
 const DEFAULTS: Settings = {
   authorMode: false,
   ffmpegDir: null,
   lastLibraryDir: null,
+  whisperModel: "large-v3-turbo",
+  whisperLanguage: "de",
 };
 
 function stateRoot(): string {
@@ -65,6 +91,10 @@ export async function readSettings(): Promise<Settings> {
     const parsed = JSON.parse(raw) as unknown;
     if (!parsed || typeof parsed !== "object") return { ...DEFAULTS };
     const record = parsed as Record<string, unknown>;
+    const model = WHISPER_MODELS.includes(record.whisperModel as WhisperModel)
+      ? (record.whisperModel as WhisperModel)
+      : DEFAULTS.whisperModel;
+
     return {
       authorMode: record.authorMode === true,
       ffmpegDir:
@@ -75,6 +105,11 @@ export async function readSettings(): Promise<Settings> {
         typeof record.lastLibraryDir === "string" && record.lastLibraryDir.trim()
           ? record.lastLibraryDir
           : null,
+      whisperModel: model,
+      whisperLanguage:
+        typeof record.whisperLanguage === "string"
+          ? record.whisperLanguage.trim().slice(0, 8)
+          : DEFAULTS.whisperLanguage,
     };
   } catch {
     return { ...DEFAULTS };

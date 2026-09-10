@@ -14,12 +14,36 @@
  */
 
 import { spawnSync } from "node:child_process";
+import fsSync from "node:fs";
 import fs from "node:fs/promises";
+import os from "node:os";
 import path from "node:path";
 
 const ROOT = path.join(process.cwd(), "bibliothek-dev");
 const ITEMS = path.join(ROOT, "medien");
-const COURSES = path.join(ROOT, "kurse");
+const TOPICS = path.join(ROOT, "themen");
+
+/**
+ * Der Text, den das Sprachmemo spricht.
+ *
+ * Er enthält absichtlich Fachbegriffe, die ein Modell ohne Glossar
+ * verhört — "Elios 3" wird sonst zu "Eliös 3". So lässt sich beim
+ * Transkribieren nachprüfen, ob die Fachbegriffe aus glossar.txt greifen.
+ *
+ * Die Zahlen sind ausgeschrieben, weil die Windows-Sprachausgabe sie sonst
+ * unterschiedlich vorliest.
+ */
+const SPRACHMEMO_TEXT = [
+  "Willkommen zur Vorflugkontrolle der Elios drei.",
+  "Ich gehe die Punkte in der Reihenfolge durch,",
+  "in der ich sie im Feld auch abarbeite.",
+  "Zuerst der Akku. Ich messe die Zellspannung mit dem Zellspannungspruefer.",
+  "Unter drei Komma sieben Volt je Zelle nehme ich den Akku nicht mit ins Feld.",
+  "Auf Aufblaehung achten. Ein aufgeblaehter Akku wird sofort aussortiert.",
+  "Jetzt der Rotorschutz. Der Kaefig rastet an sechs Punkten ein.",
+  "Ein lose sitzender Schutz ist im Kanal schlimmer als gar keiner.",
+  "Nach dem Flug halte ich Flugzeit und Auffaelligkeiten im Messprotokoll fest.",
+].join(" ");
 
 function findFfmpeg(): string | null {
   const candidates = [
@@ -90,7 +114,103 @@ function makeVideo(file: string, seconds: number): boolean {
   ]);
 }
 
-function makeAudio(file: string, seconds: number): boolean {
+/**
+ * Gesprochener deutscher Text über die Windows-Sprachausgabe.
+ *
+ * Deutlich nützlicher als ein Sinuston: damit lässt sich die Transkription
+ * wirklich prüfen — ob das Modell läuft, ob die Fachbegriffe aus dem Glossar
+ * greifen, ob die Zeitmarken passen. Ohne Sprachausgabe (kein Windows, keine
+ * deutsche Stimme) fällt es auf einen Ton zurück.
+ */
+function makeSpeechWav(file: string, text: string): boolean {
+  if (process.platform !== "win32") return false;
+
+  /*
+   * Skript und Text gehen als DATEIEN hinein, nicht über stdin.
+   *
+   * Nachgemessen: mit `powershell -Command -` liest PowerShell das Skript
+   * selbst von stdin, und ein anschließendes ReadToEnd() bekommt nur noch
+   * einen Rest — gesprochen wurden dann 4,8 statt 40 Sekunden. Über den
+   * Umweg Datei gibt es diesen Konflikt nicht, und der Text landet auch
+   * nicht auf einer Kommandozeile.
+   */
+  const scriptFile = path.join(os.tmpdir(), `mediathek-sprache-${process.pid}.ps1`);
+  const textFile = path.join(os.tmpdir(), `mediathek-sprache-${process.pid}.txt`);
+
+  const script = `
+$ErrorActionPreference = 'Stop'
+Add-Type -AssemblyName System.Speech
+$s = New-Object System.Speech.Synthesis.SpeechSynthesizer
+$deutsch = $s.GetInstalledVoices() |
+  Where-Object { $_.VoiceInfo.Culture.Name -like 'de*' } |
+  Select-Object -First 1
+if (-not $deutsch) { exit 2 }
+$s.SelectVoice($deutsch.VoiceInfo.Name)
+$s.SetOutputToWaveFile(${JSON.stringify(file)})
+$s.Speak([System.IO.File]::ReadAllText(${JSON.stringify(textFile)}, [System.Text.Encoding]::UTF8))
+$s.SetOutputToNull()
+$s.Dispose()
+`;
+
+  try {
+    fsSync.writeFileSync(scriptFile, script, "utf8");
+    fsSync.writeFileSync(textFile, text, "utf8");
+
+    const result = spawnSync(
+      "powershell",
+      ["-NoProfile", "-NonInteractive", "-ExecutionPolicy", "Bypass", "-File", scriptFile],
+      { stdio: ["ignore", "ignore", "pipe"], windowsHide: true },
+    );
+    if (result.status !== 0) return false;
+    // Vier Sekunden wären ein abgebrochener Lauf; der Text ist deutlich länger.
+    return fsSync.statSync(file).size > 100_000;
+  } catch {
+    return false;
+  } finally {
+    for (const temporary of [scriptFile, textFile]) {
+      try {
+        fsSync.rmSync(temporary, { force: true });
+      } catch {
+        // Liegenlassen ist harmlos, es ist der Temp-Ordner.
+      }
+    }
+  }
+}
+
+function makeAudio(file: string, seconds: number, text?: string): boolean {
+  // Die Zwischendatei gehört in den Temp-Ordner, NICHT in die Bibliothek:
+  // dort wäre sie eine Fremddatei im Beitragsordner.
+  const work = path.join(os.tmpdir(), `mediathek-sprache-${process.pid}.wav`);
+
+  try {
+    if (text && makeSpeechWav(work, text)) {
+      const ok = run([
+        "-y",
+        "-hide_banner",
+        "-loglevel",
+        "error",
+        "-i",
+        work,
+        "-c:a",
+        "aac",
+        "-b:a",
+        "64k",
+        "-movflags",
+        "+faststart",
+        file,
+      ]);
+      if (ok) return true;
+    }
+  } finally {
+    try {
+      fsSync.rmSync(work, { force: true });
+    } catch {
+      // Siehe oben.
+    }
+  }
+
+  // Ohne Sprachausgabe bleibt ein Ton — Dauer und Kapitel lassen sich damit
+  // prüfen, nur die Transkription nicht.
   return run([
     "-y",
     "-hide_banner",
@@ -182,7 +302,7 @@ async function main() {
 
   await fs.rm(ROOT, { recursive: true, force: true });
   await ensureDir(ITEMS);
-  await ensureDir(COURSES);
+  await ensureDir(TOPICS);
 
   // ------------------------------------------------ 1. Video mit Kapiteln
   const videoSlug = "vorflugkontrolle-elios-3";
@@ -273,22 +393,26 @@ ist im Kanal schlimmer als keiner.
   const audioSlug = "akku-grundlagen";
   const audioDir = path.join(ITEMS, audioSlug);
   await ensureDir(audioDir);
-  const hasAudio = makeAudio(path.join(audioDir, "audio.m4a"), 90);
+  const hasAudio = makeAudio(
+    path.join(audioDir, "audio.m4a"),
+    90,
+    SPRACHMEMO_TEXT,
+  );
   await writeFile(
     path.join(audioDir, "beitrag.md"),
     `---
 titel: Akku-Grundlagen, unterwegs diktiert
 schlagworte: [akku, elektrik, grundlagen]
 aufgenommen: 2026-04-20
-dauer: "00:01:30"
 ---
 
 Ein Sprachmemo aus dem Auto. Unstrukturiert, aber die Zahlen stimmen.
 
 <!-- kapitel:start -->
 00:00 Warum Zellspannung überhaupt zählt
-00:15 Messen mit dem Zellprüfer
-00:50 Was Aufblähung bedeutet
+00:08 Messen mit dem Zellprüfer
+00:18 Was Aufblähung bedeutet
+00:24 Rotorschutz
 <!-- kapitel:ende -->
 
 <!-- zusammenfassung:start -->
@@ -390,9 +514,9 @@ der Titel kommt dann aus dem Ordnernamen.
   await ensureDir(bareDir);
   makeVideo(path.join(bareDir, "video.mp4"), 30);
 
-  // ------------------------------------------------------------- Kurse
+  // ------------------------------------------------------------- Themen
   await writeFile(
-    path.join(COURSES, "drohnen-grundlagen.md"),
+    path.join(TOPICS, "drohnen-grundlagen.md"),
     `---
 titel: Drohnen-Grundlagen
 schlagworte: [grundlagen]

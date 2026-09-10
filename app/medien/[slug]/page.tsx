@@ -3,6 +3,7 @@ import Link from "next/link";
 import { notFound } from "next/navigation";
 import { ChevronLeft, ChevronRight, Pencil } from "lucide-react";
 
+import { JobButtons } from "@/components/jobs/job-buttons";
 import { MarkdownText, MarkdownWithAnchors } from "@/components/markdown";
 import { AttachmentList } from "@/components/media/attachment-list";
 import { Description } from "@/components/media/description";
@@ -12,9 +13,10 @@ import { SidePanel } from "@/components/media/side-panel";
 import { MediaView } from "@/components/player/media-view";
 import { PlayerProvider } from "@/components/player/player-provider";
 import { ButtonLink } from "@/components/ui/basis";
+import { getFeatures } from "@/lib/features";
 import {
   getBacklinks,
-  getCoursesForItem,
+  getTopicsForItem,
   getItem,
   getLibrary,
 } from "@/lib/library";
@@ -49,11 +51,12 @@ export default async function BeitragPage({
   const { slug } = await params;
   if (!isSlug(slug)) notFound();
 
-  const [item, backlinks, courses, library, search] = await Promise.all([
+  const [item, backlinks, topics, library, features, search] = await Promise.all([
     getItem(slug),
     getBacklinks(slug),
-    getCoursesForItem(slug),
+    getTopicsForItem(slug),
     getLibrary(),
+    getFeatures(),
     searchParams,
   ]);
 
@@ -140,15 +143,30 @@ export default async function BeitragPage({
                 </p>
               ) : null}
 
-              <div className="mt-3 flex flex-wrap gap-2">
-                <ButtonLink
-                  href={`/medien/${item.slug}/bearbeiten`}
-                  size="klein"
-                >
-                  <Pencil aria-hidden className="size-3.5" />
-                  Bearbeiten
-                </ButtonLink>
-              </div>
+              {features.authorMode ? (
+                <div className="mt-3 space-y-2">
+                  <div className="flex flex-wrap gap-2">
+                    <ButtonLink
+                      href={`/medien/${item.slug}/bearbeiten`}
+                      size="klein"
+                    >
+                      <Pencil aria-hidden className="size-3.5" />
+                      Bearbeiten
+                    </ButtonLink>
+                  </div>
+                  <JobButtons
+                    slug={item.slug}
+                    kind={item.kind}
+                    hasTranscript={item.hasTranscript}
+                    hasPoster={item.assets.posterFile !== null}
+                    attachmentsWithoutText={
+                      item.attachments.filter((a) => !a.hasText).length
+                    }
+                    pythonReady={features.python === "ok"}
+                    ffmpegReady={features.ffmpeg === "ok"}
+                  />
+                </div>
+              ) : null}
             </div>
 
             <ProblemBanner problems={item.problems} />
@@ -172,9 +190,9 @@ export default async function BeitragPage({
               )
             ) : null}
 
-            {courses.length > 0 ? (
-              <CourseNavigation
-                courses={courses}
+            {topics.length > 0 ? (
+              <TopicNavigation
+                topics={topics}
                 slug={item.slug}
                 titles={library.bySlug}
               />
@@ -202,20 +220,20 @@ export default async function BeitragPage({
   );
 }
 
-/** "Teil 3 von 7" mit Vor und Zurück, je Kurs. */
-function CourseNavigation({
-  courses,
+/** "Teil 3 von 7" mit Vor und Zurück, je Thema. */
+function TopicNavigation({
+  topics,
   slug,
   titles,
 }: {
-  courses: Awaited<ReturnType<typeof getCoursesForItem>>;
+  topics: Awaited<ReturnType<typeof getTopicsForItem>>;
   slug: string;
   titles: Awaited<ReturnType<typeof getLibrary>>["bySlug"];
 }) {
   return (
     <div className="space-y-2">
-      {courses.map((course) => {
-        const existing = course.itemSlugs.filter((entry) => titles.has(entry));
+      {topics.map((topic) => {
+        const existing = topic.itemSlugs.filter((entry) => titles.has(entry));
         const index = existing.indexOf(slug);
         const previous = index > 0 ? existing[index - 1] : null;
         const next =
@@ -223,15 +241,15 @@ function CourseNavigation({
 
         return (
           <div
-            key={course.slug}
+            key={topic.slug}
             className="flex flex-wrap items-center justify-between gap-2 rounded-xl border border-rand bg-grund-2 px-3 py-2"
           >
             <p className="text-sm">
               <Link
-                href={`/kurse/${course.slug}`}
+                href={`/themen/${topic.slug}`}
                 className="font-medium hover:text-akzent"
               >
-                {course.title}
+                {topic.title}
               </Link>
               {index >= 0 ? (
                 <span className="text-schrift-2">
