@@ -2,6 +2,7 @@ import type { Metadata } from "next";
 import { AlertTriangle, Check, X } from "lucide-react";
 
 import { ClaudePanel } from "@/components/claude/claude-panel";
+import { LibraryDirForm } from "@/components/library/library-dir-form";
 import { SettingsControls } from "@/components/library/settings-controls";
 import { WhisperSettings } from "@/components/library/whisper-settings";
 import { Card, SectionTitle } from "@/components/ui/basis";
@@ -9,6 +10,7 @@ import { claudeFilesInstalled } from "@/lib/claude/install";
 import { getFeatures } from "@/lib/features";
 import { getLibrary } from "@/lib/library";
 import { searchIndexStatus } from "@/lib/search";
+import { LIBRARY_DIR_FIXED } from "@/lib/paths";
 import { libraryStateDir, readSettings, settingsFile } from "@/lib/settings";
 import { formatBytes } from "@/lib/library/media-kind";
 import { plural } from "@/lib/utils";
@@ -47,7 +49,14 @@ export default async function EinstellungenPage() {
         <SectionTitle>Bibliothek</SectionTitle>
         <Card className="space-y-3">
           <Row label="Ordner">
-            <code className="text-xs break-all">{library.root}</code>
+            {features.authorMode ? (
+              <LibraryDirForm
+                current={library.root}
+                fixed={LIBRARY_DIR_FIXED}
+              />
+            ) : (
+              <code className="text-xs break-all">{library.root}</code>
+            )}
           </Row>
           <Row label="Inhalt">
             {plural(library.items.length, "Beitrag", "Beiträge")} ·{" "}

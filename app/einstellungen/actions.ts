@@ -5,8 +5,14 @@ import { revalidatePath } from "next/cache";
 import { installClaudeFiles } from "@/lib/claude/install";
 import { launchClaude } from "@/lib/claude/launch";
 import type { ClaudeCommand } from "@/lib/claude/launch";
-import { assertAuthorMode, getFeatures, invalidateFeatures, NotAllowedError } from "@/lib/features";
+import {
+  assertAuthorMode,
+  getFeatures,
+  invalidateFeatures,
+  NotAllowedError,
+} from "@/lib/features";
 import { reloadLibrary } from "@/lib/library";
+import { switchLibrary } from "@/lib/library/switch";
 import { invalidateTranscripts } from "@/lib/library/transcript";
 import { invalidateSearchIndex } from "@/lib/search";
 import { isReadonly, WHISPER_MODELS, writeSettings } from "@/lib/settings";
@@ -22,8 +28,7 @@ import type { WhisperModel } from "@/lib/settings";
  */
 
 export type ActionResult =
-  | { ok: true; message: string }
-  | { ok: false; error: string };
+  { ok: true; message: string } | { ok: false; error: string };
 
 /**
  * Liest die Bibliothek neu ein, den Cache ausdrücklich ignorierend.
@@ -98,9 +103,7 @@ export async function reprobeToolsAction(): Promise<ActionResult> {
 }
 
 /** Merkt sich das Verzeichnis mit ffmpeg.exe und ffprobe.exe. */
-export async function setFfmpegDirAction(
-  dir: string,
-): Promise<ActionResult> {
+export async function setFfmpegDirAction(dir: string): Promise<ActionResult> {
   const trimmed = dir.trim();
   const written = await writeSettings({ ffmpegDir: trimmed || null });
   if (!written.ok) {
@@ -194,7 +197,8 @@ export async function installClaudeFilesAction(): Promise<ActionResult> {
   }
 
   const result = await installClaudeFiles();
-  if (!result.ok) return { ok: false, error: result.error ?? "Fehlgeschlagen." };
+  if (!result.ok)
+    return { ok: false, error: result.error ?? "Fehlgeschlagen." };
 
   revalidatePath("/einstellungen");
   if (result.created.length === 0) {
@@ -240,5 +244,46 @@ export async function startLibraryClaudeAction(
   return {
     ok: true,
     message: `Ein Fenster mit „${result.prompt}“ ist offen.`,
+  };
+}
+
+/**
+ * Stellt den Bibliotheksordner um — den Ordner also, in dem alles landet,
+ * was hochgeladen wird.
+ *
+ * Ein leeres Feld stellt auf den Standard zurück. Das ist der Ausweg, wenn
+ * ein Netzlaufwerk nicht mehr da ist: nichts zu tippen bringt einen zurück
+ * in die lokale Bibliothek.
+ */
+export async function setLibraryDirAction(dir: string): Promise<ActionResult> {
+  try {
+    await assertAuthorMode();
+  } catch (error) {
+    return {
+      ok: false,
+      error:
+        error instanceof NotAllowedError
+          ? error.message
+          : "Das ist hier nicht möglich.",
+    };
+  }
+
+  const result = await switchLibrary(dir);
+  if (!result.ok) return { ok: false, error: result.error };
+
+  invalidateTranscripts();
+  invalidateSearchIndex();
+  revalidatePath("/", "layout");
+
+  const what = result.reset
+    ? `Zurück auf den Standard: ${result.dir}.`
+    : `Bibliothek ist jetzt ${result.dir}.`;
+  const found = result.fresh
+    ? " Der Ordner ist noch leer — der erste Import legt medien/ an."
+    : ` ${result.items} ${result.items === 1 ? "Beitrag" : "Beiträge"} gelesen.`;
+
+  return {
+    ok: true,
+    message: what + found + (result.note ? ` ${result.note}` : ""),
   };
 }

@@ -4,8 +4,9 @@ import { getItem } from "@/lib/library";
 import { assertSlug } from "@/lib/library/slug";
 import { runExtractJob } from "./extract-job";
 import { runPosterJob } from "./poster-job";
-import { getQueue } from "./queue";
+import { getQueue, resetQueue } from "./queue";
 import { runTranscribeJob } from "./transcribe-job";
+import { isFinished } from "./types";
 import type { Job, JobKind, JobSnapshot } from "./types";
 
 /*
@@ -13,16 +14,18 @@ import type { Job, JobKind, JobSnapshot } from "./types";
  * damit queue.ts nichts über Whisper oder ffmpeg wissen muss.
  */
 
-let registered = false;
-
+/*
+ * Die Abläufe werden bei jedem Zugriff angemeldet, nicht einmalig hinter
+ * einem Flag. `register` ist ein Map.set und damit billig, und ein Flag auf
+ * Modulebene wäre hier falsch: die Schlange lebt auf globalThis, das Flag
+ * nicht — nach einem Hot Reload oder einem Wechsel der Bibliothek stünde die
+ * Schlange dann ohne Abläufe da und ein Auftrag liefe nie an.
+ */
 async function ensureReady() {
   const queue = getQueue();
-  if (!registered) {
-    registered = true;
-    queue.register("transkription", runTranscribeJob);
-    queue.register("kachelbild", runPosterJob);
-    queue.register("anhangtext", runExtractJob);
-  }
+  queue.register("transkription", runTranscribeJob);
+  queue.register("kachelbild", runPosterJob);
+  queue.register("anhangtext", runExtractJob);
   await queue.load();
   return queue;
 }
@@ -101,6 +104,17 @@ export async function subscribeJobs(
   // binnen Millisekunden wieder den richtigen Fortschritt zeigt.
   listener(queue.snapshot());
   return queue.subscribe(listener);
+}
+
+/** Läuft oder wartet gerade ein Auftrag? Vor dem Wechsel der Bibliothek. */
+export async function hasUnfinishedJobs(): Promise<boolean> {
+  const queue = await ensureReady();
+  return queue.snapshot().jobs.some((job) => !isFinished(job.state));
+}
+
+/** Beim Wechsel der Bibliothek: Verlauf und Zustandsordner gehören zur alten. */
+export function resetJobs(): void {
+  resetQueue();
 }
 
 export type { Job, JobKind, JobSnapshot };

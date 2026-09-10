@@ -58,6 +58,48 @@ Daraus folgen Regeln, die nicht verhandelbar sind:
   Autorenmodus, Job-Zustände. Laufwerksbuchstaben von Kollege A gelten nicht
   für Kollege B.
 
+## Woher der Bibliotheksordner kommt
+
+Drei Quellen, in dieser Reihenfolge (`lib/paths.ts`):
+
+1. **`MEDIATHEK_LIBRARY_DIR`** — setzt der Launcher des Viewer-Pakets. Ist
+   sie gesetzt, gewinnt sie, und die Oberfläche kann den Ordner NICHT
+   umstellen (`LIBRARY_DIR_FIXED`). Genau das soll sie leisten.
+2. **Der unter Einstellungen gewählte Ordner**, maschinenlokal in
+   `settings.json` als `lastLibraryDir`. Übernommen in `instrumentation.ts`
+   per `applyStoredLibraryDir()` — **vor** dem ersten Scan, sonst liest der
+   die Entwicklungsbibliothek und der Beobachter bewacht den falschen Ordner.
+3. **`./bibliothek-dev`** in der Entwicklung.
+
+Daran hängen drei Festlegungen:
+
+- **`paths` sind Getter, keine Konstanten.** Der Ordner kann sich zur Laufzeit
+  ändern; die fünfzehn Dateien, die `paths.items` benutzen, sehen den Wechsel
+  dadurch von selbst. Der Ordner selbst liegt auf `globalThis` — ein Modul-`let`
+  würde in `instrumentation.ts` gesetzt und in den Route Handlern nicht
+  gesehen (andere Modulinstanz unter Turbopack).
+- **`lib/paths.ts` darf nichts aus `node:fs` anfassen.** Die Datei landet über
+  `lib/library/urls.ts` im Client-Bundle. Deshalb hält sie den Pfad nur; die
+  Einstellung liest `lib/library/library-dir.ts` (server-only).
+- **Ein Wechsel ist mehr als ein Pfad.** `switchLibrary` in
+  `lib/library/switch.ts` wartet einen laufenden Scan ab, schließt den
+  Beobachter, leert Index, Cache und `ownWrites`, wirft Suchindex,
+  Transkript-Zwischenspeicher und Auftragsschlange weg (die merkt sich ihren
+  Zustandsordner bei der Erzeugung!) und hängt den Beobachter neu an. Bleibt
+  eines davon stehen, zeigt die Mediathek eine Mischung aus zwei Beständen.
+  `store.generation` wird dabei NICHT zurückgesetzt — der Client pollt darauf
+  und erkennt eine Änderung nur an einer höheren Zahl.
+
+Ein laufender Auftrag verhindert den Wechsel: er schreibt sein Ergebnis über
+absolute Pfade in die alte Bibliothek. Und ein Ordner wird nie angelegt —
+ein Tippfehler soll kein verwaistes Verzeichnis hinterlassen, ein nicht
+verbundenes Netzlaufwerk als solches gemeldet werden (`checkLibraryDir`,
+`lib/library/library-dir.test.ts`).
+
+`scripts/fixtures.ts` nagelt den Ordner ausdrücklich auf `bibliothek-dev`
+fest: es ERZEUGT diese Bibliothek, und ohne das schriebe es den
+Claude-Code-Vertrag in die echte.
+
 ## „Themen", nicht „Kurse"
 
 Ein **Thema** ist der Einstieg in ein Wissensgebiet — eine Datei
@@ -355,7 +397,7 @@ Mediendatei, kein `tools/` und keine `.env` im Paket liegt.
 
 | Variable | Wirkung |
 |---|---|
-| `MEDIATHEK_LIBRARY_DIR` | Bibliotheksordner. Ohne sie `./bibliothek-dev`. Auf Netzlaufwerken besser UNC-Pfade — gemappte Buchstaben sind an die Windows-Sitzung gebunden. |
+| `MEDIATHEK_LIBRARY_DIR` | Bibliotheksordner, und zwar **fest**: ist sie gesetzt, lässt sich der Ordner in der Oberfläche nicht umstellen. Ohne sie gilt der unter Einstellungen gewählte, sonst `./bibliothek-dev`. Auf Netzlaufwerken besser UNC-Pfade — gemappte Buchstaben sind an die Windows-Sitzung gebunden. |
 | `MEDIATHEK_READONLY=1` | Harter Riegel für das weitergegebene Viewer-Paket: der Autorenmodus lässt sich dann nicht einschalten. |
 | `MEDIATHEK_FFMPEG_DIR` | Verzeichnis mit `ffmpeg.exe` UND `ffprobe.exe`. Immer das **Verzeichnis** — der übliche Windows-Build ist ein shared build mit sieben DLLs daneben. |
 | `MEDIATHEK_POLL_MS` | Poll-Abstand des Beobachters, Standard 30 s. |

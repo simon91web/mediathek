@@ -1,6 +1,7 @@
 import "server-only";
 
 import { readCache, writeCache } from "./cache";
+import { applyStoredLibraryDir } from "./library-dir";
 import { scanLibrary } from "./scan";
 import { store } from "./store";
 import type {
@@ -32,6 +33,14 @@ async function runScan(options: {
   force?: boolean;
   onlySlugs?: readonly Slug[] | null;
 }): Promise<{ state: LibraryState; reparsed: number }> {
+  /*
+   * Doppelter Boden: der gemerkte Ordner wird schon in instrumentation.ts
+   * übernommen. Sollte eine Seite doch vorher dran sein, darf sie nicht die
+   * Entwicklungsbibliothek einlesen. Der Aufruf ist nach dem ersten Mal
+   * wirkungslos.
+   */
+  await applyStoredLibraryDir();
+
   if (store.cache === null) {
     store.cache = await readCache();
     store.cacheStatus.readable = store.cache !== null;

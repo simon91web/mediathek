@@ -8,7 +8,9 @@ export default defineConfig({
     include: ["lib/**/*.test.ts", "scripts/**/*.test.ts"],
     /*
      * Jede Datei bekommt einen eigenen Prozess: die Bibliotheks-Tests setzen
-     * MEDIATHEK_LIBRARY_DIR, und lib/paths.ts liest das beim Laden einmalig.
+     * MEDIATHEK_LIBRARY_DIR, und lib/paths.ts liest daraus beim Laden
+     * LIBRARY_DIR_FIXED. Zudem liegt der Ordner auf globalThis — zwei Dateien
+     * im selben Prozess würden sich gegenseitig die Bibliothek umstellen.
      */
     pool: "forks",
     fileParallelism: false,

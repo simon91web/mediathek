@@ -9,10 +9,19 @@
 export async function register() {
   if (process.env.NEXT_RUNTIME !== "nodejs") return;
 
-  const { getLibrary, reloadLibrary } = await import("@/lib/library");
-  const { startWatching } = await import("@/lib/library/watch");
-  const { invalidateTranscripts } = await import("@/lib/library/transcript");
-  const { store } = await import("@/lib/library/store");
+  const { getLibrary } = await import("@/lib/library");
+  const { applyStoredLibraryDir } = await import(
+    "@/lib/library/library-dir"
+  );
+  const { attachWatcher } = await import("@/lib/library/attach");
+
+  /*
+   * ZUERST der Ordner, dann alles andere: der gemerkte Pfad aus den
+   * Einstellungen muss stehen, bevor der erste Scan losläuft — sonst liest
+   * er die Entwicklungsbibliothek und der Beobachter bewacht den falschen
+   * Ordner.
+   */
+  await applyStoredLibraryDir();
 
   /*
    * Bewusst NICHT abgewartet: auf einem Netzlaufwerk dauert der erste Scan
@@ -36,31 +45,5 @@ export async function register() {
       console.error("[bibliothek] Erster Scan fehlgeschlagen:", error);
     });
 
-  // Ein Hot-Reload darf keinen zweiten Beobachter hinterlassen.
-  store.watcher?.close();
-  store.watcher = startWatching({
-    onChange: (slugs, source) => {
-      const list = slugs === "alles" ? null : slugs;
-      if (list) invalidateTranscripts(list);
-      else invalidateTranscripts();
-
-      void reloadLibrary({ onlySlugs: list })
-        .then((result) => {
-          const what =
-            list === null ? "alles" : list.join(", ") || "keine Änderung";
-          console.log(
-            `[bibliothek] neu gelesen (${source}): ${what} — ` +
-              `${result.items} Beiträge in ${result.durationMs} ms`,
-          );
-        })
-        .catch((error) => {
-          console.error("[bibliothek] Neu einlesen fehlgeschlagen:", error);
-        });
-    },
-  });
-
-  console.log(
-    `[bibliothek] Beobachter läuft im Modus "${store.watcher.mode}"` +
-      (store.watcher.error ? ` (${store.watcher.error})` : ""),
-  );
+  attachWatcher();
 }

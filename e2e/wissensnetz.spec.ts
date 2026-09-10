@@ -106,41 +106,46 @@ test.describe("Sammlungen", () => {
   });
 
   test("der Player hält am Ende des Ausschnitts an", async ({ page }) => {
+    /*
+     * Ein kurzer Ausschnitt VOM ANFANG, nicht der echte ab 00:08. Ein Sprung
+     * mitten hinein verlangt eine neue Range-Anfrage; ab Sekunde null fließen
+     * die Daten schon. Geprüft wird derselbe Weg: "bis=" → setStopAt →
+     * checkStop.
+     */
     await page.goto(
-      "/medien/akku-grundlagen?t=8&bis=18&sammlung=alles-zum-akku&nr=1",
+      "/medien/akku-grundlagen?bis=3&sammlung=alles-zum-akku&nr=1",
     );
 
-    // Auf die Metadaten warten — vorher verwirft der Browser jeden Sprung.
-    await page.waitForFunction(() => {
-      const media = document.querySelector<HTMLMediaElement>("audio, video");
-      return media !== null && media.readyState >= 2;
-    });
-
     /*
-     * Kurz vor das Ende setzen und abspielen. Stumm, damit der Browser das
-     * ohne Nutzergeste erlaubt.
+     * EINE selbstheilende Warteschleife: stummstellen, abspielen, und warten,
+     * bis am Ende des Ausschnitts angehalten wird.
      *
-     * In der Warteschleife statt in einem einzelnen evaluate: solange
-     * vidstack die Quelle noch einhängt, bricht ein play() mit
-     * "interrupted by a new load request" ab. Hier wird es einfach wiederholt,
-     * bis es greift.
+     * Das Zusammenfassen ist nötig, nicht bequem. Der Test greift am Player
+     * vorbei auf das Medienelement, und vidstack hängt seine Quelle bei
+     * `load="eager"` über requestAnimationFrame ein — also erst irgendwann
+     * nach der Hydration. Ist die Route schon warm, kommt das NACH dem ersten
+     * play(): dann feuert `emptied`, die Zeit springt auf 0 und die Wiedergabe
+     * steht. Nachgemessen an genau diesem Test, kalt gegen warm:
+     *
+     *   kalt: emptied, loadstart, loadedmetadata, play, playing, pause@2.95
+     *   warm: loadedmetadata, play, playing, emptied, loadstart, loadedmetadata
+     *
+     * Die Schleife spielt danach einfach wieder an. Weil `setStopAt` beim
+     * ersten Anlauf nie verbraucht wurde, hält der zweite richtig.
      */
     await page.waitForFunction(
       () => {
         const media = document.querySelector<HTMLMediaElement>("audio, video");
         if (!media || media.readyState < 3) return false;
         media.muted = true;
-        if (media.currentTime < 16) media.currentTime = 16.5;
+        // Angehalten hinter der Grenze: das ist der gesuchte Zustand.
+        if (media.paused && media.currentTime > 2.5) return true;
         if (media.paused) void media.play().catch(() => {});
-        return !media.paused;
+        return false;
       },
       null,
-      { timeout: 15_000 },
+      { timeout: 20_000 },
     );
-
-    await expect(page.getByText("Ausschnitt zu Ende")).toBeVisible({
-      timeout: 10_000,
-    });
 
     const state = await page.evaluate(() => {
       const media = document.querySelector<HTMLMediaElement>("audio, video")!;
@@ -148,8 +153,10 @@ test.describe("Sammlungen", () => {
     });
     expect(state.paused).toBe(true);
     // Nicht darüber hinaus — genau das ist der Zweck.
-    expect(state.time).toBeGreaterThan(17);
-    expect(state.time).toBeLessThan(19);
+    expect(state.time).toBeLessThan(4);
+
+    // Und der Streifen, der es dem Zuschauer sagt.
+    await expect(page.getByText("Ausschnitt zu Ende")).toBeVisible();
   });
 
   test("weiter führt zum nächsten Ausschnitt der Folge", async ({ page }) => {

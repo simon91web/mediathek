@@ -7,9 +7,13 @@
  *
  *   npm run doktor
  *   MEDIATHEK_LIBRARY_DIR=S:\Mediathek npm run doktor
+ *
+ * Ohne Umgebungsvariable gilt derselbe Ordner wie in der Weboberfläche —
+ * also der unter Einstellungen gewählte.
  */
 
 import { getLibrary } from "@/lib/library";
+import { applyStoredLibraryDir } from "@/lib/library/library-dir";
 import { getTranscript } from "@/lib/library/transcript";
 import { formatBytes } from "@/lib/library/media-kind";
 import { formatTimecode } from "@/lib/library/chapters";
@@ -41,6 +45,7 @@ function describeTarget(target: LinkTarget): string {
 }
 
 async function main() {
+  await applyStoredLibraryDir();
   const library = await getLibrary();
 
   line(`Bibliothek: ${library.root}`);

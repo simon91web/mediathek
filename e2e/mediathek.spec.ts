@@ -88,7 +88,9 @@ test.describe("Mediathek", () => {
     ).toHaveCount(0);
   });
 
-  test("ein Thema führt der Reihe nach durch die Beiträge", async ({ page }) => {
+  test("ein Thema führt der Reihe nach durch die Beiträge", async ({
+    page,
+  }) => {
     await page.goto("/themen/drohnen-grundlagen");
     await expect(
       page.getByRole("heading", { name: "Drohnen-Grundlagen", level: 1 }),
@@ -103,5 +105,26 @@ test.describe("Mediathek", () => {
     const response = await page.goto("/medien/gibt-es-nicht-wirklich");
     expect(response?.status()).toBe(404);
     await expect(page.getByText("Diesen Beitrag gibt es nicht")).toBeVisible();
+  });
+});
+
+test.describe("Bibliotheksordner", () => {
+  test("ist gesperrt, wenn die Umgebungsvariable ihn vorgibt", async ({
+    page,
+  }) => {
+    /*
+     * Im Testlauf setzt playwright.config.ts MEDIATHEK_LIBRARY_DIR — genau
+     * wie der Starter des Viewer-Pakets. Dann darf die Oberfläche den Ordner
+     * nicht umstellen können; sonst könnte ein Testlauf sich selbst die
+     * Bibliothek unter den Füßen wegziehen.
+     */
+    await page.goto("/einstellungen");
+
+    await expect(
+      page.getByText("Der Ordner ist beim Start vorgegeben"),
+    ).toBeVisible();
+    // Kein Eingabefeld — der Pfad steht nur als Text da.
+    await expect(page.getByLabel("Bibliotheksordner")).toHaveCount(0);
+    await expect(page.getByText("MEDIATHEK_LIBRARY_DIR")).toBeVisible();
   });
 });

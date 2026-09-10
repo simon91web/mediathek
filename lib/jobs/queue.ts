@@ -468,4 +468,16 @@ export function getQueue(): JobQueue {
   return globalForJobs.mediathekQueue;
 }
 
+/**
+ * Wirft die Schlange weg. NUR beim Wechsel der Bibliothek: der Zustand liegt
+ * je Bibliothek in einem eigenen Ordner, und die Schlange merkt sich diesen
+ * Ordner bei ihrer Erzeugung. Ohne das Wegwerfen schriebe sie den Verlauf der
+ * alten Bibliothek in den Zustandsordner der neuen.
+ *
+ * Der Aufrufer stellt sicher, dass gerade kein Auftrag läuft.
+ */
+export function resetQueue(): void {
+  globalForJobs.mediathekQueue = undefined;
+}
+
 export type { JobQueue };

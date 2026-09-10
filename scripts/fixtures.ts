@@ -20,6 +20,7 @@ import os from "node:os";
 import path from "node:path";
 
 import { installClaudeFiles } from "@/lib/claude/install";
+import { setLibraryRoot } from "@/lib/paths";
 
 const ROOT = path.join(process.cwd(), "bibliothek-dev");
 const ITEMS = path.join(ROOT, "medien");
@@ -313,6 +314,13 @@ function minimalPdf(title: string): string {
 }
 
 async function main() {
+  /*
+   * Ausdrücklich festnageln: dieses Skript ERZEUGT bibliothek-dev. Ohne das
+   * würde installClaudeFiles() den unter Einstellungen gewählten Ordner
+   * nehmen — und der Vertrag landete in der echten Bibliothek.
+   */
+  setLibraryRoot(ROOT);
+
   console.log(`Bibliothek: ${ROOT}`);
   console.log(ffmpeg ? `ffmpeg: ${ffmpeg}` : "ffmpeg: nicht gefunden");
 
