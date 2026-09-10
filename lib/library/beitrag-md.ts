@@ -5,7 +5,13 @@ import {
   parseChapterLines,
   parseSectionLines,
 } from "./chapters";
-import { parseItemFrontmatter, splitFrontmatter } from "./frontmatter";
+import {
+  lineOffset,
+  parseItemFrontmatter,
+  shiftProblems,
+  shiftSourceLines,
+  splitFrontmatter,
+} from "./frontmatter";
 import type { ItemFrontmatter } from "./frontmatter";
 import {
   attachChapterSummaries,
@@ -61,7 +67,14 @@ export function parseItemMarkdown(
 ): ParsedItemMarkdown {
   const split = splitFrontmatter(raw);
   const head = parseItemFrontmatter(split.frontmatterText);
-  const problems: ItemProblem[] = [...split.problems, ...head.problems];
+
+  /*
+   * Zwei Töpfe, weil zwei Zählweisen zusammenkommen: der Kopf zählt in der
+   * Datei, alle Teil-Parser zählen im Body. Am Ende wird nur der zweite Topf
+   * verschoben — siehe lineOffset in ./frontmatter.
+   */
+  const headProblems: ItemProblem[] = [...split.problems, ...head.problems];
+  const problems: ItemProblem[] = [];
 
   const body = split.body;
   const blockResult = findBlocks(body);
@@ -144,17 +157,19 @@ export function parseItemMarkdown(
     if (h1) title = h1[1].trim();
   }
 
+  const offset = lineOffset(split);
+
   return {
     frontmatter: head.data,
     title: title || humanizeSlug(context.slug),
     durationSeconds,
     description,
     rawDescription,
-    chapters,
+    chapters: shiftSourceLines(chapters, offset),
     summary,
-    references: referenceResult.references,
+    references: shiftSourceLines(referenceResult.references, offset),
     attachmentLabels,
-    problems,
+    problems: [...headProblems, ...shiftProblems(problems, offset)],
   };
 }
 

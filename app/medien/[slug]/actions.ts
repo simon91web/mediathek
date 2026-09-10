@@ -2,6 +2,8 @@
 
 import { revalidatePath } from "next/cache";
 
+import { launchClaude } from "@/lib/claude/launch";
+import type { ClaudeCommand } from "@/lib/claude/launch";
 import { assertAuthorMode, NotAllowedError } from "@/lib/features";
 import { cancelJob, startJob } from "@/lib/jobs";
 import type { Job, JobKind } from "@/lib/jobs";
@@ -17,8 +19,7 @@ import type { Job, JobKind } from "@/lib/jobs";
  */
 
 export type JobActionResult =
-  | { ok: true; job: Job }
-  | { ok: false; error: string };
+  { ok: true; job: Job } | { ok: false; error: string };
 
 export async function startJobAction(
   kind: JobKind,
@@ -62,4 +63,31 @@ export async function cancelJobAction(
   return stopped
     ? { ok: true }
     : { ok: false, error: "Dieser Auftrag läuft nicht mehr." };
+}
+
+/**
+ * Öffnet ein Fenster mit Claude Code für DIESEN Beitrag — /kapitel oder
+ * /bezuege.
+ *
+ * Die Prüfung des Slugs liegt in lib/claude/launch.ts: gegen die Grammatik,
+ * gegen den Index UND gegen das Dateisystem. Hier steht nur der Riegel, der
+ * für jede schreibende Handlung gilt.
+ */
+export async function startClaudeAction(
+  command: ClaudeCommand,
+  slug: string,
+): Promise<{ ok: true; prompt: string } | { ok: false; error: string }> {
+  try {
+    await assertAuthorMode();
+  } catch (error) {
+    return {
+      ok: false,
+      error:
+        error instanceof NotAllowedError
+          ? error.message
+          : "Das ist hier nicht möglich.",
+    };
+  }
+
+  return launchClaude(command, slug);
 }

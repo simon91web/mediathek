@@ -13,17 +13,31 @@ import { getLibrary } from "@/lib/library";
 import { getTranscript } from "@/lib/library/transcript";
 import { formatBytes } from "@/lib/library/media-kind";
 import { formatTimecode } from "@/lib/library/chapters";
+import type { LinkTarget } from "@/lib/library/types";
 
 function line(text = "") {
   console.log(text);
 }
 
 function duration(seconds: number | null): string {
-  return seconds === null ? "  ohne Dauer" : formatTimecode(seconds).padStart(12);
+  return seconds === null
+    ? "  ohne Dauer"
+    : formatTimecode(seconds).padStart(12);
 }
 
 function plural(count: number, one: string, many: string): string {
   return `${count} ${count === 1 ? one : many}`;
+}
+
+/** Wohin eine Fundstelle zeigt, in einer Zeile. */
+function describeTarget(target: LinkTarget): string {
+  if (target.kind === "zeit") {
+    return target.end === null
+      ? formatTimecode(target.start)
+      : `${formatTimecode(target.start)}-${formatTimecode(target.end)}`;
+  }
+  if (target.kind === "abschnitt") return `#${target.anchor}`;
+  return "ganz";
 }
 
 async function main() {
@@ -33,7 +47,8 @@ async function main() {
   line(
     `Gelesen in ${library.scanDurationMs} ms — ` +
       `${plural(library.items.length, "Beitrag", "Beiträge")}, ` +
-      `${plural(library.topics.length, "Thema", "Themen")}`,
+      `${plural(library.topics.length, "Thema", "Themen")}, ` +
+      `${plural(library.collections.length, "Sammlung", "Sammlungen")}`,
   );
   if (!library.cache.writable && library.cache.note) {
     line(`Index: ${library.cache.note}`);
@@ -90,13 +105,23 @@ async function main() {
     }
     const backlinks = library.backlinks.get(item.slug) ?? [];
     if (backlinks.length > 0) {
-      details.push(
-        plural(backlinks.length, "Rückverweis", "Rückverweise"),
-      );
+      details.push(plural(backlinks.length, "Rückverweis", "Rückverweise"));
     }
     const topics = library.topicsByItem.get(item.slug) ?? [];
     if (topics.length > 0) {
       details.push(`Themen: ${topics.map((c) => c.title).join(", ")}`);
+    }
+    const spots = library.topicSpotsByItem.get(item.slug) ?? [];
+    if (spots.length > 0) {
+      details.push(
+        `${plural(spots.length, "Fundstelle", "Fundstellen")}: ` +
+          spots
+            .map(
+              (entry) =>
+                `${describeTarget(entry.spot.target)} (${entry.topic.title})`,
+            )
+            .join(", "),
+      );
     }
     if (details.length > 0) line(`        ${details.join(" · ")}`);
 
@@ -121,12 +146,24 @@ async function main() {
   for (const topic of library.topics) {
     line(
       `Thema   ${topic.slug.padEnd(28)} ` +
-        plural(topic.itemSlugs.length, "Teil", "Teile"),
+        plural(topic.itemSlugs.length, "Teil", "Teile") +
+        (topic.spots.length > 0
+          ? `, ${plural(topic.spots.length, "Fundstelle", "Fundstellen")}`
+          : ""),
     );
     line(`        ${topic.title}`);
+    if (topic.synonyms.length > 0) {
+      line(`        Synonyme: ${topic.synonyms.join(", ")}`);
+    }
     for (const slug of topic.itemSlugs) {
       const missing = topic.missingSlugs.includes(slug);
       line(`          ${missing ? "FEHLT  " : "       "}${slug}`);
+    }
+    for (const spot of topic.spots) {
+      line(
+        `          ${describeTarget(spot.target).padStart(11)}  ` +
+          `${spot.slug}${spot.note ? ` — ${spot.note}` : ""}`,
+      );
     }
     for (const problem of topic.problems) {
       problemCount += 1;
@@ -135,6 +172,30 @@ async function main() {
     if (topic.missingSlugs.length > 0) {
       problemCount += topic.missingSlugs.length;
     }
+    line();
+  }
+
+  for (const collection of library.collections) {
+    line(
+      `Sammlung ${collection.slug.padEnd(27)} ` +
+        (collection.query
+          ? `gespeicherte Suche: ${collection.query}`
+          : plural(collection.entries.length, "Ausschnitt", "Ausschnitte")),
+    );
+    line(`        ${collection.title}`);
+    for (const entry of collection.entries) {
+      const missing = collection.missingSlugs.includes(entry.slug);
+      line(
+        `          ${missing ? "FEHLT" : "     "} ` +
+          `${describeTarget(entry.target).padStart(11)}  ` +
+          `${entry.slug}${entry.note ? ` — ${entry.note}` : ""}`,
+      );
+    }
+    for (const problem of collection.problems) {
+      problemCount += 1;
+      line(`        ! ${problem.kind}: ${problem.message}`);
+    }
+    problemCount += collection.missingSlugs.length;
     line();
   }
 
@@ -152,7 +213,7 @@ async function main() {
     problemCount === 0
       ? "Keine Auffälligkeiten."
       : `${plural(problemCount, "Hinweis", "Hinweise")}. ` +
-        "Sie stehen auch in der Weboberfläche.",
+          "Sie stehen auch in der Weboberfläche.",
   );
 }
 

@@ -15,8 +15,9 @@ export default async function ThemenPage() {
       <div>
         <h1 className="text-2xl font-semibold tracking-tight">Themen</h1>
         <p className="mt-1 text-sm text-schrift-2">
-          Ein Thema bündelt Beiträge in einer Reihenfolge — quer über Videos,
-          Sprachmemos und Texte.
+          Ein Thema ist der Einstieg in ein Wissensgebiet: geordnete Beiträge,
+          einzelne Fundstellen quer durch alles — und Synonyme, die die Suche
+          erweitern.
         </p>
       </div>
 
@@ -24,8 +25,10 @@ export default async function ThemenPage() {
         <Leer titel="Noch keine Themen">
           Ein Thema ist eine kleine Datei in{" "}
           <code className="rounded bg-grund-3 px-1">themen/</code> mit einem
-          Titel und den Verweisen auf die Beiträge — die Reihenfolge der
-          Verweise ist die Reihenfolge im Thema.
+          Titel und Verweisen auf die Beiträge — die Reihenfolge der Verweise
+          ist die Reihenfolge im Thema. Themenseiten samt Synonymen und
+          Fundstellen lässt Claude Code auch erzeugen; der Knopf dafür steht
+          unter Einstellungen.
         </Leer>
       ) : (
         <ul className="grid grid-cols-1 gap-3 sm:grid-cols-2 lg:grid-cols-3">
@@ -40,7 +43,18 @@ export default async function ThemenPage() {
                 >
                   <p className="font-medium">{topic.title}</p>
                   <p className="mt-1 text-xs text-schrift-2">
-                    {plural(vorhanden, "Teil", "Teile")}
+                    {[
+                      vorhanden > 0 ? plural(vorhanden, "Teil", "Teile") : null,
+                      topic.spots.length > 0
+                        ? plural(
+                            topic.spots.length,
+                            "Fundstelle",
+                            "Fundstellen",
+                          )
+                        : null,
+                    ]
+                      .filter(Boolean)
+                      .join(" · ")}
                     {topic.missingSlugs.length > 0 ? (
                       <span className="text-warnung">
                         {" "}
@@ -51,6 +65,11 @@ export default async function ThemenPage() {
                   {topic.description ? (
                     <p className="mt-2 line-clamp-3 text-sm text-schrift-2">
                       {topic.description}
+                    </p>
+                  ) : null}
+                  {topic.synonyms.length > 0 ? (
+                    <p className="mt-2 line-clamp-1 text-xs text-schrift-3">
+                      auch: {topic.synonyms.join(", ")}
                     </p>
                   ) : null}
                 </Link>

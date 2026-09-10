@@ -1,6 +1,11 @@
 "use client";
 
-import { createContext, useCallback, useContext, useSyncExternalStore } from "react";
+import {
+  createContext,
+  useCallback,
+  useContext,
+  useSyncExternalStore,
+} from "react";
 
 import { activeChapterIndex } from "@/lib/library/chapters";
 
@@ -20,6 +25,8 @@ export type PlayerSnapshot = {
   paused: boolean;
   /** true, sobald die Metadaten da sind — vorher ist ein Sprung wirkungslos. */
   ready: boolean;
+  /** true, wenn das Ende eines Ausschnitts erreicht wurde (Sammlung). */
+  reachedStop: boolean;
 };
 
 export type PlayerRemote = {
@@ -33,6 +40,7 @@ const EMPTY: PlayerSnapshot = {
   duration: 0,
   paused: true,
   ready: false,
+  reachedStop: false,
 };
 
 export class PlayerStore {
@@ -41,6 +49,12 @@ export class PlayerStore {
   #remote: PlayerRemote | null = null;
   /** Ein Sprung, der vor dem Laden der Metadaten verlangt wurde. */
   #pendingSeek: { seconds: number; play: boolean } | null = null;
+  /**
+   * Ende des laufenden Ausschnitts. Gesetzt, wenn die Adresse ein "bis="
+   * trägt — so wird eine Sammlung zur Ausschnitts-Wiedergabe, ohne dass der
+   * Player davon wissen muss.
+   */
+  #stopAt: number | null = null;
 
   subscribe = (listener: () => void): (() => void) => {
     this.#listeners.add(listener);
@@ -62,7 +76,8 @@ export class PlayerStore {
       merged.currentTime === this.#snapshot.currentTime &&
       merged.duration === this.#snapshot.duration &&
       merged.paused === this.#snapshot.paused &&
-      merged.ready === this.#snapshot.ready
+      merged.ready === this.#snapshot.ready &&
+      merged.reachedStop === this.#snapshot.reachedStop
     ) {
       return;
     }
@@ -83,9 +98,34 @@ export class PlayerStore {
     }
   }
 
+  /**
+   * Das Ende des Ausschnitts anmelden. Reine Einstellung, kein Zustand —
+   * deshalb ohne Benachrichtigung, sonst würde der Effect, der das setzt,
+   * ein Neurendern auslösen, das ihn wieder aufruft.
+   */
+  setStopAt(seconds: number | null): void {
+    this.#stopAt = seconds !== null && seconds > 0 ? seconds : null;
+    if (this.#snapshot.reachedStop) this.publish({ reachedStop: false });
+  }
+
+  /**
+   * Vom Player auf JEDEM Zeitsprung — bewusst ungedrosselt, anders als
+   * `publish`. Bei 250 ms Drosselung liefe der Ausschnitt bis zu eine
+   * Viertelsekunde über sein Ende hinaus, und genau das hört man.
+   */
+  checkStop(currentTime: number): void {
+    if (this.#stopAt === null) return;
+    if (currentTime + 0.05 < this.#stopAt) return;
+    this.#stopAt = null;
+    this.#remote?.pause();
+    this.publish({ currentTime, paused: true, reachedStop: true });
+  }
+
   /** Von Kapitelliste, Beschreibung, Transkript und Suchtreffern. */
   seekTo(seconds: number, options: { play?: boolean } = {}): void {
     const target = Math.max(0, seconds);
+    // Wer selbst springt, hat den Ausschnitt verlassen.
+    if (this.#snapshot.reachedStop) this.publish({ reachedStop: false });
     if (!this.#remote || !this.#snapshot.ready) {
       this.#pendingSeek = { seconds: target, play: options.play ?? false };
       return;
@@ -112,6 +152,7 @@ export class PlayerStore {
   reset(): void {
     this.#snapshot = EMPTY;
     this.#pendingSeek = null;
+    this.#stopAt = null;
     this.#emit();
   }
 }

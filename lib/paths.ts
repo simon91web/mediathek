@@ -24,6 +24,12 @@ export const paths = {
   topics: path.join(LIBRARY_DIR, "themen"),
   collections: path.join(LIBRARY_DIR, "sammlungen"),
   glossary: path.join(LIBRARY_DIR, "glossar.txt"),
+  /**
+   * Die Bibliothek ist selbst ein Claude-Code-Projekt: hier liegen CLAUDE.md
+   * und die Slash-Befehle, nach denen geschrieben werden darf. Sie wandern
+   * mit dem Ordner mit — beim Kollegen liegt derselbe Vertrag.
+   */
+  claude: path.join(LIBRARY_DIR, ".claude"),
   /** Generierter Index. Nie Wahrheit, jederzeit löschbar. */
   index: path.join(LIBRARY_DIR, "library.json"),
   /**

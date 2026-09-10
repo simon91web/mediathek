@@ -1,9 +1,11 @@
 import type { Metadata } from "next";
 import { AlertTriangle, Check, X } from "lucide-react";
 
+import { ClaudePanel } from "@/components/claude/claude-panel";
 import { SettingsControls } from "@/components/library/settings-controls";
 import { WhisperSettings } from "@/components/library/whisper-settings";
 import { Card, SectionTitle } from "@/components/ui/basis";
+import { claudeFilesInstalled } from "@/lib/claude/install";
 import { getFeatures } from "@/lib/features";
 import { getLibrary } from "@/lib/library";
 import { searchIndexStatus } from "@/lib/search";
@@ -21,10 +23,11 @@ const WATCH_LABEL = {
 } as const;
 
 export default async function EinstellungenPage() {
-  const [library, features, settings] = await Promise.all([
+  const [library, features, settings, claudeInstalled] = await Promise.all([
     getLibrary(),
     getFeatures(),
     readSettings(),
+    claudeFilesInstalled(),
   ]);
   // Nur ablesen, nicht anstoßen: der Index baut sich beim ersten Suchen.
   const searchStatus = searchIndexStatus();
@@ -50,6 +53,9 @@ export default async function EinstellungenPage() {
             {plural(library.items.length, "Beitrag", "Beiträge")} ·{" "}
             {byKind.video} Video, {byKind.audio} Audio, {byKind.text} Text ·{" "}
             {plural(library.topics.length, "Thema", "Themen")}
+            {library.collections.length > 0
+              ? ` · ${plural(library.collections.length, "Sammlung", "Sammlungen")}`
+              : ""}
             {bytes > 0 ? ` · ${formatBytes(bytes)} Medien` : ""}
           </Row>
           <Row label="Zuletzt gelesen">
@@ -86,8 +92,7 @@ export default async function EinstellungenPage() {
               </span>
             ) : (
               <span className="text-warnung">
-                {library.cache.note ??
-                  "kann nicht geschrieben werden"}
+                {library.cache.note ?? "kann nicht geschrieben werden"}
               </span>
             )}
           </Row>
@@ -105,6 +110,14 @@ export default async function EinstellungenPage() {
           model={settings.whisperModel}
           language={settings.whisperLanguage}
           gpuReady={features.python === "ok"}
+        />
+      ) : null}
+
+      {features.authorMode ? (
+        <ClaudePanel
+          claudeReady={features.claude === "ok"}
+          filesInstalled={claudeInstalled}
+          libraryRoot={library.root}
         />
       ) : null}
 
@@ -178,10 +191,10 @@ export default async function EinstellungenPage() {
             <code className="text-xs break-all">{libraryStateDir()}</code>
           </Row>
           <p className="border-t border-rand pt-2 text-xs text-schrift-2">
-            Bewusst außerhalb der Bibliothek: der Ordner wird weitergegeben
-            und herumkopiert, und Programmpfade oder Laufwerksbuchstaben
-            gelten nur auf dieser Maschine. Klemmt etwas, kann dieser Ordner
-            gelöscht werden.
+            Bewusst außerhalb der Bibliothek: der Ordner wird weitergegeben und
+            herumkopiert, und Programmpfade oder Laufwerksbuchstaben gelten nur
+            auf dieser Maschine. Klemmt etwas, kann dieser Ordner gelöscht
+            werden.
           </p>
         </Card>
       </section>

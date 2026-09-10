@@ -2,7 +2,7 @@ import fs from "node:fs/promises";
 import path from "node:path";
 
 import { paths } from "@/lib/paths";
-import type { Topic, Fingerprint, Item, Slug } from "./types";
+import type { Collection, Topic, Fingerprint, Item, Slug } from "./types";
 
 /*
  * library.json ist ein Cache, keine Wahrheit. Sie darf jederzeit gelöscht
@@ -12,7 +12,7 @@ import type { Topic, Fingerprint, Item, Slug } from "./types";
  */
 
 /** Bei jeder Formatänderung erhöhen: alte Dateien werden dann verworfen. */
-export const CACHE_VERSION = 2;
+export const CACHE_VERSION = 4;
 
 /**
  * Zusätzlich zur Formatversion hängt der Cache an der App-Version. Ändert
@@ -38,6 +38,10 @@ export type LibraryCache = {
   libraryPath: string;
   items: Record<Slug, CachedItem>;
   topics: Record<Slug, { size: number; mtimeMs: number; topic: Topic }>;
+  collections: Record<
+    Slug,
+    { size: number; mtimeMs: number; collection: Collection }
+  >;
 };
 
 export function emptyCache(): LibraryCache {
@@ -48,6 +52,7 @@ export function emptyCache(): LibraryCache {
     libraryPath: paths.library,
     items: {},
     topics: {},
+    collections: {},
   };
 }
 
@@ -73,6 +78,9 @@ export async function readCache(): Promise<LibraryCache | null> {
     }
     if (!cache.items || typeof cache.items !== "object") return null;
     if (!cache.topics || typeof cache.topics !== "object") return null;
+    if (!cache.collections || typeof cache.collections !== "object") {
+      return null;
+    }
     return cache;
   } catch {
     return null;

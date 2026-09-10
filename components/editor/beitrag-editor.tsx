@@ -213,6 +213,7 @@ export function BeitragEditor({
               chapters={chapters}
               durationSeconds={durationSeconds}
               startAt={null}
+              stopAt={null}
             />
             <ChapterButton onInsert={insertChapter} />
           </div>

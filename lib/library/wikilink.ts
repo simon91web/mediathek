@@ -1,6 +1,6 @@
 import { formatTimecode, parseTimecode } from "./chapters";
 import { isSlug } from "./slug";
-import type { ItemProblem, LinkTarget, Reference, Slug } from "./types";
+import type { ItemProblem, LinkTarget, Reference, Slug, Spot } from "./types";
 
 /*
  * Eine Verweisform für alles: Bezüge unter einem Beitrag, Fundstellen einer
@@ -101,17 +101,19 @@ export function referenceHref(slug: Slug, target: LinkTarget): string {
 }
 
 /**
- * Liest den Block "bezuege". Erwartet je Zeile einen Wikilink und dahinter
- * eine Zeile Begründung:
+ * Liest Zeilen der Form "Verweis, dann Begründung":
  *
  *   - [[messprotokoll-lesen#03:15]] Dasselbe Fehlerbild aus anderer Richtung
+ *
+ * Das ist das Format der Bezüge unter einem Beitrag, der Fundstellen einer
+ * Themenseite und der Einträge einer Sammlung. Ein Ort, drei Nutzen — und
+ * Claude Code muss nur eine Zeilenform beherrschen.
  */
-export function parseReferenceLines(
+export function parseSpotLines(
   inner: string,
   innerStartLine: number,
-  from: Slug,
-): { references: Reference[]; problems: ItemProblem[] } {
-  const references: Reference[] = [];
+): { spots: Spot[]; problems: ItemProblem[] } {
+  const spots: Spot[] = [];
   const problems: ItemProblem[] = [];
   const lines = inner.split("\n");
 
@@ -136,27 +138,50 @@ export function parseReferenceLines(
     }
 
     const link = links[0];
-    if (link.slug === from) {
-      problems.push({
-        kind: "bezug",
-        message: "Ein Beitrag kann nicht auf sich selbst verweisen.",
-        line: innerStartLine + i,
-      });
-      continue;
-    }
-
     // Alles hinter dem Verweis ist die Begründung.
     const note = line
       .slice(link.index + link.length)
       .replace(/^\s*[-–—:|·]?\s*/, "")
       .trim();
 
-    references.push({
-      from,
-      to: link.slug,
+    spots.push({
+      slug: link.slug,
       target: link.target,
       note,
       sourceLine: innerStartLine + i,
+    });
+  }
+
+  return { spots, problems };
+}
+
+/**
+ * Liest den Block "bezuege" eines Beitrags. Wie `parseSpotLines`, nur dass
+ * die Herkunft mitgeführt und ein Verweis auf sich selbst abgelehnt wird.
+ */
+export function parseReferenceLines(
+  inner: string,
+  innerStartLine: number,
+  from: Slug,
+): { references: Reference[]; problems: ItemProblem[] } {
+  const { spots, problems } = parseSpotLines(inner, innerStartLine);
+  const references: Reference[] = [];
+
+  for (const spot of spots) {
+    if (spot.slug === from) {
+      problems.push({
+        kind: "bezug",
+        message: "Ein Beitrag kann nicht auf sich selbst verweisen.",
+        line: spot.sourceLine,
+      });
+      continue;
+    }
+    references.push({
+      from,
+      to: spot.slug,
+      target: spot.target,
+      note: spot.note,
+      sourceLine: spot.sourceLine,
     });
   }
 

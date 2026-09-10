@@ -91,6 +91,54 @@ export function splitFrontmatter(raw: string): SplitResult {
   };
 }
 
+/*
+ * Zeilennummern: die Teil-Parser rechnen im Body, der Nutzer liest in der
+ * Datei.
+ *
+ * `chapters.ts`, `sections.ts` und `wikilink.ts` bekommen den Text NACH dem
+ * Frontmatter-Zaun übergeben und zählen darin ab 1. Das ist richtig so —
+ * ihre tabellengetriebenen Tests hängen daran, und sie wissen nichts von
+ * einem Kopf. Nur ist eine so gezählte Zeile keine, die man in einem Editor
+ * anspringen kann: jede beitrag.md hat einen Kopf, und die Meldung zeigte
+ * genau um dessen Höhe zu weit nach oben.
+ *
+ * Deshalb wird EINMAL am Ende verschoben — in `beitrag-md.ts`, `topics.ts`
+ * und `collections.ts`, dort, wo die Teilergebnisse zusammenlaufen.
+ *
+ * Nicht mitverschoben werden die Hinweise aus `splitFrontmatter` und
+ * `parseItemFrontmatter`: die zählen von Anfang an in der Datei.
+ */
+
+/** Der Versatz zwischen Body- und Dateizeilen. */
+export function lineOffset(split: Pick<SplitResult, "bodyStartLine">): number {
+  return split.bodyStartLine - 1;
+}
+
+/** Body-bezogene Hinweise auf die Datei umrechnen. */
+export function shiftProblems(
+  problems: readonly ItemProblem[],
+  offset: number,
+): ItemProblem[] {
+  if (offset === 0) return [...problems];
+  return problems.map((problem) =>
+    problem.line === undefined
+      ? problem
+      : { ...problem, line: problem.line + offset },
+  );
+}
+
+/** Dasselbe für alles, was eine `sourceLine` trägt: Kapitel, Bezüge, Fundstellen. */
+export function shiftSourceLines<T extends { sourceLine: number }>(
+  entries: readonly T[],
+  offset: number,
+): T[] {
+  if (offset === 0) return [...entries];
+  return entries.map((entry) => ({
+    ...entry,
+    sourceLine: entry.sourceLine + offset,
+  }));
+}
+
 export type ItemFrontmatter = {
   title: string | null;
   tags: string[];
@@ -101,6 +149,15 @@ export type ItemFrontmatter = {
   kind: MediaKind | null;
   /** Dateiname einer bevorzugten Web-Fassung (Etappe 2). */
   webVersion: string | null;
+  /**
+   * Nur auf Themenseiten: andere Wörter für dasselbe. Anders als Schlagworte
+   * werden sie NICHT zu Slugs normalisiert — sie werden angezeigt und für
+   * die Suche gefaltet, und dabei soll "Zellspannung" nicht zu
+   * "zellspannung" verkommen.
+   */
+  synonyms: string[];
+  /** Nur in Sammlungen: macht daraus eine gespeicherte Suche. */
+  query: string | null;
   /** Unbekannte Schlüssel bleiben erhalten, damit nichts verloren geht. */
   extra: Record<string, unknown>;
 };
@@ -112,6 +169,8 @@ const EMPTY_FRONTMATTER: ItemFrontmatter = {
   durationSeconds: null,
   kind: null,
   webVersion: null,
+  synonyms: [],
+  query: null,
   extra: {},
 };
 
@@ -132,6 +191,11 @@ const KEY_ALIASES: Record<string, keyof ItemFrontmatter> = {
   kind: "kind",
   webfassung: "webVersion",
   webversion: "webVersion",
+  synonyme: "synonyms",
+  synonyms: "synonyms",
+  suche: "query",
+  query: "query",
+  search: "query",
 };
 
 export function normalizeTag(value: string): string {
@@ -156,6 +220,30 @@ function toTags(value: unknown): string[] {
     if (tag) seen.add(tag);
   }
   return [...seen];
+}
+
+/**
+ * Synonyme behalten ihre Schreibweise — sie werden angezeigt. Entdoppelt
+ * wird trotzdem ohne Rücksicht auf Groß- und Kleinschreibung, und ein
+ * Synonym von zwei Zeichen wäre in der Suche nur Lärm.
+ */
+function toSynonyms(value: unknown): string[] {
+  const raw: string[] = Array.isArray(value)
+    ? value.map((entry) => String(entry))
+    : typeof value === "string"
+      ? value.split(/[,;]/)
+      : value == null
+        ? []
+        : [String(value)];
+
+  const seen = new Map<string, string>();
+  for (const entry of raw) {
+    const text = entry.trim().replace(/\s+/g, " ");
+    if (text.length < 3 || text.length > 60) continue;
+    const key = text.toLowerCase();
+    if (!seen.has(key)) seen.set(key, text);
+  }
+  return [...seen.values()].slice(0, 24);
 }
 
 /**
@@ -316,6 +404,14 @@ export function parseItemFrontmatter(frontmatterText: string | null): {
           });
         }
         data.kind = kind;
+        break;
+      }
+      case "synonyms":
+        data.synonyms = toSynonyms(value);
+        break;
+      case "query": {
+        const text = String(value ?? "").trim();
+        if (text) data.query = text.slice(0, 200);
         break;
       }
       case "webVersion": {

@@ -9,6 +9,7 @@ import { cn } from "@/lib/utils";
 const NAV_ITEMS = [
   { href: "/medien", label: "Mediathek" },
   { href: "/themen", label: "Themen" },
+  { href: "/sammlungen", label: "Sammlungen" },
   { href: "/suche", label: "Suche" },
   { href: "/importieren", label: "Importieren" },
   { href: "/einstellungen", label: "Einstellungen" },

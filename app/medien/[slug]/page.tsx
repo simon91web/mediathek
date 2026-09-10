@@ -3,25 +3,36 @@ import Link from "next/link";
 import { notFound } from "next/navigation";
 import { ChevronLeft, ChevronRight, Pencil } from "lucide-react";
 
+import { ItemClaudeButtons } from "@/components/claude/item-claude-buttons";
 import { JobButtons } from "@/components/jobs/job-buttons";
 import { MarkdownText, MarkdownWithAnchors } from "@/components/markdown";
 import { AttachmentList } from "@/components/media/attachment-list";
+import { CollectionBar } from "@/components/media/collection-bar";
 import { Description } from "@/components/media/description";
 import { ProblemBanner } from "@/components/media/problem-banner";
 import { ReferenceList } from "@/components/media/reference-list";
 import { SidePanel } from "@/components/media/side-panel";
+import { TopicSpots } from "@/components/media/topic-spots";
+import type { TopicSpotGroup } from "@/components/media/topic-spots";
 import { MediaView } from "@/components/player/media-view";
 import { PlayerProvider } from "@/components/player/player-provider";
 import { ButtonLink } from "@/components/ui/basis";
 import { getFeatures } from "@/lib/features";
 import {
   getBacklinks,
+  getCollection,
+  getTopicSpotsForItem,
   getTopicsForItem,
   getItem,
   getLibrary,
 } from "@/lib/library";
 import { isSlug } from "@/lib/library/slug";
-import { mediaUrl, posterUrl } from "@/lib/library/urls";
+import {
+  collectionHref,
+  collectionPlayHref,
+  mediaUrl,
+  posterUrl,
+} from "@/lib/library/urls";
 import { formatDurationShort, formatRecorded, plural } from "@/lib/utils";
 
 const KIND_LABEL = {
@@ -46,19 +57,26 @@ export default async function BeitragPage({
   searchParams,
 }: {
   params: Promise<{ slug: string }>;
-  searchParams: Promise<{ t?: string }>;
+  searchParams: Promise<{
+    t?: string;
+    bis?: string;
+    sammlung?: string;
+    nr?: string;
+  }>;
 }) {
   const { slug } = await params;
   if (!isSlug(slug)) notFound();
 
-  const [item, backlinks, topics, library, features, search] = await Promise.all([
-    getItem(slug),
-    getBacklinks(slug),
-    getTopicsForItem(slug),
-    getLibrary(),
-    getFeatures(),
-    searchParams,
-  ]);
+  const [item, backlinks, topics, topicSpots, library, features, search] =
+    await Promise.all([
+      getItem(slug),
+      getBacklinks(slug),
+      getTopicsForItem(slug),
+      getTopicSpotsForItem(slug),
+      getLibrary(),
+      getFeatures(),
+      searchParams,
+    ]);
 
   if (!item) notFound();
 
@@ -72,6 +90,47 @@ export default async function BeitragPage({
     Number.isFinite(requested) && requested > 0
       ? Math.min(requested, (item.durationSeconds ?? requested) + 60)
       : null;
+
+  /*
+   * Ende eines Ausschnitts. Muss hinter dem Anfang liegen, sonst wäre der
+   * Ausschnitt leer und der Player hielte sofort an.
+   */
+  const until = Number(search.bis);
+  const stopAt =
+    Number.isFinite(until) && until > (startAt ?? 0) ? until : null;
+
+  /*
+   * Kommt der Beitrag aus einer Sammlung, wird oben ein Streifen mit Vor und
+   * Zurück gezeigt. Der Zustand steckt allein in der Adresse — teilbar und
+   * einen Neuladen überlebend.
+   */
+  const collection = search.sammlung
+    ? await getCollection(search.sammlung)
+    : null;
+  const position = Number(search.nr);
+  const index =
+    collection && Number.isInteger(position)
+      ? Math.min(Math.max(1, position), collection.entries.length) - 1
+      : -1;
+
+  /*
+   * Die Fundstellen nach Thema bündeln: ein Thema kann mehrere Stellen in
+   * diesem Beitrag benennen, und dann sollen sie in einer Zeile stehen.
+   */
+  const spotGroups: TopicSpotGroup[] = [];
+  for (const { topic, spot } of topicSpots) {
+    const existing = spotGroups.find(
+      (group) => group.topic.slug === topic.slug,
+    );
+    const entry = { target: spot.target, note: spot.note };
+    if (existing) existing.spots.push(entry);
+    else {
+      spotGroups.push({
+        topic: { slug: topic.slug, title: topic.title },
+        spots: [entry],
+      });
+    }
+  }
 
   const src = mediaUrl(item);
   const recorded = formatRecorded(item.recorded);
@@ -91,6 +150,39 @@ export default async function BeitragPage({
       <div className="space-y-6">
         <div className="grid grid-cols-1 gap-6 lg:grid-cols-[minmax(0,1fr)_22rem]">
           <div className="min-w-0 space-y-4">
+            {collection && index >= 0 ? (
+              <CollectionBar
+                title={collection.title}
+                href={collectionHref(collection.slug)}
+                position={index + 1}
+                total={collection.entries.length}
+                previousHref={
+                  index > 0
+                    ? collectionPlayHref(
+                        collection.slug,
+                        index - 1,
+                        collection.entries[index - 1],
+                      )
+                    : null
+                }
+                nextHref={
+                  index + 1 < collection.entries.length
+                    ? collectionPlayHref(
+                        collection.slug,
+                        index + 1,
+                        collection.entries[index + 1],
+                      )
+                    : null
+                }
+                nextTitle={
+                  index + 1 < collection.entries.length
+                    ? (library.bySlug.get(collection.entries[index + 1].slug)
+                        ?.title ?? null)
+                    : null
+                }
+              />
+            ) : null}
+
             {item.kind !== "text" && src ? (
               <MediaView
                 slug={item.slug}
@@ -102,6 +194,7 @@ export default async function BeitragPage({
                 chapters={item.chapters}
                 durationSeconds={item.durationSeconds}
                 startAt={startAt}
+                stopAt={stopAt}
               />
             ) : null}
 
@@ -165,6 +258,12 @@ export default async function BeitragPage({
                     pythonReady={features.python === "ok"}
                     ffmpegReady={features.ffmpeg === "ok"}
                   />
+                  <ItemClaudeButtons
+                    slug={item.slug}
+                    kind={item.kind}
+                    hasTranscript={item.hasTranscript}
+                    claudeReady={features.claude === "ok"}
+                  />
                 </div>
               ) : null}
             </div>
@@ -189,6 +288,8 @@ export default async function BeitragPage({
                 </Description>
               )
             ) : null}
+
+            <TopicSpots slug={item.slug} groups={spotGroups} />
 
             {topics.length > 0 ? (
               <TopicNavigation
@@ -237,7 +338,9 @@ function TopicNavigation({
         const index = existing.indexOf(slug);
         const previous = index > 0 ? existing[index - 1] : null;
         const next =
-          index >= 0 && index < existing.length - 1 ? existing[index + 1] : null;
+          index >= 0 && index < existing.length - 1
+            ? existing[index + 1]
+            : null;
 
         return (
           <div

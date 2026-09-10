@@ -6,6 +6,7 @@ import { readMp4Info } from "@/lib/media/mp4-duration";
 import { parseItemMarkdown } from "./beitrag-md";
 import { emptyCache, sameFingerprint } from "./cache";
 import type { LibraryCache } from "./cache";
+import { parseCollectionMarkdown } from "./collections";
 import { parseTopicMarkdown } from "./topics";
 import { isSlug } from "./slug";
 import {
@@ -17,7 +18,9 @@ import {
 } from "./media-kind";
 import type {
   Attachment,
+  Collection,
   Topic,
+  TopicSpot,
   FileStamp,
   Fingerprint,
   Item,
@@ -27,6 +30,7 @@ import type {
   MediaKind,
   Reference,
   Slug,
+  Spot,
 } from "./types";
 
 type ScanProblem = { path: string; message: string };
@@ -100,6 +104,11 @@ async function buildAttachments(
       hasText: extracted.has(`${entry.name.toLowerCase()}.txt`),
     };
   });
+}
+
+/** Sortierschlüssel einer Fundstelle: Zeit vor Anker, Anker alphabetisch. */
+function spotOrder(spot: Spot): number {
+  return spot.target.kind === "zeit" ? spot.target.start : Number.MAX_SAFE_INTEGER;
 }
 
 /** "pruefzettel-elios.pdf" → "Pruefzettel elios" */
@@ -411,6 +420,8 @@ async function scanTopics(
       description: parsed.description,
       itemSlugs: parsed.itemSlugs,
       missingSlugs: [],
+      synonyms: parsed.synonyms,
+      spots: parsed.spots,
       tags: parsed.tags,
       changedAtMs: info.mtimeMs,
       problems: parsed.problems,
@@ -421,6 +432,97 @@ async function scanTopics(
 
   topics.sort((a, b) => a.title.localeCompare(b.title, "de"));
   return { topics, cacheEntries, problems };
+}
+
+/**
+ * Sammlungen lesen. Fast dasselbe wie bei den Themen, nur ohne
+ * Marker-Block — und mit `suche:` statt einer Liste als zweiter Möglichkeit.
+ */
+async function scanCollections(
+  cache: LibraryCache,
+  force: boolean,
+): Promise<{
+  collections: Collection[];
+  cacheEntries: LibraryCache["collections"];
+  problems: ScanProblem[];
+}> {
+  const problems: ScanProblem[] = [];
+  const cacheEntries: LibraryCache["collections"] = {};
+  const collections: Collection[] = [];
+
+  let entries: string[];
+  try {
+    entries = (await fs.readdir(paths.collections, { withFileTypes: true }))
+      .filter((entry) => entry.isFile() && /\.md$/i.test(entry.name))
+      .map((entry) => entry.name);
+  } catch {
+    // Kein sammlungen/-Ordner ist völlig in Ordnung.
+    return { collections, cacheEntries, problems };
+  }
+
+  for (const name of entries) {
+    const slug = path.parse(name).name.toLowerCase();
+    if (!isSlug(slug)) {
+      problems.push({
+        path: path.join(paths.collections, name),
+        message:
+          "Der Dateiname taugt nicht als Kennung einer Sammlung " +
+          "(erlaubt: Kleinbuchstaben, Ziffern, Bindestriche).",
+      });
+      continue;
+    }
+
+    const file = path.join(paths.collections, name);
+    const info = await stamp(file);
+    if (!info) continue;
+
+    const cached = cache.collections[slug];
+    if (
+      !force &&
+      cached &&
+      cached.size === info.size &&
+      cached.mtimeMs === info.mtimeMs
+    ) {
+      collections.push(cached.collection);
+      cacheEntries[slug] = cached;
+      continue;
+    }
+
+    let raw = "";
+    try {
+      raw = await fs.readFile(file, "utf8");
+    } catch (error) {
+      problems.push({
+        path: file,
+        message: `Nicht lesbar: ${
+          error instanceof Error ? error.message : String(error)
+        }`,
+      });
+      continue;
+    }
+
+    const parsed = parseCollectionMarkdown(raw, slug);
+    const collection: Collection = {
+      slug,
+      title: parsed.title,
+      description: parsed.description,
+      entries: parsed.entries,
+      missingSlugs: [],
+      query: parsed.query,
+      tags: parsed.tags,
+      changedAtMs: info.mtimeMs,
+      problems: parsed.problems,
+    };
+    collections.push(collection);
+    cacheEntries[slug] = {
+      size: info.size,
+      mtimeMs: info.mtimeMs,
+      collection,
+    };
+  }
+
+  collections.sort((a, b) => a.title.localeCompare(b.title, "de"));
+  return { collections, cacheEntries, problems };
 }
 
 export type ScanResult = {
@@ -522,22 +624,65 @@ export async function scanLibrary(options: {
 
   const topicResult = await scanTopics(cache, force);
   problems.push(...topicResult.problems);
-  for (const topic of topicResult.topics) {
-    topic.missingSlugs = topic.itemSlugs.filter((slug) => !bySlug.has(slug));
-  }
 
   const topicsBySlug = new Map(
     topicResult.topics.map((topic) => [topic.slug, topic]),
   );
   const topicsByItem = new Map<Slug, Topic[]>();
+  const topicSpotsByItem = new Map<Slug, TopicSpot[]>();
+
   for (const topic of topicResult.topics) {
+    /*
+     * missingSlugs zählt nur die ganzen Beiträge — die Themenseite rechnet
+     * damit "3 von 4 vorhanden". Eine Fundstelle ins Leere ist ein eigener
+     * Hinweis, damit die Zählung nicht durcheinandergerät.
+     */
+    topic.missingSlugs = topic.itemSlugs.filter((slug) => !bySlug.has(slug));
+
     for (const slug of topic.itemSlugs) {
       if (!bySlug.has(slug)) continue;
       const list = topicsByItem.get(slug);
       if (list) list.push(topic);
       else topicsByItem.set(slug, [topic]);
     }
+
+    for (const spot of topic.spots) {
+      if (!bySlug.has(spot.slug)) {
+        topic.problems.push({
+          kind: "bezug",
+          message: `Die Fundstelle "${spot.slug}" findet kein Ziel.`,
+          line: spot.sourceLine,
+        });
+        continue;
+      }
+      const list = topicSpotsByItem.get(spot.slug);
+      if (list) list.push({ topic, spot });
+      else topicSpotsByItem.set(spot.slug, [{ topic, spot }]);
+    }
   }
+
+  /*
+   * Fundstellen innerhalb eines Beitrags nach Zeit ordnen. Auf der
+   * Beitragsseite stehen sie unter "Themen in diesem Beitrag", und dort
+   * ergibt nur die Reihenfolge des Beitrags Sinn — nicht die der Datei, aus
+   * der sie stammen.
+   */
+  for (const spots of topicSpotsByItem.values()) {
+    spots.sort((a, b) => spotOrder(a.spot) - spotOrder(b.spot));
+  }
+
+  const collectionResult = await scanCollections(cache, force);
+  problems.push(...collectionResult.problems);
+  for (const collection of collectionResult.collections) {
+    const missing = new Set<Slug>();
+    for (const entry of collection.entries) {
+      if (!bySlug.has(entry.slug)) missing.add(entry.slug);
+    }
+    collection.missingSlugs = [...missing];
+  }
+  const collectionsBySlug = new Map(
+    collectionResult.collections.map((entry) => [entry.slug, entry]),
+  );
 
   /*
    * Rückverweise werden berechnet, nicht geschrieben: ein Bezug wird an einer
@@ -583,6 +728,9 @@ export async function scanLibrary(options: {
     topics: topicResult.topics,
     topicsBySlug,
     topicsByItem,
+    topicSpotsByItem,
+    collections: collectionResult.collections,
+    collectionsBySlug,
     backlinks,
     tags,
     problems,
@@ -599,6 +747,7 @@ export async function scanLibrary(options: {
       libraryPath: paths.library,
       items: nextCacheItems,
       topics: topicResult.cacheEntries,
+      collections: collectionResult.cacheEntries,
     },
     reparsed,
   };

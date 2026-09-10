@@ -19,9 +19,12 @@ import fs from "node:fs/promises";
 import os from "node:os";
 import path from "node:path";
 
+import { installClaudeFiles } from "@/lib/claude/install";
+
 const ROOT = path.join(process.cwd(), "bibliothek-dev");
 const ITEMS = path.join(ROOT, "medien");
 const TOPICS = path.join(ROOT, "themen");
+const COLLECTIONS = path.join(ROOT, "sammlungen");
 
 /**
  * Der Text, den das Sprachmemo spricht.
@@ -134,8 +137,14 @@ function makeSpeechWav(file: string, text: string): boolean {
    * Umweg Datei gibt es diesen Konflikt nicht, und der Text landet auch
    * nicht auf einer Kommandozeile.
    */
-  const scriptFile = path.join(os.tmpdir(), `mediathek-sprache-${process.pid}.ps1`);
-  const textFile = path.join(os.tmpdir(), `mediathek-sprache-${process.pid}.txt`);
+  const scriptFile = path.join(
+    os.tmpdir(),
+    `mediathek-sprache-${process.pid}.ps1`,
+  );
+  const textFile = path.join(
+    os.tmpdir(),
+    `mediathek-sprache-${process.pid}.txt`,
+  );
 
   const script = `
 $ErrorActionPreference = 'Stop'
@@ -158,7 +167,14 @@ $s.Dispose()
 
     const result = spawnSync(
       "powershell",
-      ["-NoProfile", "-NonInteractive", "-ExecutionPolicy", "Bypass", "-File", scriptFile],
+      [
+        "-NoProfile",
+        "-NonInteractive",
+        "-ExecutionPolicy",
+        "Bypass",
+        "-File",
+        scriptFile,
+      ],
       { stdio: ["ignore", "ignore", "pipe"], windowsHide: true },
     );
     if (result.status !== 0) return false;
@@ -373,15 +389,51 @@ ist im Kanal schlimmer als keiner.
         language: "de",
         duration_sec: 180,
         segments: [
-          { start: 0, end: 8, text: "Willkommen zur Vorflugkontrolle der Elios 3." },
-          { start: 8, end: 26, text: "Ich gehe die Punkte in der Reihenfolge durch, in der ich sie im Feld auch abarbeite." },
-          { start: 30, end: 48, text: "Zuerst der Akku. Ich messe die Zellspannung mit dem Prüfer." },
-          { start: 48, end: 70, text: "Unter 3,7 Volt je Zelle nehme ich den Akku nicht mit ins Feld." },
-          { start: 80, end: 98, text: "Auf Aufblähung achten. Ein aufgeblähter Akku wird sofort aussortiert." },
-          { start: 100, end: 118, text: "Die Temperatur sollte in der Nähe der Umgebungstemperatur liegen." },
-          { start: 122, end: 140, text: "Jetzt der Rotorschutz. Der Käfig rastet an sechs Punkten ein." },
-          { start: 140, end: 160, text: "Ein lose sitzender Schutz ist im Kanal schlimmer als gar keiner." },
-          { start: 162, end: 178, text: "Nach dem Flug halte ich Flugzeit und Auffälligkeiten im Protokoll fest." },
+          {
+            start: 0,
+            end: 8,
+            text: "Willkommen zur Vorflugkontrolle der Elios 3.",
+          },
+          {
+            start: 8,
+            end: 26,
+            text: "Ich gehe die Punkte in der Reihenfolge durch, in der ich sie im Feld auch abarbeite.",
+          },
+          {
+            start: 30,
+            end: 48,
+            text: "Zuerst der Akku. Ich messe die Zellspannung mit dem Prüfer.",
+          },
+          {
+            start: 48,
+            end: 70,
+            text: "Unter 3,7 Volt je Zelle nehme ich den Akku nicht mit ins Feld.",
+          },
+          {
+            start: 80,
+            end: 98,
+            text: "Auf Aufblähung achten. Ein aufgeblähter Akku wird sofort aussortiert.",
+          },
+          {
+            start: 100,
+            end: 118,
+            text: "Die Temperatur sollte in der Nähe der Umgebungstemperatur liegen.",
+          },
+          {
+            start: 122,
+            end: 140,
+            text: "Jetzt der Rotorschutz. Der Käfig rastet an sechs Punkten ein.",
+          },
+          {
+            start: 140,
+            end: 160,
+            text: "Ein lose sitzender Schutz ist im Kanal schlimmer als gar keiner.",
+          },
+          {
+            start: 162,
+            end: 178,
+            text: "Nach dem Flug halte ich Flugzeit und Auffälligkeiten im Protokoll fest.",
+          },
         ],
       },
       null,
@@ -532,6 +584,68 @@ auf der Vorflugkontrolle auf.
 `,
   );
 
+  /*
+   * Ein Thema der zweiten Art: keine geordneten Beiträge, sondern Synonyme
+   * und einzelne Fundstellen — so sieht eine von "/themen" erzeugte Seite
+   * aus. Die Synonyme erweitern die Suchanfrage.
+   */
+  await writeFile(
+    path.join(TOPICS, "zellspannungsmessung.md"),
+    `---
+titel: Zellspannungsmessung
+synonyme: [Balancing, Spannungsspreizung, Zellprüfer]
+schlagworte: [akku]
+---
+
+Die Zellspannung ist die aussagekräftigste Einzelgröße am Akku. Wichtig ist
+nicht der Mittelwert, sondern die Spreizung zwischen der höchsten und der
+niedrigsten Zelle.
+
+<!-- fundstellen:start -->
+- [[akku-grundlagen#00:08]] Messen mit dem Zellprüfer
+- [[vorflugkontrolle-elios-3#00:30-01:20]] Im Ablauf der Vorflugkontrolle
+- [[messprotokoll-lesen#akku-und-spannung]] Wie das Ergebnis ins Protokoll kommt
+<!-- fundstellen:ende -->
+`,
+  );
+
+  // ---------------------------------------------------------- Sammlungen
+  await ensureDir(COLLECTIONS);
+  await writeFile(
+    path.join(COLLECTIONS, "alles-zum-akku.md"),
+    `---
+titel: Alles zum Akku
+schlagworte: [akku]
+---
+
+Was ich einem neuen Kollegen zum Akku zeigen würde, in dieser Folge. Der
+zweite Ausschnitt endet mitten im Beitrag — genau darum geht es hier.
+
+- [[akku-grundlagen#00:08-00:18]] Messen mit dem Zellprüfer
+- [[vorflugkontrolle-elios-3#00:30-01:20]] Im Ablauf der Vorflugkontrolle
+- [[messprotokoll-lesen#akku-und-spannung]] Und im Protokoll
+`,
+  );
+
+  await writeFile(
+    path.join(COLLECTIONS, "ueberall-spannung.md"),
+    `---
+titel: Überall, wo es um Spannung geht
+suche: zellspannung
+---
+
+Eine gespeicherte Suche: sie läuft bei jedem Aufruf neu. Kommt ein Beitrag
+dazu, steht er von selbst mit drin.
+`,
+  );
+
+  /*
+   * Der Vertrag mit Claude Code gehört in die Bibliothek, nicht in die
+   * Anwendung: er wandert mit dem Ordner mit. Beim Kollegen auf dem
+   * Netzlaufwerk gelten dieselben Regeln.
+   */
+  await installClaudeFiles();
+
   await writeFile(
     path.join(ROOT, "glossar.txt"),
     `Elios 3
@@ -544,12 +658,25 @@ Messprotokoll
 
   console.log("");
   console.log("Angelegt:");
-  console.log(`  ${videoSlug}      Video  ${hasVideo ? "(mit Mediendatei)" : "(OHNE Mediendatei)"}`);
-  console.log(`  ${audioSlug}            Audio  ${hasAudio ? "(mit Mediendatei)" : "(OHNE Mediendatei)"}`);
+  console.log(
+    `  ${videoSlug}      Video  ${hasVideo ? "(mit Mediendatei)" : "(OHNE Mediendatei)"}`,
+  );
+  console.log(
+    `  ${audioSlug}            Audio  ${hasAudio ? "(mit Mediendatei)" : "(OHNE Mediendatei)"}`,
+  );
   console.log(`  ${textSlug}       Text`);
   console.log(`  ${brokenSlug}             Video, kaputter Kopf (Absicht)`);
   console.log(`  ohne-beschreibung        Video ohne beitrag.md (Absicht)`);
   console.log(`  leerer-ordner            ohne alles (Absicht)`);
+  console.log("");
+  console.log(
+    "  Themen:      drohnen-grundlagen (geordnet), " +
+      "zellspannungsmessung (Synonyme + Fundstellen)",
+  );
+  console.log(
+    "  Sammlungen:  alles-zum-akku (Ausschnitte), " +
+      "ueberall-spannung (gespeicherte Suche)",
+  );
   console.log("");
   if (!ffmpeg) {
     console.log(

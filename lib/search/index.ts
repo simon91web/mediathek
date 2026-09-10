@@ -14,6 +14,8 @@ import {
 } from "./blocks";
 import type { Block } from "./blocks";
 import { foldTerm, parseQuery, tokenize } from "./normalize";
+import { buildSynonymGroups, expandQuery } from "./synonyms";
+import type { Expansion } from "./synonyms";
 
 /*
  * Volltextsuche über alles: Titel, Schlagworte, Beschreibungen,
@@ -65,6 +67,11 @@ export type SearchHit = {
   /** Gesetzt, wenn der Treffer aus einem Anhang stammt. */
   attachment: { file: string; label: string } | null;
   snippet: Snippet;
+  /**
+   * Gesetzt, wenn dieser Treffer nur über ein Synonym gefunden wurde. Wird
+   * angezeigt — eine stille Erweiterung wäre schlimmer als keine.
+   */
+  via: Expansion | null;
   /** Fertige Zieladresse. */
   href: string;
 };
@@ -397,8 +404,19 @@ export type SearchResult = {
   tookMs: number;
   /** true, wenn ohne Rangfolge gesucht wurde (Index abgebrochen). */
   degraded: boolean;
+  /** Wonach zusätzlich gesucht wurde, aus den Synonymen der Themenseiten. */
+  expansions: Expansion[];
   status: SearchIndexStatus;
 };
+
+/**
+ * Ein wörtlicher Treffer steht etwas unter den BM25-Werten, aber immer über
+ * null; ein nur über ein Synonym gefundener noch darunter. Verlassen darf
+ * man sich darauf nicht — deshalb werden direkte und erweiterte Treffer
+ * getrennt sortiert und aneinandergehängt, statt auf die Zahlen zu hoffen.
+ */
+const LITERAL_SCORE = 0.5;
+const EXPANDED_SCORE = 0.35;
 
 export async function search(
   rawQuery: string,
@@ -413,10 +431,17 @@ export async function search(
   const needles = [...phrases.map(foldTerm), ...terms].filter(Boolean);
 
   if (needles.length === 0) {
-    return { hits: [], total: 0, tookMs: 0, degraded: false, status };
+    return {
+      hits: [],
+      total: 0,
+      tookMs: 0,
+      degraded: false,
+      expansions: [],
+      status,
+    };
   }
 
-  const scores = new Map<string, number>();
+  const direct = new Map<string, number>();
 
   // Kanal 1: MiniSearch — Rangfolge und Präfixe.
   if (state.mini && phrases.length === 0) {
@@ -425,7 +450,7 @@ export async function search(
       fuzzy: 0.2,
       combineWith: "AND",
     })) {
-      scores.set(String(result.id), result.score);
+      direct.set(String(result.id), result.score);
     }
   }
 
@@ -437,22 +462,59 @@ export async function search(
   for (const block of state.blocks) {
     const all = needles.every((needle) => block.folded.includes(needle));
     if (!all) continue;
-    // Etwas unter den BM25-Werten einsortieren, aber immer über null.
-    const existing = scores.get(block.id) ?? 0;
-    scores.set(block.id, Math.max(existing, 0.5));
+    direct.set(block.id, Math.max(direct.get(block.id) ?? 0, LITERAL_SCORE));
+  }
+
+  /*
+   * Kanal 3: die Synonyme der Themenseiten. Nur wörtlich — die Formen sind
+   * ganze Wörter, und eine Rangfolge unter Fremdtreffern wäre eine
+   * Genauigkeit, die es hier nicht gibt.
+   */
+  const expansions = expandQuery(
+    { terms, phrases },
+    buildSynonymGroups(library.topics),
+  );
+  const expanded = new Map<string, Expansion>();
+  for (const expansion of expansions) {
+    for (const block of state.blocks) {
+      if (direct.has(block.id) || expanded.has(block.id)) continue;
+      if (!block.folded.includes(expansion.folded)) continue;
+      expanded.set(block.id, expansion);
+    }
   }
 
   const byId = new Map(state.blocks.map((block) => [block.id, block]));
   const wantedKinds = options.kinds?.length ? new Set(options.kinds) : null;
   const wantedTags = options.tags?.length ? options.tags : null;
 
-  const ranked = [...scores.entries()]
-    .map(([id, score]) => ({ block: byId.get(id), score }))
-    .filter(
-      (entry): entry is { block: IndexedBlock; score: number } =>
-        entry.block !== undefined,
-    )
-    .sort((a, b) => b.score - a.score);
+  type Ranked = {
+    block: IndexedBlock;
+    score: number;
+    needles: string[];
+    via: Expansion | null;
+  };
+
+  /*
+   * Direkte Treffer zuerst, erweiterte danach — und zwar durch die
+   * Reihenfolge der Liste, nicht durch die Punktzahl. Ein MiniSearch-Wert
+   * kann klein sein, und ein Fremdtreffer darf einen echten nie verdrängen.
+   */
+  const ranked: Ranked[] = [
+    ...[...direct.entries()]
+      .map(([id, score]) => ({
+        block: byId.get(id),
+        score,
+        needles,
+        via: null,
+      }))
+      .sort((a, b) => b.score - a.score),
+    ...[...expanded.entries()].map(([id, expansion]) => ({
+      block: byId.get(id),
+      score: EXPANDED_SCORE,
+      needles: [expansion.folded],
+      via: expansion,
+    })),
+  ].filter((entry): entry is Ranked => entry.block !== undefined);
 
   const hits: SearchHit[] = [];
   const seen = new Set<string>();
@@ -469,7 +531,7 @@ export async function search(
     const hitKind = hitKindOf(entry.block, item);
     const start =
       entry.block.start !== null
-        ? await refineStart(item.slug, entry.block.start, needles)
+        ? await refineStart(item.slug, entry.block.start, entry.needles)
         : null;
 
     // Ein Beitrag soll die Liste nicht mit zwanzig Stellen zulaufen lassen:
@@ -490,7 +552,8 @@ export async function search(
       anchor: entry.block.anchor,
       chapterTitle: entry.block.chapterTitle,
       attachment: entry.block.attachment ?? null,
-      snippet: makeSnippet(entry.block.text, needles),
+      snippet: makeSnippet(entry.block.text, entry.needles),
+      via: entry.via,
       /*
        * Ein Treffer im Anhang führt zum Beitrag; der Anhang selbst wird in
        * der Trefferzeile genannt. Direkt auf die PDF-Adresse zu verweisen
@@ -507,9 +570,15 @@ export async function search(
 
   return {
     hits,
-    total: scores.size,
+    total: direct.size + expanded.size,
     tookMs: Date.now() - startedAt,
     degraded: status.state === "abgebrochen",
+    // Nur die Erweiterungen nennen, die wirklich etwas gefunden haben.
+    expansions: expansions.filter((expansion) =>
+      hits.some((hit) => hit.via?.folded === expansion.folded),
+    ),
     status,
   };
 }
+
+export type { Expansion };

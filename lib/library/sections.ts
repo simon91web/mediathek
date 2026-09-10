@@ -18,6 +18,8 @@ export const BLOCK_NAMES = [
   "kapitelzusammenfassungen",
   "bezuege",
   "anhaenge",
+  /** Nur in themen/<slug>.md: die einzelnen Stellen zum Thema. */
+  "fundstellen",
 ] as const;
 
 export type BlockName = (typeof BLOCK_NAMES)[number];

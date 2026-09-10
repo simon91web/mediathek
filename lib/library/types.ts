@@ -16,7 +16,7 @@ type ChapterBase = {
   /** 0-basiert, nach Sortierung. */
   index: number;
   title: string;
-  /** Zeile im Markdown-Body, 1-basiert. Für Fehlermeldungen und Editor. */
+  /** Zeile in der DATEI, 1-basiert (der Kopf zählt mit). Für Meldungen. */
   sourceLine: number;
   /** Aus dem Block "kapitelzusammenfassungen", per Zeitmarke bzw. Titel zugeordnet. */
   summary: string | null;
@@ -72,6 +72,22 @@ export type Reference = {
   target: LinkTarget;
   /** Eine Zeile Begründung, direkt anzeigbar. */
   note: string;
+  /** Zeile in der DATEI, 1-basiert. */
+  sourceLine: number;
+};
+
+/**
+ * Eine Fundstelle: ein Verweis auf eine Stelle irgendwo in der Bibliothek,
+ * mit einer Zeile Begründung. Dieselbe Form trägt die Fundstellenliste einer
+ * Themenseite und den Eintrag einer Sammlung — der Unterschied liegt allein
+ * darin, wer sie ordnet.
+ */
+export type Spot = {
+  slug: Slug;
+  target: LinkTarget;
+  /** Eine Zeile, direkt anzeigbar. Darf leer sein. */
+  note: string;
+  /** Zeile in der DATEI, 1-basiert. */
   sourceLine: number;
 };
 
@@ -98,7 +114,13 @@ export type ProblemKind =
   | "datei"
   | "transkript";
 
-/** Ein Hinweis, der dem Nutzer auf Deutsch angezeigt wird. */
+/**
+ * Ein Hinweis, der dem Nutzer auf Deutsch angezeigt wird.
+ *
+ * `line` zählt in der DATEI, nicht im Text nach dem Kopf — nur so lässt sich
+ * die genannte Zeile in einem Editor aufschlagen. Die Teil-Parser rechnen
+ * intern im Body; verschoben wird einmal am Ende (siehe ./frontmatter).
+ */
 export type ItemProblem = {
   kind: ProblemKind;
   message: string;
@@ -164,6 +186,11 @@ export type Item = {
   changedAtMs: number;
 };
 
+/**
+ * Ein Thema ist der Einstieg in ein Wissensgebiet: geordnete ganze Beiträge
+ * und einzelne Fundstellen quer durch alles. Bewusst kein Kurs — niemand
+ * muss etwas durcharbeiten.
+ */
 export type Topic = {
   slug: Slug;
   title: string;
@@ -172,10 +199,40 @@ export type Topic = {
   itemSlugs: Slug[];
   /** Genannt, aber nicht in der Bibliothek vorhanden. */
   missingSlugs: Slug[];
+  /**
+   * Andere Wörter für dasselbe, wie geschrieben. Sie erweitern die
+   * Suchanfrage: wer "Balancing" sucht, findet die Stelle, an der
+   * "Zellspannung" gesagt wurde.
+   */
+  synonyms: string[];
+  /** Einzelne Stellen aus dem Block "fundstellen". */
+  spots: Spot[];
   tags: string[];
   changedAtMs: number;
   problems: ItemProblem[];
 };
+
+/**
+ * Eine Sammlung ist ein geordneter Weg durch Ausschnitte — der Themenpfad.
+ * Mit `query` wird sie zur gespeicherten Suche, die bei jedem Aufruf neu
+ * läuft, statt eine Liste festzuschreiben.
+ */
+export type Collection = {
+  slug: Slug;
+  title: string;
+  description: string;
+  /** Reihenfolge der Datei = Reihenfolge der Wiedergabe. */
+  entries: Spot[];
+  missingSlugs: Slug[];
+  /** Aus "suche:" im Kopf. null heißt: eine feste Liste. */
+  query: string | null;
+  tags: string[];
+  changedAtMs: number;
+  problems: ItemProblem[];
+};
+
+/** Eine Fundstelle mit dem Thema, aus dem sie stammt. */
+export type TopicSpot = { topic: Topic; spot: Spot };
 
 export type WatchMode = "recursive" | "flach" | "poll" | "aus";
 
@@ -190,8 +247,15 @@ export type LibraryState = {
   bySlug: Map<Slug, Item>;
   topics: Topic[];
   topicsBySlug: Map<Slug, Topic>;
-  /** Welche Themen enthalten diesen Beitrag. */
+  /** Welche Themen enthalten diesen Beitrag als ganzen. */
   topicsByItem: Map<Slug, Topic[]>;
+  /**
+   * Welche Themen haben eine Fundstelle IN diesem Beitrag. Daraus entsteht
+   * "Themen in diesem Beitrag" — abgeleitet, nicht zweitgeschrieben.
+   */
+  topicSpotsByItem: Map<Slug, TopicSpot[]>;
+  collections: Collection[];
+  collectionsBySlug: Map<Slug, Collection>;
   /** Rückverweise: berechnet, nicht geschrieben. */
   backlinks: Map<Slug, Reference[]>;
   tags: Array<{ tag: string; count: number }>;

@@ -5,6 +5,8 @@ import { AlertTriangle } from "lucide-react";
 
 import { MarkdownText } from "@/components/markdown";
 import { ItemCard } from "@/components/media/item-card";
+import { SpotList } from "@/components/media/spot-list";
+import { SectionTitle } from "@/components/ui/basis";
 import { getTopic, getLibrary } from "@/lib/library";
 import { isSlug } from "@/lib/library/slug";
 import { plural } from "@/lib/utils";
@@ -44,8 +46,29 @@ export default async function ThemaPage({
           {topic.title}
         </h1>
         <p className="mt-1 text-sm text-schrift-2">
-          {plural(items.length, "Teil", "Teile")}
+          {/* "0 Teile" wäre bei einer reinen Fundstellenseite nur Lärm. */}
+          {[
+            items.length > 0 ? plural(items.length, "Teil", "Teile") : null,
+            topic.spots.length > 0
+              ? plural(topic.spots.length, "Fundstelle", "Fundstellen")
+              : null,
+          ]
+            .filter(Boolean)
+            .join(" · ") || "noch nichts zugeordnet"}
         </p>
+        {topic.synonyms.length > 0 ? (
+          <p className="mt-2 flex flex-wrap items-baseline gap-1.5 text-xs">
+            <span className="text-schrift-3">Auch genannt:</span>
+            {topic.synonyms.map((synonym) => (
+              <span
+                key={synonym}
+                className="rounded-md bg-grund-3 px-2 py-0.5 text-schrift-2"
+              >
+                {synonym}
+              </span>
+            ))}
+          </p>
+        ) : null}
         {topic.description ? (
           <div className="prosa mt-3 max-w-prose text-[15px]">
             <MarkdownText>{topic.description}</MarkdownText>
@@ -68,21 +91,35 @@ export default async function ThemaPage({
         </p>
       ) : null}
 
-      <ol className="space-y-4">
-        {items.map((item, index) => (
-          <li key={item.slug} className="flex gap-4">
-            <span
-              aria-hidden
-              className="mt-1 grid size-7 shrink-0 place-items-center rounded-full border border-rand bg-grund-2 text-xs font-medium tabular-nums text-schrift-2"
-            >
-              {index + 1}
-            </span>
-            <div className="min-w-0 flex-1 sm:max-w-sm">
-              <ItemCard item={item} />
-            </div>
-          </li>
-        ))}
-      </ol>
+      {items.length > 0 ? (
+        <section>
+          <SectionTitle hint="in dieser Reihenfolge">Beiträge</SectionTitle>
+          <ol className="space-y-4">
+            {items.map((item, index) => (
+              <li key={item.slug} className="flex gap-4">
+                <span
+                  aria-hidden
+                  className="mt-1 grid size-7 shrink-0 place-items-center rounded-full border border-rand bg-grund-2 text-xs font-medium tabular-nums text-schrift-2"
+                >
+                  {index + 1}
+                </span>
+                <div className="min-w-0 flex-1 sm:max-w-sm">
+                  <ItemCard item={item} />
+                </div>
+              </li>
+            ))}
+          </ol>
+        </section>
+      ) : null}
+
+      {topic.spots.length > 0 ? (
+        <section>
+          <SectionTitle hint="einzelne Stellen quer durch die Bibliothek">
+            Fundstellen
+          </SectionTitle>
+          <SpotList spots={topic.spots} bySlug={library.bySlug} />
+        </section>
+      ) : null}
 
       <p className="text-sm">
         <Link href="/themen" className="text-akzent hover:underline">

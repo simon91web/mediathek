@@ -2,7 +2,10 @@
 
 import { revalidatePath } from "next/cache";
 
-import { getFeatures, invalidateFeatures } from "@/lib/features";
+import { installClaudeFiles } from "@/lib/claude/install";
+import { launchClaude } from "@/lib/claude/launch";
+import type { ClaudeCommand } from "@/lib/claude/launch";
+import { assertAuthorMode, getFeatures, invalidateFeatures, NotAllowedError } from "@/lib/features";
 import { reloadLibrary } from "@/lib/library";
 import { invalidateTranscripts } from "@/lib/library/transcript";
 import { invalidateSearchIndex } from "@/lib/search";
@@ -167,5 +170,75 @@ export async function setWhisperAction(input: {
       (input.language.trim()
         ? ` und der Sprache ${input.language.trim()}.`
         : " und automatischer Spracherkennung."),
+  };
+}
+
+/*
+ * Die beiden Vorgänge, die Claude Code betreffen. Beide beginnen mit
+ * assertAuthorMode: ein Zuschauer startet keine Prozesse und schreibt nicht
+ * in die Bibliothek.
+ */
+
+/** Legt .claude/ in der Bibliothek an. Vorhandene Dateien bleiben unberührt. */
+export async function installClaudeFilesAction(): Promise<ActionResult> {
+  try {
+    await assertAuthorMode();
+  } catch (error) {
+    return {
+      ok: false,
+      error:
+        error instanceof NotAllowedError
+          ? error.message
+          : "Das ist hier nicht möglich.",
+    };
+  }
+
+  const result = await installClaudeFiles();
+  if (!result.ok) return { ok: false, error: result.error ?? "Fehlgeschlagen." };
+
+  revalidatePath("/einstellungen");
+  if (result.created.length === 0) {
+    return {
+      ok: true,
+      message:
+        "Alles schon da — die vorhandenen Dateien wurden nicht angetastet.",
+    };
+  }
+  return {
+    ok: true,
+    message:
+      `${result.created.length} Dateien angelegt` +
+      (result.kept.length > 0
+        ? `, ${result.kept.length} vorhandene unberührt gelassen.`
+        : ".") +
+      " Ein „claude“ im Bibliotheksordner findet sie von selbst.",
+  };
+}
+
+/**
+ * Die Befehle, die die ganze Bibliothek betreffen: /themen, /glossar,
+ * /kapitel-alle. Öffnet ein sichtbares Fenster — absichtlich, man muss
+ * mitlesen, was in die eigenen Dateien geschrieben wird.
+ */
+export async function startLibraryClaudeAction(
+  command: ClaudeCommand,
+): Promise<ActionResult> {
+  try {
+    await assertAuthorMode();
+  } catch (error) {
+    return {
+      ok: false,
+      error:
+        error instanceof NotAllowedError
+          ? error.message
+          : "Das ist hier nicht möglich.",
+    };
+  }
+
+  const result = await launchClaude(command);
+  if (!result.ok) return { ok: false, error: result.error };
+  return {
+    ok: true,
+    message: `Ein Fenster mit „${result.prompt}“ ist offen.`,
   };
 }

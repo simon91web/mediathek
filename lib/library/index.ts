@@ -4,12 +4,15 @@ import { readCache, writeCache } from "./cache";
 import { scanLibrary } from "./scan";
 import { store } from "./store";
 import type {
+  Collection,
   Topic,
+  TopicSpot,
   Item,
   LibraryState,
   MediaKind,
   Reference,
   Slug,
+  Spot,
 } from "./types";
 
 /*
@@ -131,10 +134,27 @@ export async function getBacklinks(slug: string): Promise<Reference[]> {
   return library.backlinks.get(slug) ?? [];
 }
 
-/** Die Themen, in denen dieser Beitrag vorkommt. */
+/** Die Themen, in denen dieser Beitrag als ganzer vorkommt. */
 export async function getTopicsForItem(slug: string): Promise<Topic[]> {
   const library = await getLibrary();
   return library.topicsByItem.get(slug) ?? [];
+}
+
+/**
+ * Die Fundstellen, die Themenseiten IN diesem Beitrag benannt haben — nach
+ * Zeit geordnet. Daraus entsteht "Themen in diesem Beitrag", ohne dass
+ * irgendwo eine zweite Liste gepflegt werden müsste.
+ */
+export async function getTopicSpotsForItem(
+  slug: string,
+): Promise<TopicSpot[]> {
+  const library = await getLibrary();
+  return library.topicSpotsByItem.get(slug) ?? [];
+}
+
+export async function getCollection(slug: string): Promise<Collection | null> {
+  const library = await getLibrary();
+  return library.collectionsBySlug.get(slug) ?? null;
 }
 
 export type ItemFilter = {
@@ -204,4 +224,13 @@ export async function listItems(
   return { items: items.slice(offset, offset + limit), total };
 }
 
-export type { Topic, Item, LibraryState, Reference, Slug };
+export type {
+  Collection,
+  Topic,
+  TopicSpot,
+  Item,
+  LibraryState,
+  Reference,
+  Slug,
+  Spot,
+};

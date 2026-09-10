@@ -35,7 +35,10 @@ Bibliotheksordner, den der Nutzer weitergibt:
   medien/<slug>/video.mp4|audio.m4a ← bestimmt die Art; fehlt sie, ist es Text
   medien/<slug>/transcript.json|.vtt, poster.jpg   ← generiert
   medien/<slug>/anhaenge/**         ← PDFs, Infografiken, Präsentationen
-  themen/<slug>.md                  ← geordnete Verweise
+  themen/<slug>.md                  ← Wissensgebiete: Synonyme + Fundstellen
+  sammlungen/<slug>.md              ← geordnete Wege durch Ausschnitte
+  glossar.txt                       ← Fachbegriffe; speist Whispers hotwords
+  .claude/                          ← die Bibliothek IST ein Claude-Code-Projekt
   library.json                      ← GENERIERTER Index, jederzeit löschbar
 ```
 
@@ -63,11 +66,31 @@ Themas sind. Bewusst **kein** Kurs: die Mediathek ist auch Simons eigene
 Wissensdatenbank, nicht nur Einarbeitungsmaterial, und niemand muss etwas
 „durcharbeiten".
 
-Daraus folgt eine Festlegung für Etappe 3: es gibt **keinen zweiten Ordner**
-für Wissensgebiete. Dieselbe Themendatei bekommt dort zusätzlich Synonyme
-(die die Suchanfrage erweitern) und einzelne Fundstellen
-(`[[slug#12:40]]`, `[[slug#anker]]`) neben den ganzen Beiträgen. Wer eine
-Parallelstruktur anlegt, baut die Verweise doppelt.
+Deshalb gibt es **keinen zweiten Ordner** für Wissensgebiete. Eine
+Themendatei trägt zwei Ebenen, und der Schnitt zwischen ihnen ist der
+Marker-Block:
+
+- **Außerhalb** der Marker stehen ganze Beiträge in der Reihenfolge, in der
+  man sie ansehen würde — handgeschrieben.
+- **Im** Block `fundstellen` stehen einzelne Stellen (`[[slug#12:40]]`,
+  `[[slug#anker]]`) quer durch alles — das Schreibfenster für Claude Code.
+
+Wird das verwechselt, zählt eine Fundstelle als ganzer Beitrag und die
+Themenseite behauptet eine Reihenfolge, die niemand so gemeint hat. Dafür
+gibt es `lib/library/topics.test.ts`.
+
+Die **Synonyme** im Kopf (`synonyme: [Balancing, Zellprüfer]`) sind kein
+Beiwerk: sie erweitern die Suchanfrage und sind der einzige Weg dieser
+Mediathek zu bedeutungsnaher Suche. Anders als Schlagworte werden sie NICHT
+zu Slugs normalisiert — sie werden angezeigt.
+
+**Sammlungen** (`sammlungen/<slug>.md`) sind die andere Hälfte: ein
+geordneter Weg durch Ausschnitte, abspielbar über Beitragsgrenzen hinweg.
+Steht `suche:` im Kopf, wird daraus eine gespeicherte Suche, die bei jedem
+Aufruf neu läuft. Der Unterschied ist gewollt: eine feste Liste ist eine
+Aussage, eine gespeicherte Suche eine Frage. Sammlungen haben bewusst
+**keinen** Marker-Block — sie sind eine Entscheidung ihres Autors, nichts,
+was ein Sprachmodell umsortieren soll.
 
 ## Der Vertrag mit Claude Code
 
@@ -88,7 +111,49 @@ Kapitel, Zusammenfassungen und Bezüge trägt Claude Code extern in
 
 **Rückverweise werden berechnet, nicht geschrieben** (`lib/library/scan.ts`).
 Ein Bezug wird an einer Stelle notiert und erscheint auf beiden Beiträgen;
-Claude Code muss keine Beziehung doppelt pflegen.
+Claude Code muss keine Beziehung doppelt pflegen. Dasselbe gilt für „Themen
+in diesem Beitrag": das kommt aus den Fundstellen der Themenseiten
+(`topicSpotsByItem`), nicht aus einer zweiten Liste in `beitrag.md`.
+
+**Der Vertrag selbst liegt IN der Bibliothek**, nicht im Programm:
+`.claude/CLAUDE.md` und `.claude/commands/*.md`. Er wandert mit dem Ordner —
+liegt er auf dem Netzlaufwerk, gelten beim Kollegen dieselben Regeln. Die
+Vorlagen dafür stehen unter `vorlagen/bibliothek-claude/`; kopiert werden sie
+von `lib/claude/install.ts`, das **vorhandene Dateien nie überschreibt**
+(eine angepasste Regel ist der Teil, den man anpasst).
+
+## Der Knopf, der einen Prozess startet
+
+`lib/claude/launch.ts` + `scripts/kapitel-starten.ps1` — die gefährlichste
+Stelle der Anwendung, und ein bewusst **löschbares Paar**: wer beides
+entfernt, verliert einen Knopf. Der eigentliche Weg bleibt der Handbetrieb
+(`cd S:\Mediathek`, `claude`, `/kapitel akku-pruefen`), und er steht auch so
+in der Oberfläche.
+
+Vier Riegel, jeder für sich ausreichend:
+
+1. **Autorenmodus** (`assertAuthorMode`). Im Viewer-Paket nicht einschaltbar.
+2. **Server Action**, kein Route Handler: Next prüft dabei Origin gegen Host.
+3. **Positivlisten.** Befehl gegen `CLAUDE_COMMANDS`, Slug gegen
+   `SLUG_PATTERN`, gegen den Index UND gegen das Dateisystem
+   (`medien/<slug>/beitrag.md` muss existieren). Im PS-Skript zusätzlich
+   `ValidateSet` und `ValidatePattern` — erst deshalb ist es vertretbar, für
+   den `claude`-Aufruf eine Kommandozeile zu bauen: dort kann kein
+   Anführungszeichen und kein Semikolon stehen. Nie `shell: true`.
+4. **Zehn Sekunden Sperre** zwischen zwei Starts, jeder Start ins
+   maschinenlokale `claude-starts.log`.
+
+Dazu `proxy.ts` mit einer Host-Positivliste gegen DNS-Rebinding (die
+Datei hieß bis Next 16.2 `middleware.ts`; `next build` weist auf die
+Umbenennung hin): die
+Bindung auf 127.0.0.1 allein genügt nicht, weil eine fremde Seite einen
+eigenen Namen auf 127.0.0.1 auflösen lassen kann. Geprüft wird der **Name**,
+nicht die Adresse.
+
+Das Fenster ist **absichtlich sichtbar** (`Start-Process` mit `-NoExit`):
+man muss mitlesen, was in die eigenen Dateien geschrieben wird. Der
+Node-Aufruf selbst läuft mit `windowsHide`, sonst blitzte eine leere Konsole
+auf. Vorführen lässt sich das Skript gefahrlos mit `-WhatIf`.
 
 ## Was beim Anfassen leicht kaputtgeht
 
@@ -113,6 +178,13 @@ Claude Code muss keine Beziehung doppelt pflegen.
   Blob-URL müsste freigegeben werden, und im Strict Mode laufen Effekte
   doppelt — die Adresse wäre danach ungültig und die Zeitleiste ohne Kapitel,
   mit einem `ERR_FILE_NOT_FOUND`, das nach einem Netzwerkfehler aussieht.
+- **Der Ausschnitt-Stopp läuft UNGEDROSSELT.** `publish` meldet die Zeit alle
+  250 ms an den Store, `checkStop` wird dagegen bei jedem `timeupdate`
+  gerufen (`components/player/media-view.tsx`). Mit der Drosselung liefe ein
+  Ausschnitt bis zu eine Viertelsekunde über sein Ende hinaus, und genau das
+  hört man. `setStopAt` benachrichtigt dafür NICHT — es ist eine Einstellung,
+  kein Zustand; sonst löste der Effect, der es setzt, ein Neurendern aus, das
+  ihn wieder aufruft.
 - **Kein `setState` in einem Effect, um `localStorage` zu lesen.** Der Lint
   verbietet es zu Recht; das Werkzeug ist `useSyncExternalStore` mit einem
   Server-Snapshot (siehe `watch-progress-bar.tsx`). Der Selektor muss einen
@@ -122,6 +194,16 @@ Claude Code muss keine Beziehung doppelt pflegen.
   Beitrag unerreichbar machen. Deshalb liegen `/anlegen` und `/importieren`
   auf oberster Ebene, und `RESERVED_NAMES` in `lib/library/slug.ts` sperrt
   die Namen zusätzlich.
+- **Zeilennummern in Hinweisen zählen in der DATEI, nicht im Body.** Die
+  Teil-Parser (`chapters.ts`, `sections.ts`, `wikilink.ts`) bekommen den Text
+  nach dem Frontmatter-Zaun und zählen darin ab 1 — richtig so, ihre
+  tabellengetriebenen Tests hängen daran. Verschoben wird **einmal am Ende**
+  in `beitrag-md.ts`, `topics.ts` und `collections.ts` (`lineOffset`,
+  `shiftProblems`, `shiftSourceLines` in `frontmatter.ts`). Wer eine neue
+  Quelle von Hinweisen anschließt, muss sie in den richtigen der beiden Töpfe
+  legen: die Hinweise aus `splitFrontmatter`/`parseItemFrontmatter` zählen
+  schon in der Datei und dürfen NICHT mitverschoben werden. Festgenagelt in
+  `lib/library/beitrag-md.test.ts`.
 - **`slugify` ersetzt deutsche Umlaute VOR der NFD-Zerlegung.** Andernfalls
   wird aus „ü" ein „u", und „Überflug" hieße `uberflug` statt `ueberflug`.
 
@@ -167,7 +249,7 @@ Nachgemessen auf dieser Maschine, und deshalb so gebaut:
 
 ## Suche
 
-Zwei Kanäle in `lib/search/index.ts`, und das ist keine Umständlichkeit:
+Drei Kanäle in `lib/search/index.ts`, und das ist keine Umständlichkeit:
 
 1. **MiniSearch** für Rangfolge und Präfixe. Findet „vorflug" in
    „Vorflugkontrolle", aber **nicht** „kontrolle" — MiniSearch kennt keine
@@ -175,6 +257,24 @@ Zwei Kanäle in `lib/search/index.ts`, und das ist keine Umständlichkeit:
 2. **Ein wörtlicher Teilstring-Durchgang** über dieselben Blöcke. Schließt die
    Lücke und ist bei Anfragen in Anführungszeichen der einzige zuständige
    Kanal.
+3. **Die Synonyme der Themenseiten** (`lib/search/synonyms.ts`). Wer
+   „Balancing" sucht, findet die Stelle, an der „Zellspannung" gesagt wurde
+   — bedeutungsnahe Suche ohne Embeddings und ohne eine Zusatzabhängigkeit
+   beim Kollegen.
+
+Zum dritten Kanal drei Festlegungen, die nicht verhandelbar sind:
+
+- **Ein erweiterter Treffer wird als solcher gekennzeichnet** („gefunden über
+  ‚Zellprüfer' aus dem Thema …"), und die Trefferliste sagt, wonach
+  zusätzlich gesucht wurde. Eine stille Erweiterung wäre schlimmer als
+  keine: man hielte den Fremdtreffer für einen eigenen und wüsste nicht,
+  warum das gesuchte Wort im Auszug fehlt.
+- **Direkte Treffer stehen immer über erweiterten**, und zwar durch die
+  Reihenfolge der Liste, nicht durch die Punktzahl. Ein MiniSearch-Wert kann
+  klein sein; auf die Zahlen zu hoffen wäre falsch.
+- **Verglichen wird über ganze Token**, nicht über Teilstrings. Im zweiten
+  Kanal ist die Wortmitte gewollt, hier wäre sie fatal: „Ah" in „fahren"
+  würde eine Gruppe aufziehen und die Liste mit Fremdmaterial fluten.
 
 Weitere Festlegungen:
 
@@ -236,6 +336,15 @@ aber gewollt.
 Nur ein `next dev` je Verzeichnis: läuft schon einer auf Port 3200, scheitert
 der Testlauf mit „Another next dev server is already running".
 
+**Der Claude-Code-Start wird NICHT im Testlauf geprüft** — er öffnet ein
+Fenster auf der Maschine, in dem ein Sprachmodell in die Bibliothek schreibt.
+`e2e/claude.spec.ts` prüft alles davor: die Riegel, die Beschriftungen und
+die Host-Abweisung. Das PS-Skript selbst lässt sich gefahrlos vorführen:
+
+```powershell
+.\scripts\kapitel-starten.ps1 -LibraryDir S:\Mediathek -Command kapitel -Slug akku-grundlagen -WhatIf
+```
+
 **Für Etappe 4 vorgemerkt:** `outputFileTracingExcludes` wirkt unter Turbopack
 (Stand Next 16.3) nicht — der standalone-Build enthält `bibliothek-dev` samt
 Mediendateien, obwohl die Angabe in `next.config.ts` korrekt gesetzt ist. Das
@@ -250,6 +359,7 @@ Mediendatei, kein `tools/` und keine `.env` im Paket liegt.
 | `MEDIATHEK_READONLY=1` | Harter Riegel für das weitergegebene Viewer-Paket: der Autorenmodus lässt sich dann nicht einschalten. |
 | `MEDIATHEK_FFMPEG_DIR` | Verzeichnis mit `ffmpeg.exe` UND `ffprobe.exe`. Immer das **Verzeichnis** — der übliche Windows-Build ist ein shared build mit sieben DLLs daneben. |
 | `MEDIATHEK_POLL_MS` | Poll-Abstand des Beobachters, Standard 30 s. |
+| `MEDIATHEK_HOSTS` | Zusätzlich erlaubte Host-Namen (Komma-getrennt). Ohne sie antwortet die Mediathek nur auf `127.0.0.1` und `localhost` — siehe `proxy.ts`. |
 | `HOSTNAME=127.0.0.1` | Für den Produktionsstart Pflicht: **ohne sie bindet Next standalone auf `0.0.0.0`** und die Mediathek wäre im Firmennetz offen. |
 
 ## Einrichten
@@ -275,5 +385,12 @@ Auftragsschlange mit Ereignisstrom, Kachelbilder (Video: Einzelbild mit
 Schwarzbild-Prüfung, Audio: Wellenform), Textauszug aus PDF-Anhängen,
 Volltextsuche über alles.
 
-Noch offen (siehe Plan): Claude-Code-Brücke und Wissensnetz aus Themenseiten
-und Sammlungen (Etappe 3), portables Viewer-Paket (Etappe 4).
+**Etappe 3:** Themen mit Synonymen und Fundstellen, Sammlungen als
+abspielbare Ausschnittsfolge und als gespeicherte Suche, Synonym-Erweiterung
+der Suche, Claude-Code-Brücke mit dem Vertrag in der Bibliothek,
+Host-Positivliste.
+
+Noch offen (siehe Plan): portables Viewer-Paket (Etappe 4). Dabei zu
+beachten: `scripts/kapitel-starten.ps1` und `vorlagen/bibliothek-claude/`
+müssen ins Paket, sonst fehlt dem Autorenmodus beim Kollegen die halbe
+Brücke.

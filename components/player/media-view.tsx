@@ -1,12 +1,7 @@
 "use client";
 
 import { useEffect, useMemo, useRef, useState } from "react";
-import {
-  MediaPlayer,
-  MediaProvider,
-  Poster,
-  Track,
-} from "@vidstack/react";
+import { MediaPlayer, MediaProvider, Poster, Track } from "@vidstack/react";
 import type { MediaPlayerInstance } from "@vidstack/react";
 import {
   DefaultAudioLayout,
@@ -86,6 +81,7 @@ export function MediaView({
   chapters,
   durationSeconds,
   startAt,
+  stopAt,
 }: {
   slug: string;
   title: string;
@@ -97,6 +93,8 @@ export function MediaView({
   durationSeconds: number | null;
   /** Sprungziel aus ?t= oder aus der gemerkten Position. */
   startAt: number | null;
+  /** Ende eines Ausschnitts aus ?bis= — dort wird angehalten. */
+  stopAt: number | null;
 }) {
   const store = usePlayerStore();
   const player = useRef<MediaPlayerInstance>(null);
@@ -131,6 +129,12 @@ export function MediaView({
   useEffect(() => {
     if (startAt !== null && startAt > 0) store?.seekTo(startAt);
   }, [store, startAt]);
+
+  // Das Ende des Ausschnitts ist eine Einstellung des Stores, kein Zustand.
+  useEffect(() => {
+    store?.setStopAt(stopAt);
+    return () => store?.setStopAt(null);
+  }, [store, stopAt]);
 
   // Den Store mit dem Player verbinden.
   useEffect(() => {
@@ -186,6 +190,8 @@ export function MediaView({
           });
         }}
         onTimeUpdate={({ currentTime }) => {
+          // Ungedrosselt: ein Ausschnitt soll auf die Zehntelsekunde enden.
+          store?.checkStop(currentTime);
           const now = performance.now();
           if (now - lastPublished.current >= PUBLISH_INTERVAL_MS) {
             lastPublished.current = now;
@@ -217,8 +223,7 @@ export function MediaView({
            * gemeldet, aber die Meldung hier ist die, die hilft.
            */
           setFailed(
-            detail?.message ??
-              "Die Datei konnte nicht abgespielt werden.",
+            detail?.message ?? "Die Datei konnte nicht abgespielt werden.",
           );
         }}
       >
@@ -254,8 +259,8 @@ export function MediaView({
       {failed ? (
         <p className="border-t border-rand bg-warnung-grund p-3 text-sm text-warnung">
           {failed} Häufigste Ursache: das Video ist in H.265/HEVC kodiert, das
-          Chrome und Edge nicht ohne Zusatz abspielen. Eine Web-Fassung in
-          H.264 schafft Abhilfe.
+          Chrome und Edge nicht ohne Zusatz abspielen. Eine Web-Fassung in H.264
+          schafft Abhilfe.
         </p>
       ) : null}
     </div>
