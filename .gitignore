@@ -1,0 +1,19 @@
+node_modules/
+.next/
+out/
+build/
+dist/
+next-env.d.ts
+*.tsbuildinfo
+
+# Entwicklungsbibliothek und Testreste
+bibliothek-dev/
+e2e/.tmp-bibliothek/
+test-results/
+playwright-report/
+
+# Python-Umgebung fuer die Transkription (Etappe 2)
+tools/.venv/
+
+.env
+.env.local

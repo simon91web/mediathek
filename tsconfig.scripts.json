@@ -1,0 +1,15 @@
+{
+  /*
+   * Für die tsx-Skripte (doktor, fixtures). Sie laufen in reinem Node, nicht
+   * in Next — dort wirft das echte Paket "server-only". Es wird deshalb auf
+   * denselben leeren Stub gemappt, den auch Vitest benutzt, damit
+   * lib/library/index.ts seinen Schutz behalten kann.
+   */
+  "extends": "./tsconfig.json",
+  "compilerOptions": {
+    "paths": {
+      "@/*": ["./*"],
+      "server-only": ["./test/stubs/empty.ts"]
+    }
+  }
+}

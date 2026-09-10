@@ -1,0 +1,167 @@
+@import "tailwindcss";
+@import "tw-animate-css";
+
+/*
+ * Farben und Maße der Mediathek. Das Grün ist das der UNITECHNICS-Oberflächen,
+ * damit sich die Mediathek neben den anderen Werkzeugen nicht fremd anfühlt.
+ */
+@theme {
+  --color-akzent: #308964;
+  --color-akzent-hell: #3fa77a;
+  --color-akzent-dunkel: #24664a;
+
+  --color-grund: #ffffff;
+  --color-grund-2: #f6f7f6;
+  --color-grund-3: #eceeec;
+  --color-rand: #dcdfdc;
+  --color-schrift: #161c19;
+  --color-schrift-2: #5c6560;
+  --color-schrift-3: #8a938d;
+  --color-warnung: #a8620a;
+  --color-warnung-grund: #fdf5ea;
+  --color-fehler: #b3261e;
+}
+
+@media (prefers-color-scheme: dark) {
+  @theme {
+    --color-grund: #12160f;
+    --color-grund-2: #1a1f19;
+    --color-grund-3: #232922;
+    --color-rand: #333a32;
+    --color-schrift: #eef1ec;
+    --color-schrift-2: #a9b2ab;
+    --color-schrift-3: #78817a;
+    --color-warnung: #e0a458;
+    --color-warnung-grund: #2a2213;
+    --color-fehler: #f2b8b5;
+  }
+}
+
+@layer base {
+  html {
+    color-scheme: light dark;
+  }
+
+  body {
+    background-color: var(--color-grund);
+    color: var(--color-schrift);
+    font-family:
+      ui-sans-serif, system-ui, "Segoe UI", -apple-system, sans-serif;
+    -webkit-font-smoothing: antialiased;
+  }
+
+  /*
+   * Ankersprünge in Textbeiträgen: ohne das verschwindet die angesprungene
+   * Überschrift hinter der Kopfzeile.
+   */
+  [id] {
+    scroll-margin-top: 5rem;
+  }
+
+  ::selection {
+    background-color: color-mix(in oklab, var(--color-akzent) 30%, transparent);
+  }
+
+  :focus-visible {
+    outline: 2px solid var(--color-akzent);
+    outline-offset: 2px;
+  }
+}
+
+/*
+ * Gerenderter Markdown-Text. Bewusst von Hand statt über ein Plugin: es sind
+ * zwanzig Zeilen, und so hängt das Aussehen der Beschreibung nicht an einer
+ * weiteren Abhängigkeit.
+ */
+@layer components {
+  .prosa {
+    line-height: 1.65;
+  }
+  .prosa > * + * {
+    margin-top: 0.85em;
+  }
+  .prosa h1,
+  .prosa h2,
+  .prosa h3,
+  .prosa h4 {
+    font-weight: 600;
+    line-height: 1.3;
+    margin-top: 1.6em;
+    scroll-margin-top: 5rem;
+  }
+  .prosa h1 {
+    font-size: 1.5rem;
+  }
+  .prosa h2 {
+    font-size: 1.25rem;
+  }
+  .prosa h3 {
+    font-size: 1.05rem;
+  }
+  .prosa a {
+    color: var(--color-akzent);
+    text-decoration: underline;
+    text-underline-offset: 2px;
+  }
+  .prosa ul,
+  .prosa ol {
+    padding-left: 1.4em;
+  }
+  .prosa ul {
+    list-style: disc;
+  }
+  .prosa ol {
+    list-style: decimal;
+  }
+  .prosa li + li {
+    margin-top: 0.3em;
+  }
+  .prosa code {
+    background-color: var(--color-grund-3);
+    border-radius: 0.25rem;
+    font-size: 0.9em;
+    padding: 0.1em 0.35em;
+  }
+  .prosa pre {
+    background-color: var(--color-grund-3);
+    border-radius: 0.5rem;
+    overflow-x: auto;
+    padding: 0.85rem 1rem;
+  }
+  .prosa pre code {
+    background: none;
+    padding: 0;
+  }
+  .prosa blockquote {
+    border-left: 3px solid var(--color-rand);
+    color: var(--color-schrift-2);
+    padding-left: 1rem;
+  }
+  .prosa table {
+    border-collapse: collapse;
+    display: block;
+    overflow-x: auto;
+    width: 100%;
+  }
+  .prosa th,
+  .prosa td {
+    border: 1px solid var(--color-rand);
+    padding: 0.4rem 0.6rem;
+    text-align: left;
+  }
+  .prosa img {
+    border-radius: 0.5rem;
+    max-width: 100%;
+  }
+}
+
+/*
+ * Vidstack bringt eigene Stile mit; hier nur die Anpassungen, die den Player
+ * in die Oberfläche einpassen.
+ */
+.vds-time-slider .vds-slider-track-fill {
+  background-color: var(--color-akzent);
+}
+.vds-chapter-title {
+  font-weight: 500;
+}
