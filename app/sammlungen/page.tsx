@@ -2,14 +2,16 @@ import type { Metadata } from "next";
 import Link from "next/link";
 import { ListOrdered, Search } from "lucide-react";
 
+import { NewCollectionForm } from "@/components/library/new-collection-form";
 import { Leer } from "@/components/ui/basis";
+import { getFeatures } from "@/lib/features";
 import { getLibrary } from "@/lib/library";
 import { plural } from "@/lib/utils";
 
 export const metadata: Metadata = { title: "Sammlungen" };
 
 export default async function SammlungenPage() {
-  const library = await getLibrary();
+  const [library, features] = await Promise.all([getLibrary(), getFeatures()]);
 
   return (
     <div className="space-y-6">
@@ -21,6 +23,8 @@ export default async function SammlungenPage() {
         </p>
       </div>
 
+      {features.authorMode ? <NewCollectionForm /> : null}
+
       {library.collections.length === 0 ? (
         <Leer titel="Noch keine Sammlungen">
           Eine Sammlung ist eine Datei in{" "}
@@ -29,10 +33,9 @@ export default async function SammlungenPage() {
           <code className="rounded bg-grund-3 px-1">
             [[akku-grundlagen#00:15-00:50]] Messen mit dem Zellprüfer
           </code>
-          . Steht stattdessen <code className="rounded bg-grund-3 px-1">
-            suche:
-          </code>{" "}
-          im Kopf, wird sie zur gespeicherten Suche.
+          . Steht stattdessen{" "}
+          <code className="rounded bg-grund-3 px-1">suche:</code> im Kopf, wird
+          sie zur gespeicherten Suche.
         </Leer>
       ) : (
         <ul className="grid grid-cols-1 gap-3 sm:grid-cols-2 lg:grid-cols-3">

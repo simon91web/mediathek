@@ -26,7 +26,14 @@ export type Features = {
   ffmpegDir: string | null;
   /** Python-Umgebung für die Transkription. */
   python: ToolState;
-  claude: ToolState;
+  /**
+   * Das eingestellte KI-Kommandozeilenwerkzeug — voreingestellt "claude",
+   * frei wählbar. Geprüft wird der Name aus den Einstellungen, nicht ein
+   * fest verdrahtetes Programm.
+   */
+  assistant: ToolState;
+  /** Der geprüfte Programmname, für Meldungen. */
+  assistantCommand: string;
 };
 
 type Cache = { at: number; features: Features };
@@ -75,10 +82,16 @@ export async function getFeatures(force = false): Promise<Features> {
   const settings = await readSettings();
   const readonly = isReadonly();
 
-  const [ffmpeg, python, claude] = await Promise.all([
+  const [ffmpeg, python, assistant] = await Promise.all([
     locateFfmpeg(),
     findPythonEnv(),
-    probe("claude", ["--version"]),
+    /*
+     * Der Name kommt aus den Einstellungen und ist dort gegen eine enge
+     * Grammatik geprüft (isToolName): keine Pfade, keine Leerzeichen. Ein
+     * beliebiger String aus einer verbogenen settings.json landet hier also
+     * nicht in einem spawn.
+     */
+    probe(settings.assistantCommand, ["--version"]),
   ]);
 
   const features: Features = {
@@ -94,7 +107,8 @@ export async function getFeatures(force = false): Promise<Features> {
     ffmpeg: ffmpeg ? "ok" : "fehlt",
     ffmpegDir: ffmpeg?.dir ?? null,
     python: python ? "ok" : "fehlt",
-    claude: claude ? "ok" : "fehlt",
+    assistant: assistant ? "ok" : "fehlt",
+    assistantCommand: settings.assistantCommand,
   };
 
   globalForFeatures.mediathekFeatures = { at: Date.now(), features };

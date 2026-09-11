@@ -231,6 +231,31 @@ export type Collection = {
   problems: ItemProblem[];
 };
 
+/**
+ * Eine beantwortete Frage. Der Chat legt sie ab, das Zusammenfassen räumt
+ * auf — daraus wächst ein FAQ, ohne dass jemand eines pflegen muss.
+ */
+export type Question = {
+  slug: Slug;
+  /** Die Frage, wie sie gestellt wurde. */
+  question: string;
+  /** Dieselbe Frage, anders formuliert — nach dem Zusammenfassen. */
+  alsoAsked: string[];
+  /** Der Antworttext mit den Wikilinks, wie sie dastehen. */
+  answer: string;
+  /** Die Belege aus dem Antworttext, in der Reihenfolge des Auftretens. */
+  spots: Spot[];
+  /** Belegte Beiträge, die es nicht (mehr) gibt. */
+  missingSlugs: Slug[];
+  /** "YYYY-MM-DD" oder null. */
+  askedAt: string | null;
+  /** true, wenn beim Beantworten auch das Internet gelesen wurde. */
+  usedWeb: boolean;
+  tags: string[];
+  changedAtMs: number;
+  problems: ItemProblem[];
+};
+
 /** Eine Fundstelle mit dem Thema, aus dem sie stammt. */
 export type TopicSpot = { topic: Topic; spot: Spot };
 
@@ -256,6 +281,9 @@ export type LibraryState = {
   topicSpotsByItem: Map<Slug, TopicSpot[]>;
   collections: Collection[];
   collectionsBySlug: Map<Slug, Collection>;
+  /** Sortiert: zuletzt gefragt zuerst. */
+  questions: Question[];
+  questionsBySlug: Map<Slug, Question>;
   /** Rückverweise: berechnet, nicht geschrieben. */
   backlinks: Map<Slug, Reference[]>;
   tags: Array<{ tag: string; count: number }>;

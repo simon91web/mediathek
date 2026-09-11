@@ -53,7 +53,8 @@ async function main() {
     `Gelesen in ${library.scanDurationMs} ms — ` +
       `${plural(library.items.length, "Beitrag", "Beiträge")}, ` +
       `${plural(library.topics.length, "Thema", "Themen")}, ` +
-      `${plural(library.collections.length, "Sammlung", "Sammlungen")}`,
+      `${plural(library.collections.length, "Sammlung", "Sammlungen")}, ` +
+      `${plural(library.questions.length, "Frage", "Fragen")}`,
   );
   if (!library.cache.writable && library.cache.note) {
     line(`Index: ${library.cache.note}`);
@@ -201,6 +202,31 @@ async function main() {
       line(`        ! ${problem.kind}: ${problem.message}`);
     }
     problemCount += collection.missingSlugs.length;
+    line();
+  }
+
+  for (const frage of library.questions) {
+    line(
+      `Frage    ${frage.slug.padEnd(27)} ` +
+        `${plural(frage.spots.length, "Beleg", "Belege")}` +
+        (frage.usedWeb ? ", auch aus dem Netz" : ""),
+    );
+    line(`        ${frage.question}`);
+    for (const andere of frage.alsoAsked) {
+      line(`        auch: ${andere}`);
+    }
+    for (const spot of frage.spots) {
+      const missing = frage.missingSlugs.includes(spot.slug);
+      line(
+        `          ${missing ? "FEHLT" : "     "} ` +
+          `${describeTarget(spot.target).padStart(11)}  ${spot.slug}`,
+      );
+    }
+    for (const problem of frage.problems) {
+      problemCount += 1;
+      line(`        ! ${problem.kind}: ${problem.message}`);
+    }
+    problemCount += frage.missingSlugs.length;
     line();
   }
 

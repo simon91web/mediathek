@@ -3,8 +3,10 @@ import Link from "next/link";
 import { Sparkles } from "lucide-react";
 
 import { HitList } from "@/components/search/hit-list";
+import { SaveSearch } from "@/components/search/save-search";
 import { SearchBox } from "@/components/search/search-box";
 import { Leer } from "@/components/ui/basis";
+import { getFeatures } from "@/lib/features";
 import { search } from "@/lib/search";
 import type { MediaKind } from "@/lib/library/types";
 import { plural } from "@/lib/utils";
@@ -24,9 +26,10 @@ export default async function SuchePage({
   const { q, art } = await searchParams;
   const query = (q ?? "").trim();
 
-  const result = query
-    ? await search(query, { kinds: toKinds(art), limit: 60 })
-    : null;
+  const [result, features] = await Promise.all([
+    query ? search(query, { kinds: toKinds(art), limit: 60 }) : null,
+    getFeatures(),
+  ]);
 
   return (
     <div className="mx-auto max-w-3xl space-y-6">
@@ -34,8 +37,8 @@ export default async function SuchePage({
         <h1 className="text-2xl font-semibold tracking-tight">Suche</h1>
         <p className="mt-1 text-sm text-schrift-2">
           Durchsucht Titel, Beschreibungen, Kapitel, Zusammenfassungen,
-          Textbeiträge und das Gesprochene. Ein Treffer im Gesprochenen führt
-          an die Stelle im Beitrag.
+          Textbeiträge und das Gesprochene. Ein Treffer im Gesprochenen führt an
+          die Stelle im Beitrag.
         </p>
       </div>
 
@@ -55,6 +58,15 @@ export default async function SuchePage({
             </p>
             <p className="text-xs text-schrift-3">{result.tookMs} ms</p>
           </div>
+
+          {/*
+            Der Moment, in dem eine Anfrage sich als brauchbar erweist, ist
+            der richtige, um sie zu behalten. Danach legt sie niemand mehr
+            von Hand als Datei an.
+          */}
+          {features.authorMode && result.hits.length > 0 ? (
+            <SaveSearch query={query} />
+          ) : null}
 
           {/*
            * Wonach zusätzlich gesucht wurde. Das steht hier offen, weil die
@@ -98,8 +110,8 @@ export default async function SuchePage({
 
           {result.hits.length === 0 ? (
             <Leer titel="Kein Treffer">
-              Es wird auch in der Wortmitte gesucht, Umlaute sind gleichgültig
-              ({"„aufblaehung“ findet „Aufblähung“"}). Eine Wortgruppe in
+              Es wird auch in der Wortmitte gesucht, Umlaute sind gleichgültig (
+              {"„aufblaehung“ findet „Aufblähung“"}). Eine Wortgruppe in
               Anführungszeichen wird wörtlich gesucht. Fehlt ein Transkript,
               lässt es sich am Beitrag erzeugen.
             </Leer>

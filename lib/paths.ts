@@ -30,12 +30,21 @@ export const LIBRARY_DIR_FIXED = Boolean(
   process.env.MEDIATHEK_LIBRARY_DIR?.trim(),
 );
 
-/** Der Ordner ohne jede Einstellung: Umgebungsvariable, sonst ./bibliothek-dev. */
+/**
+ * Der Ordner ohne jede Einstellung: Umgebungsvariable, sonst ./bibliothek-dev.
+ *
+ * Eine LEERE Variable gilt als nicht gesetzt — und das ist kein Detail:
+ * `MEDIATHEK_LIBRARY_DIR=` ergab mit `??` den leeren String, `path.resolve("")`
+ * ist das Arbeitsverzeichnis, und damit wurde der Programmordner selbst zur
+ * Bibliothek. Genau so kommt die Variable aus einer cmd-Datei, wenn die
+ * bibliothek.txt leer ist. `LIBRARY_DIR_FIXED` oben prüft schon mit `trim()`;
+ * ohne dieselbe Prüfung hier wären die beiden uneins.
+ */
 export function defaultLibraryRoot(): string {
+  const fest = process.env.MEDIATHEK_LIBRARY_DIR?.trim();
   return path.resolve(
     /* turbopackIgnore: true */
-    process.env.MEDIATHEK_LIBRARY_DIR ??
-      path.join(process.cwd(), "bibliothek-dev"),
+    fest || path.join(process.cwd(), "bibliothek-dev"),
   );
 }
 
@@ -84,6 +93,13 @@ export const paths = {
   },
   get collections(): string {
     return path.join(libraryRoot(), "sammlungen");
+  },
+  /**
+   * Eine Frage je Datei, mit ihrer Antwort. Wächst von selbst: der Chat legt
+   * hier ab, was er beantwortet hat.
+   */
+  get questions(): string {
+    return path.join(libraryRoot(), "fragen");
   },
   get glossary(): string {
     return path.join(libraryRoot(), "glossar.txt");

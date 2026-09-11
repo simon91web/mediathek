@@ -1,9 +1,14 @@
 import type { Metadata } from "next";
 import Link from "next/link";
 
+import { HeaderActions, SettingsIcon } from "@/components/header-actions";
 import { LibraryWatcher } from "@/components/library/library-watcher";
 import { NavLinks } from "@/components/nav-links";
 import { SearchBox } from "@/components/search/search-box";
+import { Willkommen } from "@/components/start/willkommen";
+import { getFeatures } from "@/lib/features";
+import { firstRunState } from "@/lib/library/first-run";
+import { readSettings } from "@/lib/settings";
 import "./globals.css";
 
 export const metadata: Metadata = {
@@ -21,14 +26,40 @@ export const metadata: Metadata = {
  */
 export const dynamic = "force-dynamic";
 
-export default function RootLayout({
+export default async function RootLayout({
   children,
 }: Readonly<{ children: React.ReactNode }>) {
+  const [features, settings, ersterStart] = await Promise.all([
+    getFeatures(),
+    readSettings(),
+    firstRunState(),
+  ]);
+
+  /*
+   * Solange nicht feststeht, WO die Bibliothek liegt, gibt es nichts
+   * anzuzeigen — also steht hier auch nichts anderes. Bewusst im Layout und
+   * nicht als Weiterleitung: so führt jede Adresse zum selben Schirm, und es
+   * gibt keine Schleife zwischen „weiterleiten" und „wieder aufrufen".
+   */
+  if (ersterStart.needed) {
+    return (
+      <html lang="de">
+        <body className="min-h-dvh">
+          <Willkommen
+            lostDir={ersterStart.lostDir}
+            suggestedParent={ersterStart.suggestedParent}
+            suggestedName={ersterStart.suggestedName}
+          />
+        </body>
+      </html>
+    );
+  }
+
   return (
     <html lang="de">
       <body className="min-h-dvh">
         <header className="sticky top-0 z-30 border-b border-rand bg-grund/85 backdrop-blur">
-          <div className="mx-auto flex h-14 max-w-7xl items-center gap-6 px-4">
+          <div className="mx-auto flex h-14 max-w-7xl items-center gap-4 px-4">
             <Link
               href="/"
               className="flex items-center gap-2 font-semibold tracking-tight"
@@ -42,8 +73,21 @@ export default function RootLayout({
               Mediathek
             </Link>
             <NavLinks />
-            <div className="ml-auto">
-              <SearchBox compact />
+
+            {/*
+             * Werkzeuge statt Orte: Aufträge, Importieren, Suche,
+             * Einstellungen. Das Suchfeld steht zwischen ihnen, weil es das
+             * einzige ist, das man benutzt statt anzuklicken.
+             */}
+            <div className="ml-auto flex items-center gap-1">
+              <HeaderActions
+                authorMode={features.authorMode}
+                chatEnabled={settings.chatEnabled && !features.readonly}
+              />
+              <div className="mx-1">
+                <SearchBox compact />
+              </div>
+              <SettingsIcon />
             </div>
           </div>
         </header>

@@ -38,7 +38,11 @@ function isIgnored(relative: string): boolean {
     return true;
   }
   const base = path.posix.basename(normalized);
-  if (base.startsWith(".~") || base.endsWith(".tmp") || base.endsWith(".part")) {
+  if (
+    base.startsWith(".~") ||
+    base.endsWith(".tmp") ||
+    base.endsWith(".part")
+  ) {
     return true;
   }
   return false;
@@ -55,8 +59,8 @@ function slugFromRelative(relative: string): Slug | "alles" | null {
     const slug = parts[1].toLowerCase();
     return isSlug(slug) ? slug : "alles";
   }
-  // Themen, Sammlungen und das Glossar wirken auf die ganze Ansicht.
-  if (["themen", "sammlungen"].includes(parts[0])) return "alles";
+  // Themen, Sammlungen, Fragen und das Glossar wirken auf die ganze Ansicht.
+  if (["themen", "sammlungen", "fragen"].includes(parts[0])) return "alles";
   if (parts[0] === "glossar.txt") return "alles";
   return null;
 }
@@ -64,10 +68,14 @@ function slugFromRelative(relative: string): Slug | "alles" | null {
 type Snapshot = Map<string, string>;
 
 /**
- * Schlüssel für den Zustand der Themendateien im Abdruck. Das "@" ist im
+ * Schlüssel für die Ordner mit je einer Datei pro Eintrag. Das "@" ist im
  * Slug-Muster verboten, kann also nie mit einem Beitrag kollidieren.
+ *
+ * Sie stehen ausdrücklich im Abdruck des Pollers: genau hier schreibt das
+ * KI-Werkzeug von außen (Themenseiten erzeugen, Fragen zusammenfassen), und
+ * auf einem Netzlaufwerk ist der Watcher der Teil, der schweigt.
  */
-const TOPICS_KEY = "@themen";
+const FOLDER_KEYS = ["@themen", "@sammlungen", "@fragen"] as const;
 
 /**
  * Ein billiger Zustandsabdruck der Bibliothek für den Poller: je
@@ -107,18 +115,26 @@ async function takeSnapshot(): Promise<Snapshot> {
     }
   }
 
-  try {
-    const topics = await fs.readdir(paths.topics, { withFileTypes: true });
-    const parts: string[] = [];
-    for (const file of topics) {
-      if (!file.isFile()) continue;
-      const info = await fs.stat(path.join(paths.topics, file.name));
-      parts.push(`${file.name}:${info.size}:${Math.round(info.mtimeMs)}`);
+  const ordner = [
+    [FOLDER_KEYS[0], paths.topics],
+    [FOLDER_KEYS[1], paths.collections],
+    [FOLDER_KEYS[2], paths.questions],
+  ] as const;
+
+  for (const [key, dir] of ordner) {
+    try {
+      const files = await fs.readdir(dir, { withFileTypes: true });
+      const parts: string[] = [];
+      for (const file of files) {
+        if (!file.isFile()) continue;
+        const info = await fs.stat(path.join(dir, file.name));
+        parts.push(`${file.name}:${info.size}:${Math.round(info.mtimeMs)}`);
+      }
+      parts.sort();
+      snapshot.set(key, parts.join("|"));
+    } catch {
+      // Fehlt der Ordner, ist das in Ordnung — dann gibt es dort nichts.
     }
-    parts.sort();
-    snapshot.set(TOPICS_KEY, parts.join("|"));
-  } catch {
-    // Kein themen/-Ordner ist in Ordnung.
   }
 
   return snapshot;
@@ -127,7 +143,7 @@ async function takeSnapshot(): Promise<Snapshot> {
 function diffSnapshots(before: Snapshot, after: Snapshot): Slug[] | "alles" {
   const changed: Slug[] = [];
   for (const [key, value] of after) {
-    if (key === TOPICS_KEY) {
+    if ((FOLDER_KEYS as readonly string[]).includes(key)) {
       if (before.get(key) !== value) return "alles";
       continue;
     }
@@ -226,6 +242,8 @@ export function startWatching(options: StartWatchingOptions): WatchHandle {
     for (const [dir, base] of [
       [paths.items, "medien"],
       [paths.topics, "themen"],
+      [paths.collections, "sammlungen"],
+      [paths.questions, "fragen"],
     ] as const) {
       try {
         const watcher = fsSync.watch(

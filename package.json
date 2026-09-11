@@ -15,7 +15,9 @@
     "doktor": "tsx --tsconfig tsconfig.scripts.json scripts/doktor.ts",
     "fixtures": "tsx --tsconfig tsconfig.scripts.json scripts/fixtures.ts",
     "setup:python": "node scripts/setup-python.mjs",
-    "probe:whisper": "node scripts/setup-python.mjs --probe-only"
+    "probe:whisper": "node scripts/setup-python.mjs --probe-only",
+    "paket": "node scripts/paket.mjs",
+    "paket:smoke": "node scripts/paket.mjs --smoke"
   },
   "engines": {
     "node": ">=22"

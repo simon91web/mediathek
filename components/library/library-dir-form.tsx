@@ -1,9 +1,12 @@
 "use client";
 
 import { useState, useTransition } from "react";
-import { FolderTree, Lock } from "lucide-react";
+import { FolderOpen, FolderTree, Lock } from "lucide-react";
 
-import { setLibraryDirAction } from "@/app/einstellungen/actions";
+import {
+  openLibraryFolderAction,
+  setLibraryDirAction,
+} from "@/app/einstellungen/actions";
 import type { ActionResult } from "@/app/einstellungen/actions";
 import { Button } from "@/components/ui/basis";
 
@@ -29,6 +32,19 @@ export function LibraryDirForm({
   const [value, setValue] = useState(current);
   const [result, setResult] = useState<ActionResult | null>(null);
 
+  const oeffnen = () => {
+    startTransition(async () => {
+      setResult(await openLibraryFolderAction());
+    });
+  };
+
+  const OeffnenKnopf = (
+    <Button size="klein" disabled={pending} onClick={oeffnen}>
+      <FolderOpen aria-hidden className="size-3.5" />
+      Im Explorer öffnen
+    </Button>
+  );
+
   if (fixed) {
     return (
       <div className="space-y-1.5">
@@ -37,6 +53,16 @@ export function LibraryDirForm({
           Der Ordner ist beim Start vorgegeben und hier nicht umstellbar.
         </p>
         <code className="block text-xs break-all">{current}</code>
+        <div className="pt-1">{OeffnenKnopf}</div>
+        {result ? (
+          <p
+            className={
+              result.ok ? "text-sm text-akzent" : "text-sm text-warnung"
+            }
+          >
+            {result.ok ? result.message : result.error}
+          </p>
+        ) : null}
         <p className="text-xs text-schrift-3">
           So ist das weitergegebene Viewer-Paket eingerichtet: sein Starter
           setzt{" "}
@@ -83,6 +109,7 @@ export function LibraryDirForm({
         >
           {pending ? "Wechselt …" : "Übernehmen"}
         </Button>
+        {OeffnenKnopf}
       </div>
 
       <p className="text-xs text-schrift-2">

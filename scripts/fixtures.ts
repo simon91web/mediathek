@@ -19,13 +19,14 @@ import fs from "node:fs/promises";
 import os from "node:os";
 import path from "node:path";
 
-import { installClaudeFiles } from "@/lib/claude/install";
+import { installInstructions } from "@/lib/assistant/install";
 import { setLibraryRoot } from "@/lib/paths";
 
 const ROOT = path.join(process.cwd(), "bibliothek-dev");
 const ITEMS = path.join(ROOT, "medien");
 const TOPICS = path.join(ROOT, "themen");
 const COLLECTIONS = path.join(ROOT, "sammlungen");
+const QUESTIONS = path.join(ROOT, "fragen");
 
 /**
  * Der Text, den das Sprachmemo spricht.
@@ -316,7 +317,7 @@ function minimalPdf(title: string): string {
 async function main() {
   /*
    * Ausdrücklich festnageln: dieses Skript ERZEUGT bibliothek-dev. Ohne das
-   * würde installClaudeFiles() den unter Einstellungen gewählten Ordner
+   * würde installInstructions() den unter Einstellungen gewählten Ordner
    * nehmen — und der Vertrag landete in der echten Bibliothek.
    */
   setLibraryRoot(ROOT);
@@ -647,12 +648,38 @@ dazu, steht er von selbst mit drin.
 `,
   );
 
+  // ------------------------------------------------------------- Fragen
+  /*
+   * Eine abgelegte Frage, wie der Chat sie schreibt — samt Beleg mitten im
+   * Satz. Daran hängt die Zusicherung, dass man aus einer Antwort heraus an
+   * die Stelle im Video springt.
+   */
+  await ensureDir(QUESTIONS);
+  await writeFile(
+    path.join(QUESTIONS, "zellspannung-messen.md"),
+    `---
+frage: Wie messe ich die Zellspannung?
+auch gefragt:
+  - Womit prüfe ich die einzelnen Zellen?
+gefragt: 2026-04-18
+quellen: [bibliothek]
+---
+
+<!-- antwort:start -->
+Mit dem Zellprüfer, und zwar Zelle für Zelle [[akku-grundlagen#00:08]].
+Entscheidend ist nicht der Mittelwert, sondern die Spreizung zwischen der
+höchsten und der niedrigsten Zelle; im Protokoll steht dafür eine eigene
+Spalte [[messprotokoll-lesen#akku-und-spannung]].
+<!-- antwort:ende -->
+`,
+  );
+
   /*
    * Der Vertrag mit Claude Code gehört in die Bibliothek, nicht in die
    * Anwendung: er wandert mit dem Ordner mit. Beim Kollegen auf dem
    * Netzlaufwerk gelten dieselben Regeln.
    */
-  await installClaudeFiles();
+  await installInstructions();
 
   await writeFile(
     path.join(ROOT, "glossar.txt"),
@@ -676,6 +703,7 @@ Messprotokoll
   console.log(`  ${brokenSlug}             Video, kaputter Kopf (Absicht)`);
   console.log(`  ohne-beschreibung        Video ohne beitrag.md (Absicht)`);
   console.log(`  leerer-ordner            ohne alles (Absicht)`);
+  console.log(`  fragen/                  eine abgelegte Frage mit Belegen`);
   console.log("");
   console.log(
     "  Themen:      drohnen-grundlagen (geordnet), " +

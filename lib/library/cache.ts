@@ -2,7 +2,14 @@ import fs from "node:fs/promises";
 import path from "node:path";
 
 import { paths } from "@/lib/paths";
-import type { Collection, Topic, Fingerprint, Item, Slug } from "./types";
+import type {
+  Collection,
+  Fingerprint,
+  Item,
+  Question,
+  Slug,
+  Topic,
+} from "./types";
 
 /*
  * library.json ist ein Cache, keine Wahrheit. Sie darf jederzeit gelöscht
@@ -12,7 +19,7 @@ import type { Collection, Topic, Fingerprint, Item, Slug } from "./types";
  */
 
 /** Bei jeder Formatänderung erhöhen: alte Dateien werden dann verworfen. */
-export const CACHE_VERSION = 4;
+export const CACHE_VERSION = 6;
 
 /**
  * Zusätzlich zur Formatversion hängt der Cache an der App-Version. Ändert
@@ -42,6 +49,10 @@ export type LibraryCache = {
     Slug,
     { size: number; mtimeMs: number; collection: Collection }
   >;
+  questions: Record<
+    Slug,
+    { size: number; mtimeMs: number; question: Question }
+  >;
 };
 
 export function emptyCache(): LibraryCache {
@@ -53,6 +64,7 @@ export function emptyCache(): LibraryCache {
     items: {},
     topics: {},
     collections: {},
+    questions: {},
   };
 }
 
@@ -81,6 +93,7 @@ export async function readCache(): Promise<LibraryCache | null> {
     if (!cache.collections || typeof cache.collections !== "object") {
       return null;
     }
+    if (!cache.questions || typeof cache.questions !== "object") return null;
     return cache;
   } catch {
     return null;
@@ -102,7 +115,22 @@ export async function writeCache(
 ): Promise<WriteCacheResult> {
   const temporary = `${paths.index}.tmp`;
   try {
-    await fs.mkdir(path.dirname(paths.index), { recursive: true });
+    /*
+     * Der Bibliotheksordner wird NICHT angelegt — nur ein fehlender
+     * Unterordner darunter. Nachgemessen am gepackten Programm: mit
+     * `recursive: true` auf den ganzen Pfad legte der Zwischenspeicher den
+     * Ordner an, auf den der eingebaute Standard zeigt, und das Programm
+     * hatte sich damit im eigenen Verzeichnis eine Bibliothek erfunden.
+     *
+     * Gibt es den Ordner nicht, gibt es auch nichts zwischenzuspeichern:
+     * dann meldet der Schreibversuch ENOENT und der Index wird eben bei
+     * jedem Start neu gebaut — genau wie auf einer schreibgeschützten
+     * Freigabe.
+     */
+    const ordner = path.dirname(paths.index);
+    if (path.resolve(ordner) !== path.resolve(paths.library)) {
+      await fs.mkdir(ordner, { recursive: true });
+    }
     await fs.writeFile(
       temporary,
       JSON.stringify({ ...cache, generatedAtMs: Date.now() }),
@@ -120,6 +148,14 @@ export async function writeCache(
           "Die Bibliothek ist nur lesbar — der Index wird bei jedem " +
           "Serverstart neu aufgebaut. Das kostet beim Start etwas Zeit, " +
           "sonst nichts.",
+      };
+    }
+    if (code === "ENOENT") {
+      return {
+        ok: false,
+        note:
+          "Den Bibliotheksordner gibt es nicht — es wird nichts " +
+          "zwischengespeichert und auch kein Ordner angelegt.",
       };
     }
     return {

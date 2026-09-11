@@ -24,6 +24,23 @@ export async function register() {
   await applyStoredLibraryDir();
 
   /*
+   * Steht noch nicht fest, WO die Bibliothek liegt, wird nicht gescannt.
+   *
+   * Nachgemessen am gepackten Programm: sonst läuft der Scan gegen den
+   * eingebauten Standard — also gegen `<Programmordner>/bibliothek-dev` —
+   * und legt dort beim Schreiben des Zwischenspeichers einen Ordner an. Das
+   * Programm hätte sich damit selbst eine Bibliothek erfunden, an einer
+   * Stelle, die beim nächsten Update verschwindet.
+   */
+  const { firstRunState } = await import("@/lib/library/first-run");
+  if ((await firstRunState()).needed) {
+    console.log(
+      "[bibliothek] Noch kein Ordner gewählt — der Begrüßungsschirm fragt danach.",
+    );
+    return;
+  }
+
+  /*
    * Bewusst NICHT abgewartet: auf einem Netzlaufwerk dauert der erste Scan
    * lange, und die erste Seite soll trotzdem sofort antworten — sie wartet
    * dann in getLibrary() auf dasselbe Versprechen.

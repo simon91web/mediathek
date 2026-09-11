@@ -5,9 +5,15 @@ import { Readable } from "node:stream";
 import { pipeline } from "node:stream/promises";
 
 import { assertAuthorMode, NotAllowedError } from "@/lib/features";
+import { isAllowedHost, wrongHostMessage } from "@/lib/http/host";
 import { cleanIncoming, importFile } from "@/lib/import/import-file";
+import { enqueueAutoJobs } from "@/lib/jobs/auto";
 import { reloadLibrary } from "@/lib/library";
-import { isMediaFile, isTextFile } from "@/lib/library/media-kind";
+import {
+  formatBytes,
+  isMediaFile,
+  isTextFile,
+} from "@/lib/library/media-kind";
 import { paths } from "@/lib/paths";
 
 /*
@@ -20,6 +26,13 @@ import { paths } from "@/lib/paths";
  *
  * Weil das keine Server Action ist, fehlt die eingebaute Origin-Prüfung. Sie
  * wird hier von Hand gemacht.
+ *
+ * Diese Route ist im Matcher von proxy.ts AUSGESCHLOSSEN, und das ist keine
+ * Nachlässigkeit: der Proxy puffert jeden Rumpf im Arbeitsspeicher und kürzt
+ * ihn still bei zehn Megabyte (Next-Doku, proxyClientMaxBodySize). Genau
+ * daran sind importierte Videos exakt 10,0 MB groß geworden, ließen sich
+ * nicht abspielen, und ffprobe konnte sie nicht lesen. Weil der Proxy hier
+ * nicht läuft, macht die Route die Host-Prüfung selbst.
  */
 
 export const dynamic = "force-dynamic";
@@ -57,6 +70,18 @@ export async function PUT(request: Request) {
 
   if (!sameOrigin(request)) {
     return Response.json({ error: "Verboten." }, { status: 403 });
+  }
+
+  /*
+   * Was sonst der Proxy tut. Origin gegen Host zu vergleichen genügt dafür
+   * nicht: bei DNS-Rebinding tragen beide den Namen des Angreifers.
+   */
+  const hostHeader = request.headers.get("host");
+  if (!isAllowedHost(hostHeader)) {
+    return Response.json(
+      { error: wrongHostMessage(hostHeader).trim() },
+      { status: 403 },
+    );
   }
   if (!request.body) {
     return Response.json({ error: "Kein Inhalt." }, { status: 400 });
@@ -114,6 +139,35 @@ export async function PUT(request: Request) {
     );
   }
 
+  /*
+   * Ist auch alles angekommen?
+   *
+   * Diese Prüfung ist der Grund, warum der 10-MB-Fehler nicht ein zweites
+   * Mal still passieren kann. Ein gekürzter Rumpf beendet den Strom ganz
+   * regulär — pipeline() meldet Erfolg, die Datei ist halb, und erst Tage
+   * später fällt auf, dass sich nichts abspielen lässt. Der Browser schickt
+   * bei einem Upload immer eine Content-Length; weicht die abgelegte Größe
+   * davon ab, wird abgelehnt statt eingelesen.
+   *
+   * Fängt zugleich den Fall "Netzwerk mitten im Hochladen weg".
+   */
+  const announced = Number(request.headers.get("content-length"));
+  if (Number.isFinite(announced) && announced > 0) {
+    const written = (await fs.stat(temporary).catch(() => null))?.size ?? -1;
+    if (written !== announced) {
+      await fs.rm(temporary, { force: true }).catch(() => {});
+      return Response.json(
+        {
+          error:
+            `Von "${name}" sind nur ${formatBytes(written)} von ` +
+            `${formatBytes(announced)} angekommen. Die Datei wurde nicht ` +
+            "eingelesen — bitte den Upload wiederholen.",
+        },
+        { status: 400 },
+      );
+    }
+  }
+
   const outcome = await importFile(temporary, {
     // Aus dem Zwischenlager wird immer verschoben — es ist eine Kopie.
     move: true,
@@ -129,9 +183,19 @@ export async function PUT(request: Request) {
   }
 
   await reloadLibrary({ onlySlugs: [outcome.slug] });
+
+  /*
+   * Ab hier läuft es von selbst weiter: Kachelbild, Anhangtext,
+   * Transkription. Angestellt, nicht abgewartet — der Upload soll antworten
+   * und nicht eine Viertelstunde auf Whisper warten. Der Fortschritt steht
+   * unter /auftraege.
+   */
+  const auto = await enqueueAutoJobs(outcome.slug);
+
   return Response.json({
     slug: outcome.slug,
     note: outcome.note,
+    auto,
     // Nur zur Information: verschoben wird beim Hochladen nichts am Original.
     movedSource: move,
   });

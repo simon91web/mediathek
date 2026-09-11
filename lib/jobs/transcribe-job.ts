@@ -181,7 +181,10 @@ export async function runTranscribeJob(context: JobContext): Promise<void> {
     device = "cpu";
   }
 
-  throw new JobError("internal", "Auch der Versuch auf der CPU ist gescheitert.");
+  throw new JobError(
+    "internal",
+    "Auch der Versuch auf der CPU ist gescheitert.",
+  );
 }
 
 type RunOutcome =
@@ -251,7 +254,8 @@ async function runOnce(input: {
    * Callback steht — beim Auslesen wäre sie dann "never". Ein Array umgeht
    * das ohne Typumgehung.
    */
-  const failures: { code: JobErrorCode; message: string; detail?: string }[] = [];
+  const failures: { code: JobErrorCode; message: string; detail?: string }[] =
+    [];
 
   // stderr wörtlich ins Protokoll; die letzten Zeilen dienen der Fehleranzeige.
   const tail: string[] = [];
@@ -330,7 +334,9 @@ async function runOnce(input: {
           progress: Number.isFinite(overall) ? overall : 0,
           stage,
           etaSec:
-            typeof event.eta_sec === "number" ? Math.round(event.eta_sec) : null,
+            typeof event.eta_sec === "number"
+              ? Math.round(event.eta_sec)
+              : null,
           speed: typeof event.speed === "number" ? event.speed : null,
         });
         break;

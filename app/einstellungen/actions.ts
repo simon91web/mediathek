@@ -2,9 +2,9 @@
 
 import { revalidatePath } from "next/cache";
 
-import { installClaudeFiles } from "@/lib/claude/install";
-import { launchClaude } from "@/lib/claude/launch";
-import type { ClaudeCommand } from "@/lib/claude/launch";
+import { installInstructions } from "@/lib/assistant/install";
+import { launchAssistant } from "@/lib/assistant/start";
+import type { AssistantTask } from "@/lib/assistant/start";
 import {
   assertAuthorMode,
   getFeatures,
@@ -13,9 +13,17 @@ import {
 } from "@/lib/features";
 import { reloadLibrary } from "@/lib/library";
 import { switchLibrary } from "@/lib/library/switch";
+import { libraryRoot } from "@/lib/paths";
+import { openInFileManager } from "@/lib/shell/open-folder";
+import { createDesktopShortcut } from "@/lib/shell/shortcut";
 import { invalidateTranscripts } from "@/lib/library/transcript";
 import { invalidateSearchIndex } from "@/lib/search";
-import { isReadonly, WHISPER_MODELS, writeSettings } from "@/lib/settings";
+import {
+  isReadonly,
+  isToolName,
+  WHISPER_MODELS,
+  writeSettings,
+} from "@/lib/settings";
 import type { WhisperModel } from "@/lib/settings";
 
 /*
@@ -183,7 +191,7 @@ export async function setWhisperAction(input: {
  */
 
 /** Legt .claude/ in der Bibliothek an. Vorhandene Dateien bleiben unberührt. */
-export async function installClaudeFilesAction(): Promise<ActionResult> {
+export async function installInstructionsAction(): Promise<ActionResult> {
   try {
     await assertAuthorMode();
   } catch (error) {
@@ -196,7 +204,7 @@ export async function installClaudeFilesAction(): Promise<ActionResult> {
     };
   }
 
-  const result = await installClaudeFiles();
+  const result = await installInstructions();
   if (!result.ok)
     return { ok: false, error: result.error ?? "Fehlgeschlagen." };
 
@@ -224,8 +232,8 @@ export async function installClaudeFilesAction(): Promise<ActionResult> {
  * /kapitel-alle. Öffnet ein sichtbares Fenster — absichtlich, man muss
  * mitlesen, was in die eigenen Dateien geschrieben wird.
  */
-export async function startLibraryClaudeAction(
-  command: ClaudeCommand,
+export async function startLibraryAssistantAction(
+  command: AssistantTask,
 ): Promise<ActionResult> {
   try {
     await assertAuthorMode();
@@ -239,11 +247,15 @@ export async function startLibraryClaudeAction(
     };
   }
 
-  const result = await launchClaude(command);
+  const result = await launchAssistant(command);
   if (!result.ok) return { ok: false, error: result.error };
   return {
     ok: true,
-    message: `Ein Fenster mit „${result.prompt}“ ist offen.`,
+    message:
+      `Ein PowerShell-Fenster mit „${result.prompt}“ ist offen — dort ` +
+      "arbeitet Claude Code, und dort kann man mitlesen und nachfragen. Es " +
+      "liegt womöglich hinter diesem Fenster. Die Mediathek zeigt die " +
+      "Änderungen, sobald die Dateien geschrieben sind.",
   };
 }
 
@@ -285,5 +297,292 @@ export async function setLibraryDirAction(dir: string): Promise<ActionResult> {
   return {
     ok: true,
     message: what + found + (result.note ? ` ${result.note}` : ""),
+  };
+}
+
+/**
+ * Öffnet den Bibliotheksordner im Explorer.
+ *
+ * Der Pfad kommt aus libraryRoot() und nie aus der Anfrage — ein Pfad von
+ * außen wäre hier ein "öffne mir irgendetwas auf dem Rechner".
+ */
+export async function openLibraryFolderAction(): Promise<ActionResult> {
+  try {
+    await assertAuthorMode();
+  } catch (error) {
+    return {
+      ok: false,
+      error:
+        error instanceof NotAllowedError
+          ? error.message
+          : "Das ist hier nicht möglich.",
+    };
+  }
+
+  const dir = libraryRoot();
+  const result = await openInFileManager(dir);
+  if (!result.ok) return { ok: false, error: result.error };
+  return { ok: true, message: `Ordner geöffnet: ${dir}` };
+}
+
+/** Schaltet die Automatik nach dem Import ein oder aus. */
+export async function setAutoJobsAction(
+  enabled: boolean,
+): Promise<ActionResult> {
+  try {
+    await assertAuthorMode();
+  } catch (error) {
+    return {
+      ok: false,
+      error:
+        error instanceof NotAllowedError
+          ? error.message
+          : "Das ist hier nicht möglich.",
+    };
+  }
+
+  const written = await writeSettings({ autoJobs: enabled });
+  if (!written.ok) {
+    return {
+      ok: false,
+      error: `Die Einstellung konnte nicht gespeichert werden: ${written.error}`,
+    };
+  }
+
+  revalidatePath("/einstellungen");
+  return {
+    ok: true,
+    message: enabled
+      ? "Nach einem Import wird von selbst transkribiert."
+      : "Die Automatik ist aus. Aufträge lassen sich am Beitrag anstellen.",
+  };
+}
+
+/**
+ * Legt fest, welches Kommandozeilenwerkzeug die Texte erzeugt.
+ *
+ * Nur der Programmname, kein Pfad — es muss im Suchpfad stehen. Die
+ * Anleitungen in der Bibliothek setzen kein bestimmtes Programm voraus, sie
+ * beschreiben Dateien; deshalb ist das hier eine freie Wahl und keine Liste.
+ */
+export async function setAssistantCommandAction(input: {
+  command: string;
+  args: string;
+}): Promise<ActionResult> {
+  try {
+    await assertAuthorMode();
+  } catch (error) {
+    return {
+      ok: false,
+      error:
+        error instanceof NotAllowedError
+          ? error.message
+          : "Das ist hier nicht möglich.",
+    };
+  }
+
+  const command = input.command.trim();
+  if (!isToolName(command)) {
+    return {
+      ok: false,
+      error:
+        'Erwartet wird nur der Programmname, etwa "claude" oder "codex" ' +
+        "— ohne Pfad, ohne Leerzeichen. Das Programm muss im Suchpfad stehen.",
+    };
+  }
+
+  const args = input.args.trim().split(/\s+/).filter(Boolean);
+  const schlecht = args.find((wert) => !isToolName(wert));
+  if (schlecht) {
+    return {
+      ok: false,
+      error: `"${schlecht}" ist als Argument nicht zulässig.`,
+    };
+  }
+
+  const written = await writeSettings({
+    assistantCommand: command,
+    assistantArgs: args.slice(0, 4),
+  });
+  if (!written.ok) {
+    return {
+      ok: false,
+      error: `Die Einstellung konnte nicht gespeichert werden: ${written.error}`,
+    };
+  }
+
+  invalidateFeatures();
+  const features = await getFeatures(true);
+  revalidatePath("/einstellungen");
+
+  if (features.assistant !== "ok") {
+    return {
+      ok: false,
+      error:
+        `"${command}" ließ sich nicht aufrufen. Steht es im Suchpfad? ` +
+        'Geprüft wird mit "' +
+        command +
+        ' --version".',
+    };
+  }
+
+  return {
+    ok: true,
+    message:
+      `"${command}" ist eingerichtet` +
+      (args.length > 0 ? ` (Argumente: ${args.join(" ")})` : "") +
+      ". Die Knöpfe unten benutzen es ab jetzt.",
+  };
+}
+
+/**
+ * Schaltet den Chat ein oder aus und merkt die Argumente für den
+ * einmaligen Aufruf.
+ */
+/**
+ * Die unbeaufsichtigten KI-Schritte — Voraussetzung für die Kette.
+ *
+ * Eigene Einstellung und nicht an den Chat gehängt: hier geht es nicht ums
+ * Lesen, sondern ums Schreiben ohne Zuschauer. Das ist die größere
+ * Entscheidung von beiden.
+ */
+export async function setAutoAssistantAction(input: {
+  enabled: boolean;
+  args: string;
+  chain: boolean;
+}): Promise<ActionResult> {
+  try {
+    await assertAuthorMode();
+  } catch (error) {
+    return {
+      ok: false,
+      error:
+        error instanceof NotAllowedError
+          ? error.message
+          : "Das ist hier nicht möglich.",
+    };
+  }
+
+  const args = input.args.trim().split(/\s+/).filter(Boolean);
+  const schlecht = args.find((wert) => !isToolName(wert));
+  if (schlecht) {
+    return {
+      ok: false,
+      error: `"${schlecht}" ist als Argument nicht zulässig.`,
+    };
+  }
+  if (input.enabled && args.length === 0) {
+    return {
+      ok: false,
+      error:
+        "Ohne Argumente läuft das nicht: das Werkzeug braucht den " +
+        "Einmal-Aufruf und die Erlaubnis zu schreiben.",
+    };
+  }
+
+  const written = await writeSettings({
+    autoAssistant: input.enabled,
+    autoAssistantArgs: args.slice(0, 8),
+    // Ohne unbeaufsichtigte Schritte gibt es auch keine Kette nach dem Import.
+    autoChain: input.enabled ? input.chain : false,
+  });
+  if (!written.ok) {
+    return {
+      ok: false,
+      error: `Die Einstellung konnte nicht gespeichert werden: ${written.error}`,
+    };
+  }
+
+  revalidatePath("/", "layout");
+  return {
+    ok: true,
+    message: input.enabled
+      ? `KI-Schritte ohne Fenster sind an. Aufgerufen wird "${
+          (await getFeatures()).assistantCommand
+        } ${args.join(" ")}".`
+      : "KI-Schritte laufen nur noch im sichtbaren Fenster.",
+  };
+}
+
+export async function setChatAction(input: {
+  enabled: boolean;
+  args: string;
+  webAllowed?: boolean;
+  webArgs?: string;
+}): Promise<ActionResult> {
+  try {
+    await assertAuthorMode();
+  } catch (error) {
+    return {
+      ok: false,
+      error:
+        error instanceof NotAllowedError
+          ? error.message
+          : "Das ist hier nicht möglich.",
+    };
+  }
+
+  const args = input.args.trim().split(/\s+/).filter(Boolean);
+  const webArgs = (input.webArgs ?? "").trim().split(/\s+/).filter(Boolean);
+  const schlecht = [...args, ...webArgs].find((wert) => !isToolName(wert));
+  if (schlecht) {
+    return {
+      ok: false,
+      error: `"${schlecht}" ist als Argument nicht zulässig.`,
+    };
+  }
+
+  const written = await writeSettings({
+    chatEnabled: input.enabled,
+    chatArgs: args.slice(0, 4),
+    ...(input.webAllowed === undefined
+      ? {}
+      : { chatWebAllowed: input.webAllowed }),
+    ...(input.webArgs === undefined
+      ? {}
+      : { chatWebArgs: webArgs.slice(0, 6) }),
+  });
+  if (!written.ok) {
+    return {
+      ok: false,
+      error: `Die Einstellung konnte nicht gespeichert werden: ${written.error}`,
+    };
+  }
+
+  revalidatePath("/", "layout");
+  return {
+    ok: true,
+    message: input.enabled
+      ? `Der Chat ist an. Aufgerufen wird "${(await getFeatures()).assistantCommand} ${args.join(" ")}".`
+      : "Der Chat ist aus.",
+  };
+}
+
+/**
+ * Legt eine Verknüpfung auf dem Schreibtisch an, die ohne Konsolenfenster
+ * startet.
+ *
+ * Auf Klick und nicht im Paket: eine Verknüpfung merkt sich einen absoluten
+ * Pfad, und das Paket ist zum Kopieren gedacht — mitgeliefert zählte sie
+ * nach dem ersten Verschieben ins Leere.
+ */
+export async function createShortcutAction(): Promise<ActionResult> {
+  try {
+    await assertAuthorMode();
+  } catch (error) {
+    return {
+      ok: false,
+      error:
+        error instanceof NotAllowedError
+          ? error.message
+          : "Das ist hier nicht möglich.",
+    };
+  }
+
+  const result = await createDesktopShortcut();
+  if (!result.ok) return { ok: false, error: result.error };
+  return {
+    ok: true,
+    message: `Angelegt: ${result.file}. Ein Doppelklick darauf startet die Mediathek ohne Konsolenfenster.`,
   };
 }

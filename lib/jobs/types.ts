@@ -3,14 +3,17 @@
  * Client braucht die Typen für die Fortschrittsanzeige.
  */
 
-export type JobKind = "transkription" | "kachelbild" | "anhangtext";
+export type JobKind =
+  | "transkription"
+  | "kachelbild"
+  | "anhangtext"
+  | "kapitel"
+  | "suchindex"
+  | "bezuege"
+  | "fragen";
 
 export type JobState =
-  | "wartet"
-  | "laeuft"
-  | "fertig"
-  | "fehler"
-  | "abgebrochen";
+  "wartet" | "laeuft" | "fertig" | "fehler" | "abgebrochen";
 
 export type JobErrorCode =
   | "ffmpeg_missing"
@@ -21,6 +24,9 @@ export type JobErrorCode =
   | "gpu_unavailable"
   | "gpu_lost"
   | "out_of_memory"
+  | "assistant_missing"
+  | "assistant_failed"
+  | "kette_unterbrochen"
   | "canceled"
   | "server_neu_gestartet"
   | "internal";
@@ -54,6 +60,12 @@ export type Job = {
   error: { code: JobErrorCode; message: string; detail?: string } | null;
   /** Absoluter Pfad des Protokolls, maschinenlokal. */
   logFile: string | null;
+  /**
+   * Gehört dieser Auftrag zu einer Kette? Dann wird er übersprungen, sobald
+   * ein früherer Schritt derselben Kette gescheitert ist — Kapitel ohne
+   * Transkript wären erfunden.
+   */
+  chain: { id: string; step: number; total: number } | null;
 };
 
 export type JobSnapshot = {
@@ -66,7 +78,22 @@ export const KIND_LABEL: Record<JobKind, string> = {
   transkription: "Transkription",
   kachelbild: "Kachelbild",
   anhangtext: "Anhänge lesen",
+  kapitel: "Kapitel und Zusammenfassung",
+  suchindex: "Suche aktualisieren",
+  bezuege: "Verwandte Stellen",
+  fragen: "Fragen zusammenfassen",
 };
+
+/** Welche Arten ein KI-Werkzeug starten — für Hinweis und Riegel. */
+export const ASSISTANT_KINDS: readonly JobKind[] = [
+  "kapitel",
+  "bezuege",
+  "fragen",
+];
+
+export function isAssistantKind(kind: JobKind): boolean {
+  return ASSISTANT_KINDS.includes(kind);
+}
 
 export const STAGE_LABEL: Record<string, string> = {
   warten: "wartet",
@@ -76,6 +103,8 @@ export const STAGE_LABEL: Record<string, string> = {
   write: "wird geschrieben",
   poster: "Kachelbild",
   extract: "Anhänge werden gelesen",
+  assistent: "Das Werkzeug arbeitet",
+  suchindex: "Index wird gebaut",
 };
 
 export function isFinished(state: JobState): boolean {

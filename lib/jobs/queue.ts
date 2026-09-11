@@ -6,7 +6,7 @@ import path from "node:path";
 
 import { libraryStateDir } from "@/lib/settings";
 import type { Job, JobErrorCode, JobKind, JobSnapshot } from "./types";
-import { isFinished } from "./types";
+import { isFinished, KIND_LABEL } from "./types";
 
 /*
  * Eine kleine, serielle Auftragsschlange.
@@ -89,7 +89,8 @@ class JobQueue {
   activeFor(slug: string, kind: JobKind): Job | null {
     return (
       this.snapshot().jobs.find(
-        (job) => job.slug === slug && job.kind === kind && !isFinished(job.state),
+        (job) =>
+          job.slug === slug && job.kind === kind && !isFinished(job.state),
       ) ?? null
     );
   }
@@ -181,7 +182,8 @@ class JobQueue {
       if (parsed.version !== 1 || !Array.isArray(parsed.jobs)) return;
 
       for (const stored of parsed.jobs) {
-        const job: Job = { ...stored, pid: null };
+        // `chain` kam später dazu: ältere Zustandsdateien haben es nicht.
+        const job: Job = { ...stored, chain: stored.chain ?? null, pid: null };
         if (!isFinished(job.state)) {
           job.state = "fehler";
           job.finishedAt = new Date().toISOString();
@@ -214,6 +216,27 @@ class JobQueue {
     }
   }
 
+  /**
+   * Alle erledigten Auftraege aus dem Verlauf werfen.
+   *
+   * Laufende und wartende bleiben: der Verlauf ist eine Anzeige, keine
+   * Steuerung. Wer einen laufenden Auftrag loswerden will, bricht ihn ab.
+   */
+  clearFinished(): number {
+    const weg = this.#order.filter((id) => {
+      const job = this.#jobs.get(id);
+      return job !== undefined && isFinished(job.state);
+    });
+    if (weg.length === 0) return 0;
+
+    for (const id of weg) this.#jobs.delete(id);
+    const raus = new Set(weg);
+    this.#order = this.#order.filter((id) => !raus.has(id));
+    this.#notify();
+    this.#persist();
+    return weg.length;
+  }
+
   // ───────────────────────────────────────────────────────── Anstellen
 
   enqueue(input: {
@@ -222,6 +245,8 @@ class JobQueue {
     title: string;
     /** Beliebige Angaben für den Runner. */
     payload?: Record<string, unknown>;
+    /** Glied einer Kette: siehe #kettenLaeuftNochRichtig. */
+    chain?: { id: string; step: number; total: number };
   }): Job {
     const id = `${Date.now().toString(36)}${Math.random()
       .toString(36)
@@ -246,6 +271,7 @@ class JobQueue {
       attempt: 1,
       error: null,
       logFile: path.join(this.#stateDir, "logs", `${id}.log`),
+      chain: input.chain ?? null,
     };
     // Der Runner bekommt seine Angaben über eine Nebenkarte, damit `Job`
     // nur enthält, was die Anzeige braucht.
@@ -278,6 +304,27 @@ class JobQueue {
 
     if (this.#canceled.has(next.id)) {
       this.#finish(next, "abgebrochen", "Abgebrochen, bevor der Lauf begann.");
+      void this.#pump();
+      return;
+    }
+
+    /*
+     * Eine Kette ist eine Reihenfolge mit Begründung: Kapitel ohne
+     * Transkript wären erfunden, Bezüge ohne Kapitel halbblind. Ist ein
+     * früherer Schritt gescheitert, wird der Rest übersprungen statt auf
+     * einer Lücke weiterzubauen.
+     */
+    const gebrochen = this.#brokenChainStep(next);
+    if (gebrochen) {
+      this.#finish(
+        next,
+        "abgebrochen",
+        `Übersprungen: ${gebrochen} in dieser Kette ist nicht durchgelaufen.`,
+        {
+          code: "kette_unterbrochen",
+          message: `Vorheriger Schritt (${gebrochen}) nicht erfolgreich.`,
+        },
+      );
       void this.#pump();
       return;
     }
@@ -317,8 +364,7 @@ class JobQueue {
           detail: error.detail,
         });
       } else {
-        const message =
-          error instanceof Error ? error.message : String(error);
+        const message = error instanceof Error ? error.message : String(error);
         this.#finish(next, "fehler", "Unerwarteter Fehler.", {
           code: "internal",
           message,
@@ -332,6 +378,24 @@ class JobQueue {
       this.#notify();
       void this.#pump();
     }
+  }
+
+  /**
+   * Liefert die Beschriftung des früheren Kettenschritts, der nicht
+   * durchgelaufen ist — oder null, wenn alles in Ordnung ist.
+   */
+  #brokenChainStep(job: Job): string | null {
+    if (!job.chain) return null;
+    for (const id of this.#order) {
+      const anderer = this.#jobs.get(id);
+      if (!anderer?.chain) continue;
+      if (anderer.chain.id !== job.chain.id) continue;
+      if (anderer.chain.step >= job.chain.step) continue;
+      if (anderer.state === "fehler" || anderer.state === "abgebrochen") {
+        return KIND_LABEL[anderer.kind];
+      }
+    }
+    return null;
   }
 
   #makeContext(job: Job): JobContext {

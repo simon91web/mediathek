@@ -99,6 +99,56 @@ test.describe("Mediathek", () => {
     await expect(page.getByText("gibt-es-nicht")).toBeVisible();
   });
 
+  test("ein Sprungziel aus der Adresse schlägt die gemerkte Stelle", async ({
+    page,
+  }) => {
+    /*
+     * Der Fehler, der dahintersteckt: vidstack stellt die zuletzt gesehene
+     * Stelle beim Ereignis „can-play" wieder her — also NACH dem Sprung aus
+     * „?t=". Wer aus einem Thema heraus auf eine Fundstelle klickte, landete
+     * richtig und wurde einen Wimpernschlag später zurückgeworfen. Nur bei
+     * schon gesehenen Beiträgen, deshalb „manchmal".
+     */
+    /*
+     * Eine gemerkte Stelle bei 00:40 — unter genau dem Schlüssel, den
+     * vidstack liest: Quelle, Anfang und Ende des Ausschnitts. Hinterlegt
+     * VOR dem Laden der Seite, sonst käme sie zu spät.
+     */
+    await page.addInitScript(() =>
+      localStorage.setItem("/api/medien/akku-grundlagen/audio.m4a:0:0", "40"),
+    );
+
+    await page.goto("/medien/akku-grundlagen?t=10");
+    await page.waitForSelector("[data-media-player][data-can-play]");
+    /*
+     * Bewusst ein Wartemoment: die Wiederherstellung aus dem Speicher käme
+     * erst NACH „can-play". Ohne ihn liefe der Test auch gegen den Fehler
+     * grün, weil er vor dem Rückwurf messen würde.
+     */
+    await page.waitForTimeout(500);
+
+    const time = await page.evaluate(
+      () =>
+        document.querySelector<HTMLMediaElement>("audio, video")?.currentTime ??
+        -1,
+    );
+    expect(time).toBeGreaterThanOrEqual(9);
+    expect(time).toBeLessThan(20);
+
+    /*
+     * Gegenprobe, und der Beweis, dass die Stelle wirklich hinterlegt war:
+     * ohne Zeit in der Adresse wird weiter dort fortgesetzt, wo man aufgehört
+     * hat.
+     */
+    await page.goto("/medien/akku-grundlagen");
+    await page.waitForSelector("[data-media-player][data-can-play]");
+    await page.waitForFunction(
+      () =>
+        (document.querySelector<HTMLMediaElement>("audio, video")
+          ?.currentTime ?? 0) > 30,
+    );
+  });
+
   test("einen unbekannten Beitrag beantwortet die Mediathek freundlich", async ({
     page,
   }) => {

@@ -20,6 +20,8 @@ export const BLOCK_NAMES = [
   "anhaenge",
   /** Nur in themen/<slug>.md: die einzelnen Stellen zum Thema. */
   "fundstellen",
+  /** Nur in fragen/<slug>.md: die Antwort, die neu geschrieben werden darf. */
+  "antwort",
 ] as const;
 
 export type BlockName = (typeof BLOCK_NAMES)[number];

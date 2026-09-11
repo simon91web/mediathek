@@ -1,8 +1,14 @@
 "use client";
 
 import { useEffect, useMemo, useRef, useState } from "react";
-import { MediaPlayer, MediaProvider, Poster, Track } from "@vidstack/react";
-import type { MediaPlayerInstance } from "@vidstack/react";
+import {
+  LocalMediaStorage,
+  MediaPlayer,
+  MediaProvider,
+  Poster,
+  Track,
+} from "@vidstack/react";
+import type { MediaPlayerInstance, Src } from "@vidstack/react";
 import {
   DefaultAudioLayout,
   DefaultVideoLayout,
@@ -71,6 +77,48 @@ function toPlayerType(mime: string | null): PlayerMimeType | undefined {
   return undefined;
 }
 
+/**
+ * Der Speicher des Players — mit einer Ausnahme.
+ *
+ * vidstack merkt sich Lautstärke, Ton, Geschwindigkeit und die zuletzt
+ * gesehene Stelle im localStorage und stellt das alles beim Ereignis
+ * „can-play" wieder her. Das passiert NACH `loadedmetadata` und damit nach
+ * unserem Sprung aus `?t=`: der Player landete richtig bei 12:40 und wurde
+ * einen Wimpernschlag später dorthin zurückgeworfen, wo man das letzte Mal
+ * aufgehört hatte. Nur bei schon gesehenen Beiträgen — daher das „manchmal"
+ * in der Fehlerbeschreibung, und daher war es beim Ausprobieren so schwer zu
+ * fassen.
+ *
+ * Eine Zeit in der Adresse ist eine Ansage: sie schlägt die gemerkte Stelle.
+ * Deshalb verschweigt dieser Speicher dann die Zeit — alles andere gibt er
+ * weiter heraus, und gespeichert wird auch weiterhin.
+ */
+class PlayerStorage extends LocalMediaStorage {
+  readonly #key: string;
+  /** Wahr, solange die Adresse selbst eine Zeit nennt. */
+  readonly #ignoreStoredTime: boolean;
+
+  constructor(key: string, ignoreStoredTime: boolean) {
+    super();
+    this.#key = key;
+    this.#ignoreStoredTime = ignoreStoredTime;
+  }
+
+  override async getTime(): Promise<number | null> {
+    return this.#ignoreStoredTime ? null : super.getTime();
+  }
+
+  override onChange(src: Src, mediaId: string | null): void {
+    /*
+     * Als Zeichenkette übergeben wäre der Wert selbst der Schlüssel für
+     * Lautstärke und Co. gewesen; als Objekt übergeben müssen wir ihn selbst
+     * nennen, sonst landet alles unter dem gemeinsamen Schlüssel
+     * „vds-player" und die Einstellungen eines Beitrags gälten für alle.
+     */
+    super.onChange(src, mediaId, this.#key);
+  }
+}
+
 export function MediaView({
   slug,
   title,
@@ -130,6 +178,18 @@ export function MediaView({
     if (startAt !== null && startAt > 0) store?.seekTo(startAt);
   }, [store, startAt]);
 
+  /*
+   * Und die gemerkte Stelle darf dem Sprungziel nicht in den Rücken fallen.
+   * Die Entscheidung steckt im Speicher selbst, nicht in einem Schalter
+   * daran: so gibt es keinen Augenblick, in dem der Player schon liest und
+   * die Antwort noch nicht steht.
+   */
+  const storage = useMemo(
+    () =>
+      new PlayerStorage(`mediathek:${slug}`, startAt !== null && startAt > 0),
+    [slug, startAt],
+  );
+
   // Das Ende des Ausschnitts ist eine Einstellung des Stores, kein Zustand.
   useEffect(() => {
     store?.setStopAt(stopAt);
@@ -174,7 +234,7 @@ export function MediaView({
          */
         load="eager"
         posterLoad="eager"
-        storage={`mediathek:${slug}`}
+        storage={storage}
         onLoadedMetadata={() => {
           const instance = player.current;
           if (!instance) return;

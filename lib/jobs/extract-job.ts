@@ -40,13 +40,17 @@ export async function runExtractJob(context: JobContext): Promise<void> {
   const script = path.join(python.toolsDir, "extract_text.py");
   update({ stage: "extract", message: "Anhänge werden gelesen …" });
 
-  const child = spawn(python.exe, [script, "--dir", item.assets.attachmentsDir], {
-    cwd: python.toolsDir,
-    windowsHide: true,
-    stdio: ["ignore", "pipe", "pipe"],
-    // Kein ffmpeg nötig; PATH bleibt trotzdem konsistent.
-    env: childEnv(python, null),
-  });
+  const child = spawn(
+    python.exe,
+    [script, "--dir", item.assets.attachmentsDir],
+    {
+      cwd: python.toolsDir,
+      windowsHide: true,
+      stdio: ["ignore", "pipe", "pipe"],
+      // Kein ffmpeg nötig; PATH bleibt trotzdem konsistent.
+      env: childEnv(python, null),
+    },
+  );
   context.setPid(child.pid ?? null);
 
   let finalMessage = "Fertig.";
@@ -75,7 +79,10 @@ export async function runExtractJob(context: JobContext): Promise<void> {
 
     switch (event.type) {
       case "stage":
-        update({ stage: String(event.stage), message: String(event.message ?? "") });
+        update({
+          stage: String(event.stage),
+          message: String(event.message ?? ""),
+        });
         break;
       case "progress":
         update({ progress: Number(event.ratio) || 0 });

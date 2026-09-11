@@ -4,10 +4,7 @@ import { useState, useTransition } from "react";
 import { useRouter } from "next/navigation";
 import { Cpu, FileSearch, Image as ImageIcon, Mic, X, Zap } from "lucide-react";
 
-import {
-  cancelJobAction,
-  startJobAction,
-} from "@/app/medien/[slug]/actions";
+import { cancelJobAction, startJobAction } from "@/app/medien/[slug]/actions";
 import { useItemJobs } from "@/components/jobs/use-jobs";
 import { Button } from "@/components/ui/basis";
 import type { Job, JobKind } from "@/lib/jobs/types";
@@ -60,36 +57,40 @@ export function JobButtons({
     <div className="space-y-2">
       <div className="flex flex-wrap items-center gap-2">
         {mediaButtons ? (
-        <Button
-          size="klein"
-          variant={hasTranscript ? "sekundaer" : "primaer"}
-          disabled={pending || Boolean(active) || !pythonReady || !ffmpegReady}
-          title={
-            !pythonReady
-              ? 'Die Python-Umgebung fehlt — einrichten mit "npm run setup:python".'
-              : !ffmpegReady
-                ? "ffmpeg wurde nicht gefunden. Siehe Einstellungen."
-                : undefined
-          }
-          onClick={() => start("transkription")}
-        >
-          <Mic aria-hidden className="size-3.5" />
-          {hasTranscript ? "Neu transkribieren" : "Transkribieren"}
-        </Button>
+          <Button
+            size="klein"
+            variant={hasTranscript ? "sekundaer" : "primaer"}
+            disabled={
+              pending || Boolean(active) || !pythonReady || !ffmpegReady
+            }
+            title={
+              !pythonReady
+                ? 'Die Python-Umgebung fehlt — einrichten mit "npm run setup:python".'
+                : !ffmpegReady
+                  ? "ffmpeg wurde nicht gefunden. Siehe Einstellungen."
+                  : undefined
+            }
+            onClick={() => start("transkription")}
+          >
+            <Mic aria-hidden className="size-3.5" />
+            {hasTranscript ? "Neu transkribieren" : "Transkribieren"}
+          </Button>
         ) : null}
 
         {mediaButtons ? (
-        <Button
-          size="klein"
-          disabled={pending || Boolean(active) || !ffmpegReady}
-          title={
-            ffmpegReady ? undefined : "ffmpeg wurde nicht gefunden. Siehe Einstellungen."
-          }
-          onClick={() => start("kachelbild")}
-        >
-          <ImageIcon aria-hidden className="size-3.5" />
-          {hasPoster ? "Kachelbild neu" : "Kachelbild erzeugen"}
-        </Button>
+          <Button
+            size="klein"
+            disabled={pending || Boolean(active) || !ffmpegReady}
+            title={
+              ffmpegReady
+                ? undefined
+                : "ffmpeg wurde nicht gefunden. Siehe Einstellungen."
+            }
+            onClick={() => start("kachelbild")}
+          >
+            <ImageIcon aria-hidden className="size-3.5" />
+            {hasPoster ? "Kachelbild neu" : "Kachelbild erzeugen"}
+          </Button>
         ) : null}
 
         {attachmentsWithoutText > 0 ? (
@@ -132,7 +133,8 @@ const STAGE_TEXT: Record<string, string> = {
 };
 
 function formatEta(seconds: number | null): string | null {
-  if (seconds === null || !Number.isFinite(seconds) || seconds <= 0) return null;
+  if (seconds === null || !Number.isFinite(seconds) || seconds <= 0)
+    return null;
   if (seconds < 60) return `noch ${Math.round(seconds)} s`;
   const minutes = Math.round(seconds / 60);
   return `noch etwa ${minutes} ${minutes === 1 ? "Minute" : "Minuten"}`;
@@ -170,7 +172,9 @@ function JobProgress({ job }: { job: Job }) {
               {job.deviceUsed === "cuda" ? "Grafikkarte" : "CPU"}
             </span>
           ) : null}
-          <span className="text-xs tabular-nums text-schrift-2">{percent} %</span>
+          <span className="text-xs tabular-nums text-schrift-2">
+            {percent} %
+          </span>
           <Button
             size="klein"
             variant="leise"
@@ -219,7 +223,11 @@ function JobResult({ job }: { job: Job }) {
     );
   }
   if (job.state === "abgebrochen") {
-    return <p className="text-xs text-schrift-2">Der letzte Lauf wurde abgebrochen.</p>;
+    return (
+      <p className="text-xs text-schrift-2">
+        Der letzte Lauf wurde abgebrochen.
+      </p>
+    );
   }
   return (
     <div className="rounded-lg border border-warnung/40 bg-warnung-grund px-3 py-2">

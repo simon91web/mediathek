@@ -2,9 +2,11 @@ import "server-only";
 
 import { getItem } from "@/lib/library";
 import { assertSlug } from "@/lib/library/slug";
+import { runAssistantJob } from "./assistant-job";
 import { runExtractJob } from "./extract-job";
 import { runPosterJob } from "./poster-job";
 import { getQueue, resetQueue } from "./queue";
+import { runSearchIndexJob } from "./search-job";
 import { runTranscribeJob } from "./transcribe-job";
 import { isFinished } from "./types";
 import type { Job, JobKind, JobSnapshot } from "./types";
@@ -26,13 +28,26 @@ async function ensureReady() {
   queue.register("transkription", runTranscribeJob);
   queue.register("kachelbild", runPosterJob);
   queue.register("anhangtext", runExtractJob);
+  queue.register("kapitel", runAssistantJob);
+  queue.register("bezuege", runAssistantJob);
+  queue.register("fragen", runAssistantJob);
+  queue.register("suchindex", runSearchIndexJob);
   await queue.load();
   return queue;
 }
 
-export type StartResult =
-  | { ok: true; job: Job }
-  | { ok: false; error: string };
+/**
+ * Nur die Abläufe anmelden — für alles, was an `startJob` vorbei anstellt.
+ *
+ * Ohne das könnte ein Auftrag in einer Schlange landen, die seine Art nicht
+ * kennt: sie lebt auf globalThis und überlebt einen Hot Reload, die
+ * Anmeldung der Abläufe nicht.
+ */
+export async function prepareJobs(): Promise<void> {
+  await ensureReady();
+}
+
+export type StartResult = { ok: true; job: Job } | { ok: false; error: string };
 
 /**
  * Stellt einen Auftrag an. Läuft für denselben Beitrag schon einer derselben
@@ -65,7 +80,10 @@ export async function startJob(
     };
   }
   if (kind === "kachelbild" && item.kind === "text") {
-    return { ok: false, error: "Für einen Textbeitrag gibt es kein Kachelbild." };
+    return {
+      ok: false,
+      error: "Für einen Textbeitrag gibt es kein Kachelbild.",
+    };
   }
   if (kind === "anhangtext" && item.attachments.length === 0) {
     return { ok: false, error: "Dieser Beitrag hat keine Anhänge." };
@@ -78,6 +96,24 @@ export async function startJob(
     ok: true,
     job: queue.enqueue({ kind, slug, title: item.title }),
   };
+}
+
+/**
+ * Ein Auftrag, der die ganze Bibliothek betrifft und keinen Beitrag —
+ * „Fragen zusammenfassen" ist der erste seiner Art.
+ *
+ * Getrennt von `startJob`, weil dort ein Beitrag nachgeschlagen und geprüft
+ * wird. Ohne Beitrag gibt es nichts nachzuschlagen, und ein erfundener Slug
+ * wäre genau die Abkürzung, die man hier nicht einbaut.
+ */
+export async function startLibraryJob(
+  kind: JobKind,
+  title: string,
+): Promise<StartResult> {
+  const queue = await ensureReady();
+  const running = queue.activeFor("", kind);
+  if (running) return { ok: true, job: running };
+  return { ok: true, job: queue.enqueue({ kind, slug: "", title }) };
 }
 
 export async function cancelJob(id: string): Promise<boolean> {
@@ -104,6 +140,12 @@ export async function subscribeJobs(
   // binnen Millisekunden wieder den richtigen Fortschritt zeigt.
   listener(queue.snapshot());
   return queue.subscribe(listener);
+}
+
+/** Wirft die erledigten Aufträge aus dem Verlauf. Liefert die Anzahl. */
+export async function clearFinishedJobs(): Promise<number> {
+  const queue = await ensureReady();
+  return queue.clearFinished();
 }
 
 /** Läuft oder wartet gerade ein Auftrag? Vor dem Wechsel der Bibliothek. */

@@ -158,6 +158,14 @@ export type ItemFrontmatter = {
   synonyms: string[];
   /** Nur in Sammlungen: macht daraus eine gespeicherte Suche. */
   query: string | null;
+  /**
+   * Nur in Fragen: dieselbe Frage, anders gestellt. Das Gegenstück zu den
+   * Synonymen einer Themenseite — nur dass hier ganze Sätze stehen, weshalb
+   * sie nicht am Komma getrennt werden dürfen.
+   */
+  alsoAsked: string[];
+  /** Nur in Fragen: woraus geantwortet wurde ("bibliothek", "web"). */
+  sources: string[];
   /** Unbekannte Schlüssel bleiben erhalten, damit nichts verloren geht. */
   extra: Record<string, unknown>;
 };
@@ -171,6 +179,8 @@ const EMPTY_FRONTMATTER: ItemFrontmatter = {
   webVersion: null,
   synonyms: [],
   query: null,
+  alsoAsked: [],
+  sources: [],
   extra: {},
 };
 
@@ -196,6 +206,16 @@ const KEY_ALIASES: Record<string, keyof ItemFrontmatter> = {
   suche: "query",
   query: "query",
   search: "query",
+  frage: "title",
+  question: "title",
+  gefragt: "recorded",
+  asked: "recorded",
+  "auch gefragt": "alsoAsked",
+  "auch-gefragt": "alsoAsked",
+  varianten: "alsoAsked",
+  "also asked": "alsoAsked",
+  quellen: "sources",
+  sources: "sources",
 };
 
 export function normalizeTag(value: string): string {
@@ -244,6 +264,53 @@ function toSynonyms(value: unknown): string[] {
     if (!seen.has(key)) seen.set(key, text);
   }
   return [...seen.values()].slice(0, 24);
+}
+
+/**
+ * Andere Formulierungen derselben Frage.
+ *
+ * Anders als bei den Synonymen wird NICHT am Komma getrennt: hier stehen
+ * ganze Sätze, und „Wie lese ich das Protokoll, wenn es leer ist?“ wäre
+ * sonst zwei Fragen. Getrennt wird nur, was YAML schon getrennt hat.
+ */
+function toQuestionList(value: unknown): string[] {
+  const raw: string[] = Array.isArray(value)
+    ? value.map((entry) => String(entry))
+    : typeof value === "string"
+      ? value.split(/\r?\n/)
+      : value == null
+        ? []
+        : [String(value)];
+
+  const seen = new Map<string, string>();
+  for (const entry of raw) {
+    const text = entry
+      .trim()
+      .replace(/^[-*]\s*/, "")
+      .replace(/\s+/g, " ");
+    if (text.length < 3 || text.length > 200) continue;
+    const key = text.toLowerCase();
+    if (!seen.has(key)) seen.set(key, text);
+  }
+  return [...seen.values()].slice(0, 12);
+}
+
+/** Woraus geantwortet wurde. Kleingeschrieben, damit der Vergleich einfach bleibt. */
+function toSources(value: unknown): string[] {
+  const raw: string[] = Array.isArray(value)
+    ? value.map((entry) => String(entry))
+    : typeof value === "string"
+      ? value.split(/[,;+]/)
+      : value == null
+        ? []
+        : [String(value)];
+
+  const seen = new Set<string>();
+  for (const entry of raw) {
+    const text = entry.trim().toLowerCase();
+    if (text) seen.add(text.slice(0, 24));
+  }
+  return [...seen].slice(0, 6);
 }
 
 /**
@@ -414,6 +481,12 @@ export function parseItemFrontmatter(frontmatterText: string | null): {
         if (text) data.query = text.slice(0, 200);
         break;
       }
+      case "alsoAsked":
+        data.alsoAsked = toQuestionList(value);
+        break;
+      case "sources":
+        data.sources = toSources(value);
+        break;
       case "webVersion": {
         const name = String(value ?? "").trim();
         // Nur ein Dateiname, kein Pfad — sonst wäre das ein Ausbruch.

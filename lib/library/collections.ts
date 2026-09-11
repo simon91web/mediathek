@@ -39,6 +39,16 @@ import type { ItemProblem, Slug, Spot } from "./types";
  * umsortieren soll.
  */
 
+/**
+ * Ersetzt den Inhalt von HTML-Kommentaren durch Leerzeichen — Zeilenumbrüche
+ * bleiben, damit sich keine Zeilennummer verschiebt.
+ */
+function blankComments(body: string): string {
+  return body.replace(/<!--[\s\S]*?-->/g, (treffer) =>
+    treffer.replace(/[^\n]/g, " "),
+  );
+}
+
 export type ParsedCollection = {
   title: string;
   description: string;
@@ -64,8 +74,20 @@ export function parseCollectionMarkdown(
    * Reihenfolge der Wiedergabe. Anders als bei Themen wird NICHT entdoppelt:
    * dieselbe Stelle darf zweimal auftauchen, wenn der Weg sie zweimal
    * braucht.
+   *
+   * Auskommentiertes zählt nicht.
+   *
+   * Eine Sammlung hat keine Marker-Blöcke, also ist ein HTML-Kommentar hier
+   * genau das: eine Bemerkung. Ohne diesen Schritt würde eine als Beispiel
+   * auskommentierte Zeile — und so eine legt die Mediathek beim Anlegen
+   * selbst an — als echter Ausschnitt gelesen und zeigte auf einen Beitrag,
+   * den niemand gemeint hat.
+   *
+   * Ausgeblendet statt entfernt, damit alle Zeilennummern gültig bleiben.
    */
-  const { spots, problems: spotProblems } = parseSpotLines(split.body, 1);
+  const ohneKommentare = blankComments(split.body);
+
+  const { spots, problems: spotProblems } = parseSpotLines(ohneKommentare, 1);
   problems.push(...spotProblems);
 
   if (spots.length === 0 && !head.data.query) {

@@ -5,14 +5,19 @@ import { usePathname } from "next/navigation";
 
 import { cn } from "@/lib/utils";
 
-/** Routen sind deutsch — wie in den übrigen Werkzeugen. */
+/*
+ * Die Hauptnavigation — nur noch das, was man durchblättert.
+ *
+ * Suche, Importieren, Aufträge und Einstellungen stehen rechts als Symbole:
+ * das sind Werkzeuge, keine Orte. "Mediathek" heißt hier "Medien", weil das
+ * Wort schon im Logo daneben steht und zweimal dasselbe keine Orientierung
+ * gibt.
+ */
 const NAV_ITEMS = [
-  { href: "/medien", label: "Mediathek" },
+  { href: "/medien", label: "Medien" },
   { href: "/themen", label: "Themen" },
   { href: "/sammlungen", label: "Sammlungen" },
-  { href: "/suche", label: "Suche" },
-  { href: "/importieren", label: "Importieren" },
-  { href: "/einstellungen", label: "Einstellungen" },
+  { href: "/fragen", label: "Fragen" },
 ] as const;
 
 export function NavLinks() {

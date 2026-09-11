@@ -2,10 +2,12 @@
 
 import { revalidatePath } from "next/cache";
 
-import { launchClaude } from "@/lib/claude/launch";
-import type { ClaudeCommand } from "@/lib/claude/launch";
+import { launchAssistant } from "@/lib/assistant/start";
+import type { AssistantTask } from "@/lib/assistant/start";
 import { assertAuthorMode, NotAllowedError } from "@/lib/features";
 import { cancelJob, startJob } from "@/lib/jobs";
+import { startChain } from "@/lib/jobs/chain";
+import type { ChainResult } from "@/lib/jobs/chain";
 import type { Job, JobKind } from "@/lib/jobs";
 
 /*
@@ -44,6 +46,37 @@ export async function startJobAction(
   return { ok: true, job: result.job };
 }
 
+/**
+ * Die ganze Kette für einen Beitrag: Transkription → Kapitel → Suche →
+ * Bezüge.
+ *
+ * Der Knopf, der die vier Knöpfe ersetzt. Angestellt wird nur, was fehlt —
+ * außer bei `erneut`, dann alles.
+ */
+export async function startChainAction(
+  slug: string,
+  options: { erneut?: boolean } = {},
+): Promise<ChainResult> {
+  try {
+    await assertAuthorMode();
+  } catch (error) {
+    return {
+      ok: false,
+      slug,
+      steps: [],
+      queued: 0,
+      error:
+        error instanceof NotAllowedError
+          ? error.message
+          : "Das ist hier nicht möglich.",
+    };
+  }
+
+  const result = await startChain(slug, options);
+  revalidatePath(`/medien/${slug}`);
+  return result;
+}
+
 export async function cancelJobAction(
   id: string,
 ): Promise<{ ok: boolean; error?: string }> {
@@ -73,8 +106,8 @@ export async function cancelJobAction(
  * gegen den Index UND gegen das Dateisystem. Hier steht nur der Riegel, der
  * für jede schreibende Handlung gilt.
  */
-export async function startClaudeAction(
-  command: ClaudeCommand,
+export async function startAssistantAction(
+  command: AssistantTask,
   slug: string,
 ): Promise<{ ok: true; prompt: string } | { ok: false; error: string }> {
   try {
@@ -89,5 +122,5 @@ export async function startClaudeAction(
     };
   }
 
-  return launchClaude(command, slug);
+  return launchAssistant(command, slug);
 }

@@ -1,18 +1,18 @@
 import type { Metadata } from "next";
-import { AlertTriangle, Check, X } from "lucide-react";
+import { AlertTriangle } from "lucide-react";
 
-import { ClaudePanel } from "@/components/claude/claude-panel";
 import { LibraryDirForm } from "@/components/library/library-dir-form";
-import { SettingsControls } from "@/components/library/settings-controls";
-import { WhisperSettings } from "@/components/library/whisper-settings";
-import { Card, SectionTitle } from "@/components/ui/basis";
-import { claudeFilesInstalled } from "@/lib/claude/install";
+import {
+  ReloadControl,
+  SettingsSection,
+} from "@/components/library/settings-controls";
+import { Row } from "@/components/library/settings-rows";
+import { Card } from "@/components/ui/basis";
 import { getFeatures } from "@/lib/features";
 import { getLibrary } from "@/lib/library";
-import { searchIndexStatus } from "@/lib/search";
-import { LIBRARY_DIR_FIXED } from "@/lib/paths";
-import { libraryStateDir, readSettings, settingsFile } from "@/lib/settings";
 import { formatBytes } from "@/lib/library/media-kind";
+import { LIBRARY_DIR_FIXED } from "@/lib/paths";
+import { searchIndexStatus } from "@/lib/search";
 import { plural } from "@/lib/utils";
 
 export const metadata: Metadata = { title: "Einstellungen" };
@@ -24,13 +24,8 @@ const WATCH_LABEL = {
   aus: "Änderungen werden nicht bemerkt",
 } as const;
 
-export default async function EinstellungenPage() {
-  const [library, features, settings, claudeInstalled] = await Promise.all([
-    getLibrary(),
-    getFeatures(),
-    readSettings(),
-    claudeFilesInstalled(),
-  ]);
+export default async function BibliothekPage() {
+  const [library, features] = await Promise.all([getLibrary(), getFeatures()]);
   // Nur ablesen, nicht anstoßen: der Index baut sich beim ersten Suchen.
   const searchStatus = searchIndexStatus();
 
@@ -42,128 +37,73 @@ export default async function EinstellungenPage() {
   }
 
   return (
-    <div className="max-w-3xl space-y-8">
-      <h1 className="text-2xl font-semibold tracking-tight">Einstellungen</h1>
+    <div className="space-y-8">
+      <SettingsSection title="Ordner" hint="hierhin wird importiert">
+        {features.authorMode ? (
+          <LibraryDirForm current={library.root} fixed={LIBRARY_DIR_FIXED} />
+        ) : (
+          <code className="text-xs break-all">{library.root}</code>
+        )}
+      </SettingsSection>
 
-      <section>
-        <SectionTitle>Bibliothek</SectionTitle>
-        <Card className="space-y-3">
-          <Row label="Ordner">
-            {features.authorMode ? (
-              <LibraryDirForm
-                current={library.root}
-                fixed={LIBRARY_DIR_FIXED}
-              />
-            ) : (
-              <code className="text-xs break-all">{library.root}</code>
-            )}
-          </Row>
-          <Row label="Inhalt">
-            {plural(library.items.length, "Beitrag", "Beiträge")} ·{" "}
-            {byKind.video} Video, {byKind.audio} Audio, {byKind.text} Text ·{" "}
-            {plural(library.topics.length, "Thema", "Themen")}
-            {library.collections.length > 0
-              ? ` · ${plural(library.collections.length, "Sammlung", "Sammlungen")}`
-              : ""}
-            {bytes > 0 ? ` · ${formatBytes(bytes)} Medien` : ""}
-          </Row>
-          <Row label="Zuletzt gelesen">
-            {new Date(library.scannedAtMs).toLocaleTimeString("de-DE")} in{" "}
-            {library.scanDurationMs} ms
-          </Row>
-          <Row label="Änderungen">
-            <span
-              className={
-                library.watch.mode === "aus" ? "text-warnung" : undefined
-              }
-            >
-              {WATCH_LABEL[library.watch.mode]}
-            </span>
-            {library.watch.error ? (
-              <span className="mt-1 block text-xs text-schrift-2">
-                {library.watch.error}
-              </span>
-            ) : null}
-          </Row>
-          <Row label="Suchindex">
-            {searchStatus.state === "fertig"
-              ? `${searchStatus.blocks} Textblöcke`
-              : searchStatus.state === "baut"
-                ? "wird gerade aufgebaut"
-                : searchStatus.state === "abgebrochen"
-                  ? "zu groß — es wird wörtlich gesucht"
-                  : "wird beim ersten Suchen gebaut"}
-          </Row>
-          <Row label="Index">
-            {library.cache.writable ? (
-              <span>
-                wird in <code className="text-xs">library.json</code> gemerkt
-              </span>
-            ) : (
-              <span className="text-warnung">
-                {library.cache.note ?? "kann nicht geschrieben werden"}
-              </span>
-            )}
-          </Row>
-        </Card>
-      </section>
-
-      <SettingsControls
-        authorMode={features.authorMode}
-        readonly={features.readonly}
-        ffmpegDir={features.ffmpegDir}
-      />
-
-      {features.python === "ok" ? (
-        <WhisperSettings
-          model={settings.whisperModel}
-          language={settings.whisperLanguage}
-          gpuReady={features.python === "ok"}
-        />
-      ) : null}
-
-      {features.authorMode ? (
-        <ClaudePanel
-          claudeReady={features.claude === "ok"}
-          filesInstalled={claudeInstalled}
-          libraryRoot={library.root}
-        />
-      ) : null}
-
-      <section>
-        <SectionTitle>Werkzeuge auf dieser Maschine</SectionTitle>
-        <Card className="space-y-3">
-          <ToolRow
-            state={features.python}
-            label="Python für die Transkription"
-            okText="eingerichtet — Beiträge lassen sich transkribieren"
-            missingText={'fehlt; einrichten mit "npm run setup:python"'}
-          />
-          <ToolRow
-            state={features.ffmpeg}
-            label="ffmpeg"
-            okText={
-              features.ffmpegDir
-                ? `gefunden in ${features.ffmpegDir}`
-                : "über den Suchpfad gefunden"
+      <SettingsSection title="Inhalt">
+        <Row label="Beiträge">
+          {plural(library.items.length, "Beitrag", "Beiträge")} · {byKind.video}{" "}
+          Video, {byKind.audio} Audio, {byKind.text} Text
+          {bytes > 0 ? ` · ${formatBytes(bytes)} Medien` : ""}
+        </Row>
+        <Row label="Erschließung">
+          {plural(library.topics.length, "Thema", "Themen")} ·{" "}
+          {plural(library.collections.length, "Sammlung", "Sammlungen")}
+        </Row>
+        <Row label="Zuletzt gelesen">
+          {new Date(library.scannedAtMs).toLocaleTimeString("de-DE")} in{" "}
+          {library.scanDurationMs} ms
+        </Row>
+        <Row label="Änderungen">
+          <span
+            className={
+              library.watch.mode === "aus" ? "text-warnung" : undefined
             }
-            missingText="wird für Kachelbilder und die Tonspur gebraucht"
-          />
-          <ToolRow
-            state={features.claude}
-            label="Claude Code"
-            okText="gefunden — Kapitel und Zusammenfassungen lassen sich erzeugen"
-            missingText="wird erst für die Kapitel-Erzeugung gebraucht"
-          />
-          <p className="border-t border-rand pt-3 text-xs text-schrift-2">
-            Diese Werkzeuge braucht nur, wer Beiträge einpflegt. Zum Ansehen
-            genügt der Server.
-          </p>
-        </Card>
-      </section>
+          >
+            {WATCH_LABEL[library.watch.mode]}
+          </span>
+          {library.watch.error ? (
+            <span className="mt-1 block text-xs text-schrift-2">
+              {library.watch.error}
+            </span>
+          ) : null}
+        </Row>
+        <Row label="Suchindex">
+          {searchStatus.state === "fertig"
+            ? `${searchStatus.blocks} Textblöcke`
+            : searchStatus.state === "baut"
+              ? "wird gerade aufgebaut"
+              : searchStatus.state === "abgebrochen"
+                ? "zu groß — es wird wörtlich gesucht"
+                : "wird beim ersten Suchen gebaut"}
+        </Row>
+        <Row label="Index">
+          {library.cache.writable ? (
+            <span>
+              wird in <code className="text-xs">library.json</code> gemerkt
+            </span>
+          ) : (
+            <span className="text-warnung">
+              {library.cache.note ?? "kann nicht geschrieben werden"}
+            </span>
+          )}
+        </Row>
+
+        <div className="border-t border-rand pt-4">
+          <ReloadControl />
+        </div>
+      </SettingsSection>
 
       <section>
-        <SectionTitle>Hinweise aus der Bibliothek</SectionTitle>
+        <h2 className="mb-2 text-sm font-semibold tracking-wide text-schrift-2 uppercase">
+          Hinweise aus der Bibliothek
+        </h2>
         {library.problems.length === 0 ? (
           <Card>
             <p className="text-sm text-schrift-2">
@@ -189,67 +129,6 @@ export default async function EinstellungenPage() {
           </Card>
         )}
       </section>
-
-      <section>
-        <SectionTitle>Wo diese Mediathek ihre Notizen ablegt</SectionTitle>
-        <Card className="space-y-2 text-sm">
-          <Row label="Einstellungen">
-            <code className="text-xs break-all">{settingsFile()}</code>
-          </Row>
-          <Row label="Arbeitsdaten">
-            <code className="text-xs break-all">{libraryStateDir()}</code>
-          </Row>
-          <p className="border-t border-rand pt-2 text-xs text-schrift-2">
-            Bewusst außerhalb der Bibliothek: der Ordner wird weitergegeben und
-            herumkopiert, und Programmpfade oder Laufwerksbuchstaben gelten nur
-            auf dieser Maschine. Klemmt etwas, kann dieser Ordner gelöscht
-            werden.
-          </p>
-        </Card>
-      </section>
-    </div>
-  );
-}
-
-function Row({
-  label,
-  children,
-}: {
-  label: string;
-  children: React.ReactNode;
-}) {
-  return (
-    <div className="grid grid-cols-1 gap-0.5 text-sm sm:grid-cols-[9rem_minmax(0,1fr)] sm:gap-3">
-      <span className="text-schrift-2">{label}</span>
-      <span className="min-w-0">{children}</span>
-    </div>
-  );
-}
-
-function ToolRow({
-  state,
-  label,
-  okText,
-  missingText,
-}: {
-  state: "ok" | "fehlt";
-  label: string;
-  okText: string;
-  missingText: string;
-}) {
-  return (
-    <div className="flex items-start gap-2 text-sm">
-      {state === "ok" ? (
-        <Check aria-hidden className="mt-0.5 size-4 shrink-0 text-akzent" />
-      ) : (
-        <X aria-hidden className="mt-0.5 size-4 shrink-0 text-schrift-3" />
-      )}
-      <span className="min-w-0">
-        <span className="font-medium">{label}</span>{" "}
-        <span className="text-schrift-2">
-          {state === "ok" ? okText : missingText}
-        </span>
-      </span>
     </div>
   );
 }

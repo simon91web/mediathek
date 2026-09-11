@@ -7,6 +7,7 @@ import { parseItemMarkdown } from "./beitrag-md";
 import { emptyCache, sameFingerprint } from "./cache";
 import type { LibraryCache } from "./cache";
 import { parseCollectionMarkdown } from "./collections";
+import { parseQuestionMarkdown } from "./questions";
 import { parseTopicMarkdown } from "./topics";
 import { isSlug } from "./slug";
 import {
@@ -19,6 +20,7 @@ import {
 import type {
   Attachment,
   Collection,
+  Question,
   Topic,
   TopicSpot,
   FileStamp,
@@ -51,7 +53,10 @@ async function stamp(file: string): Promise<FileStamp | null> {
  */
 async function attachmentsStamp(
   dir: string,
-): Promise<{ stamp: FileStamp | null; files: Array<{ name: string; info: FileStamp }> }> {
+): Promise<{
+  stamp: FileStamp | null;
+  files: Array<{ name: string; info: FileStamp }>;
+}> {
   let entries: string[];
   try {
     entries = await fs.readdir(dir);
@@ -108,7 +113,9 @@ async function buildAttachments(
 
 /** Sortierschlüssel einer Fundstelle: Zeit vor Anker, Anker alphabetisch. */
 function spotOrder(spot: Spot): number {
-  return spot.target.kind === "zeit" ? spot.target.start : Number.MAX_SAFE_INTEGER;
+  return spot.target.kind === "zeit"
+    ? spot.target.start
+    : Number.MAX_SAFE_INTEGER;
 }
 
 /** "pruefzettel-elios.pdf" → "Pruefzettel elios" */
@@ -211,6 +218,28 @@ async function scanItem(
   if (media) {
     const info = await readMp4Info(path.join(dir, media.name));
     fallbackDuration = info.durationSeconds;
+
+    /*
+     * Abgeschnittene Datei? Das beweist die Atomkette: beansprucht ein Atom
+     * mehr Bytes, als die Datei hat, fehlt das Ende.
+     *
+     * Der Hinweis stammt aus einem echten Schaden — ein stiller
+     * Größenschnitt beim Upload (siehe proxy.ts) hinterließ Videos, die
+     * scheinbar in Ordnung waren: Dauer und Kachelbild stimmten, weil das
+     * moov-Atom am Anfang lag, nur abspielen ließ sich nichts. Ohne diesen
+     * Hinweis sieht man das erst beim Anklicken jedes einzelnen Beitrags —
+     * mit ihm listet "npm run doktor" die Betroffenen auf.
+     */
+    if (info.truncated === true) {
+      problems.push({
+        kind: "datei",
+        message:
+          `${media.name} ist unvollständig — die Datei bricht mitten in ` +
+          "einem Abschnitt ab. Typische Ursache: ein abgebrochener oder " +
+          "beschnittener Upload. Neu importieren und danach die Größe mit " +
+          "dem Original vergleichen.",
+      });
+    }
   }
 
   let raw = "";
@@ -525,6 +554,103 @@ async function scanCollections(
   return { collections, cacheEntries, problems };
 }
 
+/**
+ * Fragen lesen. Wie Sammlungen, nur dass diese Dateien von selbst entstehen:
+ * der Chat legt jede beantwortete Frage hier ab.
+ */
+async function scanQuestions(
+  cache: LibraryCache,
+  force: boolean,
+): Promise<{
+  questions: Question[];
+  cacheEntries: LibraryCache["questions"];
+  problems: ScanProblem[];
+}> {
+  const problems: ScanProblem[] = [];
+  const cacheEntries: LibraryCache["questions"] = {};
+  const questions: Question[] = [];
+
+  let entries: string[];
+  try {
+    entries = (await fs.readdir(paths.questions, { withFileTypes: true }))
+      .filter((entry) => entry.isFile() && /\.md$/i.test(entry.name))
+      .map((entry) => entry.name);
+  } catch {
+    // Kein fragen/-Ordner ist völlig in Ordnung: dann wurde noch nichts gefragt.
+    return { questions, cacheEntries, problems };
+  }
+
+  for (const name of entries) {
+    const slug = path.parse(name).name.toLowerCase();
+    if (!isSlug(slug)) {
+      problems.push({
+        path: path.join(paths.questions, name),
+        message:
+          "Der Dateiname taugt nicht als Kennung einer Frage " +
+          "(erlaubt: Kleinbuchstaben, Ziffern, Bindestriche).",
+      });
+      continue;
+    }
+
+    const file = path.join(paths.questions, name);
+    const info = await stamp(file);
+    if (!info) continue;
+
+    const cached = cache.questions[slug];
+    if (
+      !force &&
+      cached &&
+      cached.size === info.size &&
+      cached.mtimeMs === info.mtimeMs
+    ) {
+      questions.push(cached.question);
+      cacheEntries[slug] = cached;
+      continue;
+    }
+
+    let raw = "";
+    try {
+      raw = await fs.readFile(file, "utf8");
+    } catch (error) {
+      problems.push({
+        path: file,
+        message: `Nicht lesbar: ${
+          error instanceof Error ? error.message : String(error)
+        }`,
+      });
+      continue;
+    }
+
+    const parsed = parseQuestionMarkdown(raw, slug);
+    const question: Question = {
+      slug,
+      question: parsed.question,
+      alsoAsked: parsed.alsoAsked,
+      answer: parsed.answer,
+      spots: parsed.spots,
+      missingSlugs: [],
+      askedAt: parsed.askedAt,
+      usedWeb: parsed.usedWeb,
+      tags: parsed.tags,
+      changedAtMs: info.mtimeMs,
+      problems: parsed.problems,
+    };
+    questions.push(question);
+    cacheEntries[slug] = { size: info.size, mtimeMs: info.mtimeMs, question };
+  }
+
+  /*
+   * Zuletzt Gefragtes zuerst: ein FAQ, das wächst, wird von oben gelesen.
+   * Der Tag reicht nicht als Ordnung (an einem Tag entstehen mehrere), also
+   * entscheidet bei Gleichstand die Datei selbst.
+   */
+  questions.sort((a, b) => {
+    const tagVergleich = (b.askedAt ?? "").localeCompare(a.askedAt ?? "");
+    return tagVergleich !== 0 ? tagVergleich : b.changedAtMs - a.changedAtMs;
+  });
+  return { questions, cacheEntries, problems };
+}
+
 export type ScanResult = {
   state: LibraryState;
   cache: LibraryCache;
@@ -684,6 +810,19 @@ export async function scanLibrary(options: {
     collectionResult.collections.map((entry) => [entry.slug, entry]),
   );
 
+  const questionResult = await scanQuestions(cache, force);
+  problems.push(...questionResult.problems);
+  for (const question of questionResult.questions) {
+    const missing = new Set<Slug>();
+    for (const spot of question.spots) {
+      if (!bySlug.has(spot.slug)) missing.add(spot.slug);
+    }
+    question.missingSlugs = [...missing];
+  }
+  const questionsBySlug = new Map(
+    questionResult.questions.map((entry) => [entry.slug, entry]),
+  );
+
   /*
    * Rückverweise werden berechnet, nicht geschrieben: ein Bezug wird an einer
    * Stelle notiert und erscheint auf beiden Beiträgen. Sonst müsste Claude
@@ -715,7 +854,9 @@ export async function scanLibrary(options: {
   const tags = [...tagCounts.entries()]
     .map(([tag, count]) => ({ tag, count }))
     .sort((a, b) =>
-      b.count === a.count ? a.tag.localeCompare(b.tag, "de") : b.count - a.count,
+      b.count === a.count
+        ? a.tag.localeCompare(b.tag, "de")
+        : b.count - a.count,
     );
 
   const state: LibraryState = {
@@ -731,6 +872,8 @@ export async function scanLibrary(options: {
     topicSpotsByItem,
     collections: collectionResult.collections,
     collectionsBySlug,
+    questions: questionResult.questions,
+    questionsBySlug,
     backlinks,
     tags,
     problems,
@@ -748,6 +891,7 @@ export async function scanLibrary(options: {
       items: nextCacheItems,
       topics: topicResult.cacheEntries,
       collections: collectionResult.cacheEntries,
+      questions: questionResult.cacheEntries,
     },
     reparsed,
   };

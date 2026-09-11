@@ -2,6 +2,7 @@ import { describe, expect, it } from "vitest";
 
 import { fileLineOf } from "@/test/zeilen";
 import { parseCollectionMarkdown } from "./collections";
+import { renderCollectionMarkdown } from "./write-collection";
 
 const PFAD = `---
 titel: Alles zum Akku
@@ -105,5 +106,77 @@ describe("parseCollectionMarkdown", () => {
       start: 60,
       end: null,
     });
+  });
+});
+
+describe("Anlegen und Wiederlesen", () => {
+  it("liest eine erzeugte gespeicherte Suche als solche", () => {
+    const datei = renderCollectionMarkdown({
+      title: "Überall Spannung",
+      query: "zellspannung",
+    });
+    const gelesen = parseCollectionMarkdown(datei, "ueberall-spannung");
+    expect(gelesen.title).toBe("Überall Spannung");
+    expect(gelesen.query).toBe("zellspannung");
+    expect(gelesen.problems).toEqual([]);
+  });
+
+  it("zählt eine auskommentierte Beispielzeile NICHT als Ausschnitt", () => {
+    /*
+     * Beim Anlegen einer Ausschnittsfolge schreibt die Mediathek ein
+     * Beispiel als HTML-Kommentar in die Datei. Würde der Parser es lesen,
+     * hätte jede neue Sammlung sofort einen Eintrag auf einen Beitrag, den
+     * niemand gemeint hat.
+     */
+    const datei = renderCollectionMarkdown({
+      title: "Neue Folge",
+      description:
+        "Wofür sie gut ist.\n\n<!-- Beispiel:\n" +
+        "     - [[erfundener-beitrag#00:10]] zaehlt nicht -->",
+      allowEmpty: true,
+    });
+    const gelesen = parseCollectionMarkdown(datei, "neue-folge");
+    expect(gelesen.entries).toEqual([]);
+  });
+
+  it("meldet eine frisch angelegte Folge als leer", () => {
+    // Das ist die Erinnerung, dass die Ausschnitte noch fehlen — kein Fehler.
+    const datei = renderCollectionMarkdown({
+      title: "Neue Folge",
+      allowEmpty: true,
+    });
+    const gelesen = parseCollectionMarkdown(datei, "neue-folge");
+    expect(gelesen.problems.map((problem) => problem.kind)).toContain("bezug");
+  });
+
+  it("schreibt Ausschnitte so, wie der Parser sie wieder einliest", () => {
+    const datei = renderCollectionMarkdown({
+      title: "Alles zum Akku",
+      entries: [
+        {
+          slug: "akku-grundlagen",
+          target: { kind: "zeit", start: 15, end: 50 },
+          note: "Messen mit dem Zellprüfer",
+        },
+        {
+          slug: "messprotokoll-lesen",
+          target: { kind: "abschnitt", anchor: "akku-und-spannung" },
+          note: "",
+        },
+      ],
+    });
+    const gelesen = parseCollectionMarkdown(datei, "alles-zum-akku");
+    expect(gelesen.entries).toHaveLength(2);
+    expect(gelesen.entries[0].target).toEqual({
+      kind: "zeit",
+      start: 15,
+      end: 50,
+    });
+    expect(gelesen.entries[0].note).toBe("Messen mit dem Zellprüfer");
+    expect(gelesen.entries[1].target).toEqual({
+      kind: "abschnitt",
+      anchor: "akku-und-spannung",
+    });
+    expect(gelesen.problems).toEqual([]);
   });
 });

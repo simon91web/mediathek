@@ -7,6 +7,7 @@ import { revalidatePath } from "next/cache";
 
 import { assertAuthorMode, NotAllowedError } from "@/lib/features";
 import { importFile } from "@/lib/import/import-file";
+import { enqueueAutoJobs } from "@/lib/jobs/auto";
 import { reloadLibrary } from "@/lib/library";
 import { isMediaFile, isTextFile } from "@/lib/library/media-kind";
 
@@ -130,6 +131,22 @@ export async function importFolderAction(input: {
 
   if (imported.length > 0) {
     await reloadLibrary({ onlySlugs: imported });
+
+    /*
+     * Erst einlesen, dann anstellen: enqueueAutoJobs schaut im Index nach,
+     * was dem Beitrag fehlt, und der Index muss ihn dafür kennen.
+     */
+    let jobs = 0;
+    for (const slug of imported) {
+      jobs += (await enqueueAutoJobs(slug)).length;
+    }
+    if (jobs > 0) {
+      lines.push(
+        `${jobs} ${jobs === 1 ? "Auftrag" : "Aufträge"} angestellt — ` +
+          "der Fortschritt steht unter Aufträge.",
+      );
+    }
+
     revalidatePath("/", "layout");
   }
 

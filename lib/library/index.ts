@@ -6,6 +6,7 @@ import { scanLibrary } from "./scan";
 import { store } from "./store";
 import type {
   Collection,
+  Question,
   Topic,
   TopicSpot,
   Item,
@@ -166,6 +167,37 @@ export async function getCollection(slug: string): Promise<Collection | null> {
   return library.collectionsBySlug.get(slug) ?? null;
 }
 
+export async function getQuestion(slug: string): Promise<Question | null> {
+  const library = await getLibrary();
+  return library.questionsBySlug.get(slug) ?? null;
+}
+
+/**
+ * Alle Fragen, zuletzt gefragte zuerst.
+ *
+ * `suche` filtert wörtlich über Frage, Umformulierungen und Antwort — kein
+ * MiniSearch, keine Synonyme: die Liste ist klein genug, und wer hier sucht,
+ * erinnert sich an ein Wort aus der eigenen Frage.
+ */
+export async function listQuestions(
+  options: { search?: string; limit?: number } = {},
+): Promise<Question[]> {
+  const library = await getLibrary();
+  const suche = options.search?.trim().toLowerCase();
+  let questions = library.questions;
+
+  if (suche) {
+    questions = questions.filter((frage) =>
+      [frage.question, ...frage.alsoAsked, frage.answer]
+        .join(" ")
+        .toLowerCase()
+        .includes(suche),
+    );
+  }
+
+  return options.limit ? questions.slice(0, options.limit) : questions;
+}
+
 export type ItemFilter = {
   kinds?: readonly MediaKind[];
   tags?: readonly string[];
@@ -235,6 +267,7 @@ export async function listItems(
 
 export type {
   Collection,
+  Question,
   Topic,
   TopicSpot,
   Item,

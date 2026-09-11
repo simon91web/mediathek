@@ -12,6 +12,27 @@ import type { FileHandle } from "node:fs/promises";
  * der Player sie nennt.
  */
 
+/**
+ * Atom-Typen, die auf oberster Ebene einer Datei der MP4-Familie wirklich
+ * vorkommen. Die Liste ist der Beweis dafür, dass es diese Familie ist —
+ * ohne sie hält jede Datei mit druckbaren Bytes an Position 4 bis 8 hier
+ * als MP4 her.
+ */
+const TOP_LEVEL_TYPES = new Set([
+  "ftyp",
+  "styp",
+  "moov",
+  "mdat",
+  "free",
+  "skip",
+  "wide",
+  "pnot",
+  "uuid",
+  "moof",
+  "mfra",
+  "meta",
+]);
+
 /** Ein Atom-Kopf: 4 Byte Größe, 4 Byte Typ, optional 8 Byte 64-Bit-Größe. */
 type AtomHeader = {
   type: string;
@@ -126,6 +147,17 @@ export type Mp4Info = {
    * das sichtbare Sekunden.
    */
   faststart: boolean | null;
+  /**
+   * true, wenn ein Atom der obersten Ebene mehr Bytes beansprucht, als die
+   * Datei hat. Das ist der verlässliche Beweis fuer eine abgeschnittene
+   * Datei — und er funktioniert auch dann, wenn die Dauer noch lesbar ist,
+   * weil das moov-Atom am Anfang steht (Faststart). Genau dieser Fall war es,
+   * der einen stillen Größenschnitt beim Upload so lange verdeckt hat:
+   * Dauer und Kachelbild sahen richtig aus, abspielen ließ sich nichts.
+   *
+   * null heißt "nicht beurteilbar" (fremdes Format, unlesbar).
+   */
+  truncated: boolean | null;
 };
 
 /**
@@ -138,13 +170,43 @@ export async function readMp4Info(file: string): Promise<Mp4Info> {
     handle = await open(file, "r");
     const stat = await handle.stat();
     const fileSize = stat.size;
-    if (fileSize < 16) return { durationSeconds: null, faststart: null };
+    if (fileSize < 16) {
+      return { durationSeconds: null, faststart: null, truncated: null };
+    }
 
     let durationSeconds: number | null = null;
     let sawMdat = false;
     let faststart: boolean | null = null;
+    let truncated = false;
+    let istMp4 = false;
+    let erstes = true;
 
     for await (const atom of walkAtoms(handle, 0, fileSize, fileSize)) {
+      /*
+       * Ist das überhaupt die MP4-Familie?
+       *
+       * Die Pruefung auf druckbare Zeichen im Typ allein genügt NICHT —
+       * nachgemessen an einer Textdatei: deren Bytes 4 bis 8 waren " ist",
+       * die Größe davor riesig, und die Datei hätte als „unvollständig"
+       * gegolten. Bei einer intakten webm oder mkv wäre das ein Fehlalarm
+       * und damit schlimmer als gar keine Warnung. Also muss das ERSTE Atom
+       * eines sein, das es auf oberster Ebene wirklich gibt.
+       */
+      if (erstes) {
+        erstes = false;
+        istMp4 = TOP_LEVEL_TYPES.has(atom.type);
+        if (!istMp4) break;
+      }
+
+      /*
+       * Beansprucht das Atom mehr, als die Datei hat? Eine Größe von null
+       * bedeutet "bis zum Dateiende" und ist beim letzten Atom erlaubt —
+       * das ist also kein Schnitt.
+       */
+      if (atom.size !== null && atom.offset + atom.size > fileSize) {
+        truncated = true;
+      }
+
       if (atom.type === "mdat") {
         sawMdat = true;
         continue;
@@ -152,8 +214,12 @@ export async function readMp4Info(file: string): Promise<Mp4Info> {
       if (atom.type === "moov") {
         faststart = !sawMdat;
         durationSeconds = await readMvhdDuration(handle, atom, fileSize);
-        // Nach dem moov gibt es nichts mehr, was wir brauchen.
-        break;
+        /*
+         * NICHT abbrechen: der Rest der Atomkette ist die Stelle, an der
+         * sich ein Schnitt zeigt. Bei Faststart steht moov am Anfang, und
+         * wer hier aufhört, sieht das fehlende Ende nie.
+         */
+        continue;
       }
     }
 
@@ -164,9 +230,13 @@ export async function readMp4Info(file: string): Promise<Mp4Info> {
         ? Math.round(durationSeconds)
         : null;
 
-    return { durationSeconds: usable, faststart };
+    return {
+      durationSeconds: usable,
+      faststart,
+      truncated: istMp4 ? truncated : null,
+    };
   } catch {
-    return { durationSeconds: null, faststart: null };
+    return { durationSeconds: null, faststart: null, truncated: null };
   } finally {
     await handle?.close().catch(() => {});
   }

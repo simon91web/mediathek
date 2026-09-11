@@ -3,7 +3,8 @@ import Link from "next/link";
 import { notFound } from "next/navigation";
 import { ChevronLeft, ChevronRight, Pencil } from "lucide-react";
 
-import { ItemClaudeButtons } from "@/components/claude/item-claude-buttons";
+import { ItemAssistantButtons } from "@/components/assistant/item-assistant-buttons";
+import { ChainButton } from "@/components/jobs/chain-button";
 import { JobButtons } from "@/components/jobs/job-buttons";
 import { MarkdownText, MarkdownWithAnchors } from "@/components/markdown";
 import { AttachmentList } from "@/components/media/attachment-list";
@@ -246,6 +247,7 @@ export default async function BeitragPage({
                       <Pencil aria-hidden className="size-3.5" />
                       Bearbeiten
                     </ButtonLink>
+                    <ChainButton slug={item.slug} />
                   </div>
                   <JobButtons
                     slug={item.slug}
@@ -258,11 +260,12 @@ export default async function BeitragPage({
                     pythonReady={features.python === "ok"}
                     ffmpegReady={features.ffmpeg === "ok"}
                   />
-                  <ItemClaudeButtons
+                  <ItemAssistantButtons
                     slug={item.slug}
                     kind={item.kind}
                     hasTranscript={item.hasTranscript}
-                    claudeReady={features.claude === "ok"}
+                    assistantReady={features.assistant === "ok"}
+                    assistantCommand={features.assistantCommand}
                   />
                 </div>
               ) : null}
