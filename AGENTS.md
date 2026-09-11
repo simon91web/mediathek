@@ -417,6 +417,27 @@ npm run dev
 Grafikkarte nutzbar ist. Auf dieser Maschine: RTX 4070, float16,
 `large-v3-turbo` — rund fünfundzwanzigmal schneller als Echtzeit.
 
+Zum täglichen Benutzen gibt es **`Mediathek starten.bat`**: Doppelklick,
+Browser öffnet sich, Fenster offen lassen. Sie startet bewusst `npm run dev`
+und nicht den Produktionsserver — die Begründung steht ausführlich in der
+Datei, kurz: `next start` lehnt Next selbst ab, solange
+`output: "standalone"` gesetzt ist, und `node .next/standalone/server.js`
+läuft mit einem anderen Arbeitsverzeichnis, wodurch der Standard-
+Bibliotheksordner ins Leere zeigt. Zwei Dinge, die dabei nicht offensichtlich
+sind und in der Datei erklärt stehen:
+
+- **Die .bat enthält keine Umlaute.** `cmd.exe` liest sie byteweise; mit
+  `chcp 65001` oben und einem UTF-8-Umlaut weiter unten verrutscht das Lesen
+  (nachgemessen: aus `setlocal` wurde `tlocal`, Abbruch mit „Syntaxfehler").
+  Das `chcp` bleibt trotzdem — es richtet die Konsole für die Ausgaben von
+  Node und Next ein, und die haben Umlaute.
+- **`ping -n` statt `timeout`** zum Warten: `timeout` bricht ab, sobald die
+  Eingabe umgeleitet ist.
+
+Der echte Produktionsstarter gehört ins Viewer-Paket (Etappe 4) — dort mit
+fertigem Bau, eigener `node.exe` und einem absichtlich festen
+Bibliotheksordner.
+
 ## Stand
 
 **Etappe 1:** Bibliothek, drei Medienarten, Player mit Kapiteln, Textansicht
