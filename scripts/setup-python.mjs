@@ -78,6 +78,8 @@ function findPython() {
 function findFfmpegDir() {
   const candidates = [
     process.env.MEDIATHEK_FFMPEG_DIR,
+    // Im weitergegebenen Paket liegt ffmpeg neben der Anwendung.
+    path.join(ROOT, "ffmpeg", "bin"),
     "C:\\ffmpeg-master-latest-win64-gpl-shared\\bin",
   ].filter(Boolean);
 

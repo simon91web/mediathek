@@ -586,3 +586,48 @@ export async function createShortcutAction(): Promise<ActionResult> {
     message: `Angelegt: ${result.file}. Ein Doppelklick darauf startet die Mediathek ohne Konsolenfenster.`,
   };
 }
+
+/**
+ * Richtet die Python-Umgebung ein — als Auftrag, damit man zusehen kann.
+ *
+ * Im weitergegebenen Paket gibt es kein npm; der frühere Hinweis
+ * „einzurichten mit npm run setup:python" nannte dort einen Befehl, den es
+ * auf der Maschine nicht gibt. Gerufen wird dasselbe Skript mit der node.exe,
+ * die ohnehin im Paket liegt.
+ */
+export async function setupPythonAction(options: {
+  cpu?: boolean;
+}): Promise<ActionResult> {
+  try {
+    await assertAuthorMode();
+  } catch (error) {
+    return {
+      ok: false,
+      error:
+        error instanceof NotAllowedError
+          ? error.message
+          : "Das ist hier nicht möglich.",
+    };
+  }
+
+  const { startLibraryJob } = await import("@/lib/jobs");
+  /*
+   * Der „Beitrag" eines bibliotheksweiten Auftrags ist leer; hier steht
+   * stattdessen „cpu“, wenn ohne Grafikkarte eingerichtet werden soll. Das
+   * spart eine zweite Auftragsart für denselben Ablauf.
+   */
+  const started = await startLibraryJob(
+    "pythonsetup",
+    options.cpu ? "Python (ohne Grafikkarte)" : "Python für die Transkription",
+    options.cpu ? "cpu" : "",
+  );
+  if (!started.ok) return { ok: false, error: started.error };
+
+  revalidatePath("/", "layout");
+  return {
+    ok: true,
+    message:
+      "Das Einrichten läuft. Es lädt einige hundert Megabyte und dauert " +
+      "beim ersten Mal Minuten — der Fortschritt steht bei den Aufträgen.",
+  };
+}

@@ -105,8 +105,8 @@ export async function runTranscribeJob(context: JobContext): Promise<void> {
   if (!python) {
     throw new JobError(
       "python_missing",
-      "Die Python-Umgebung für die Transkription fehlt. Einrichten mit " +
-        '"npm run setup:python".',
+      "Die Python-Umgebung für die Transkription fehlt. Einzurichten unter " +
+        "Einstellungen → Verarbeitung.",
     );
   }
 

@@ -65,7 +65,7 @@ export function JobButtons({
             }
             title={
               !pythonReady
-                ? 'Die Python-Umgebung fehlt — einrichten mit "npm run setup:python".'
+                ? "Die Python-Umgebung fehlt — einzurichten unter Einstellungen → Verarbeitung."
                 : !ffmpegReady
                   ? "ffmpeg wurde nicht gefunden. Siehe Einstellungen."
                   : undefined

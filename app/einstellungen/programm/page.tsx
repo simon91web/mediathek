@@ -41,7 +41,7 @@ export default async function ProgrammPage() {
           state={features.python}
           label="Python für die Transkription"
           okText="eingerichtet — Beiträge lassen sich transkribieren"
-          missingText={'fehlt; einrichten mit "npm run setup:python"'}
+          missingText="fehlt; einzurichten unter Verarbeitung"
         />
         <ToolRow
           state={features.ffmpeg}

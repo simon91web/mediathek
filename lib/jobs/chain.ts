@@ -152,7 +152,7 @@ export async function startChain(
       steps.push({
         kind,
         state: "fehlt-werkzeug",
-        note: "Python fehlt — einzurichten mit npm run setup:python.",
+        note: "Python fehlt — einzurichten unter Einstellungen → Verarbeitung.",
       });
       continue;
     }

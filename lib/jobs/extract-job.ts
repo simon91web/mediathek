@@ -33,7 +33,7 @@ export async function runExtractJob(context: JobContext): Promise<void> {
     throw new JobError(
       "python_missing",
       "Die Python-Umgebung fehlt — sie liest den Text aus den Anhängen. " +
-        'Einrichten mit "npm run setup:python".',
+        "Einzurichten unter Einstellungen → Verarbeitung.",
     );
   }
 

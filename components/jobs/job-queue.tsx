@@ -14,6 +14,7 @@ import {
   ListOrdered,
   MessagesSquare,
   Mic,
+  PackagePlus,
   Play,
   Search,
   Wand2,
@@ -46,6 +47,7 @@ const KIND_ICON: Record<JobKind, typeof Mic> = {
   suchindex: Search,
   bezuege: Link2,
   fragen: MessagesSquare,
+  pythonsetup: PackagePlus,
 };
 
 const STATE_LABEL: Record<JobState, string> = {

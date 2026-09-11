@@ -6,6 +6,7 @@ import { runAssistantJob } from "./assistant-job";
 import { runExtractJob } from "./extract-job";
 import { runPosterJob } from "./poster-job";
 import { getQueue, resetQueue } from "./queue";
+import { runPythonSetupJob } from "./python-job";
 import { runSearchIndexJob } from "./search-job";
 import { runTranscribeJob } from "./transcribe-job";
 import { isFinished } from "./types";
@@ -32,6 +33,7 @@ async function ensureReady() {
   queue.register("bezuege", runAssistantJob);
   queue.register("fragen", runAssistantJob);
   queue.register("suchindex", runSearchIndexJob);
+  queue.register("pythonsetup", runPythonSetupJob);
   await queue.load();
   return queue;
 }
@@ -109,11 +111,16 @@ export async function startJob(
 export async function startLibraryJob(
   kind: JobKind,
   title: string,
+  /**
+   * Ein Kennwort statt eines Beitrags — etwa "cpu" beim Einrichten ohne
+   * Grafikkarte. Bleibt leer, wo es nichts zu unterscheiden gibt.
+   */
+  variante = "",
 ): Promise<StartResult> {
   const queue = await ensureReady();
-  const running = queue.activeFor("", kind);
+  const running = queue.activeFor(variante, kind);
   if (running) return { ok: true, job: running };
-  return { ok: true, job: queue.enqueue({ kind, slug: "", title }) };
+  return { ok: true, job: queue.enqueue({ kind, slug: variante, title }) };
 }
 
 export async function cancelJob(id: string): Promise<boolean> {

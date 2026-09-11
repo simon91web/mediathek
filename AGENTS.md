@@ -652,6 +652,31 @@ Vier Dinge, die dabei nicht kaputtgehen dürfen:
   cmd-Datei ist die PID eines mit `start /b` gestarteten Prozesses sonst
   nicht zu bekommen.
 
+### Python im Paket
+
+Die Transkription braucht Python — das bleibt die Ausnahme von „nichts zu
+installieren", weil die Whisper-Modelle Gigabyte wiegen. Der Weg dorthin
+darf aber kein Befehl sein, den es im Paket nicht gibt: `npm run
+setup:python` stand in der Oberfläche und war beim Kollegen schlicht falsch
+— dort gibt es weder npm noch ein `package.json`.
+
+Deshalb läuft das Einrichten als **Auftrag in der Schlange**
+(`lib/jobs/python-job.ts`): die Mediathek ruft `scripts/setup-python.mjs`
+mit `process.execPath` auf — im Paket ist das `app
+ode.exe`, in der
+Entwicklung das node aus dem Suchpfad. Beides ist dieselbe Fassung, die den
+Server ausführt. Das Skript gehört deshalb mit ins Paket, ebenso `tools/`
+(ohne `.venv`, die entsteht auf der Zielmaschine).
+
+Was die Mediathek NICHT tut: Python installieren. Das Skript sucht einen
+Interpreter ab 3.11 und bricht sonst mit genau dieser Auskunft ab, die dann
+auch in der Oberfläche steht. Ein Programm, das man in einen Ordner kopiert,
+greift nicht ins System ein.
+
+Nachgemessen im gepackten Programm: `node.exe scripts/setup-python.mjs`
+findet Python über den `py`-Launcher, legt `app/tools/.venv` an und beginnt
+zu installieren.
+
 ## Der erste Start
 
 Ohne bekannten Bibliotheksordner zeigt `app/layout.tsx` **statt** der App den

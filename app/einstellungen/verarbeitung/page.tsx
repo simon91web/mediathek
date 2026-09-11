@@ -5,6 +5,7 @@ import {
   FfmpegControl,
   SettingsSection,
 } from "@/components/library/settings-controls";
+import { PythonSetup } from "@/components/library/python-setup";
 import { WhisperSettings } from "@/components/library/whisper-settings";
 import { Leer } from "@/components/ui/basis";
 import { getFeatures } from "@/lib/features";
@@ -46,15 +47,11 @@ export default async function VerarbeitungPage() {
           gpuReady={features.python === "ok"}
         />
       ) : (
-        <SettingsSection title="Transkription">
-          <p className="text-sm text-warnung">
-            Die Python-Umgebung fehlt — einzurichten mit{" "}
-            <code className="rounded bg-grund-3 px-1 text-xs">
-              npm run setup:python
-            </code>
-            . Ohne sie wird nicht transkribiert und kein Text aus Anhängen
-            gelesen.
-          </p>
+        <SettingsSection
+          title="Transkription"
+          hint="die Python-Umgebung fehlt noch"
+        >
+          <PythonSetup ready={false} />
         </SettingsSection>
       )}
 

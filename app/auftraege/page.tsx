@@ -44,7 +44,8 @@ export default async function AuftraegePage() {
       {features.python !== "ok" || features.ffmpeg !== "ok" ? (
         <p className="rounded-lg border border-warnung/40 bg-warnung-grund px-3 py-2 text-sm text-warnung">
           {features.python !== "ok"
-            ? 'Die Python-Umgebung fehlt — einrichten mit "npm run setup:python". '
+            ? "Die Python-Umgebung fehlt — einzurichten unter Einstellungen → " +
+              "Verarbeitung. "
             : ""}
           {features.ffmpeg !== "ok"
             ? "ffmpeg wurde nicht gefunden; siehe Einstellungen. "

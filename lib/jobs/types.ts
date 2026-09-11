@@ -10,7 +10,8 @@ export type JobKind =
   | "kapitel"
   | "suchindex"
   | "bezuege"
-  | "fragen";
+  | "fragen"
+  | "pythonsetup";
 
 export type JobState =
   "wartet" | "laeuft" | "fertig" | "fehler" | "abgebrochen";
@@ -82,6 +83,7 @@ export const KIND_LABEL: Record<JobKind, string> = {
   suchindex: "Suche aktualisieren",
   bezuege: "Verwandte Stellen",
   fragen: "Fragen zusammenfassen",
+  pythonsetup: "Python einrichten",
 };
 
 /** Welche Arten ein KI-Werkzeug starten — für Hinweis und Riegel. */
@@ -105,6 +107,7 @@ export const STAGE_LABEL: Record<string, string> = {
   extract: "Anhänge werden gelesen",
   assistent: "Das Werkzeug arbeitet",
   suchindex: "Index wird gebaut",
+  python: "Pakete werden geladen",
 };
 
 export function isFinished(state: JobState): boolean {

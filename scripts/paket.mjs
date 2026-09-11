@@ -197,11 +197,19 @@ async function zusammenstellen() {
       .then(() => path.join(APP, "vorlagen", "bibliothek")),
   );
 
+  /*
+   * Beide Skripte werden zur Laufzeit gebraucht: das PS-Skript oeffnet das
+   * Assistenten-Fenster, setup-python.mjs richtet die Transkription ein. Das
+   * zweite ist der Grund, warum im Paket ueberhaupt eingerichtet werden kann
+   * — npm gibt es dort nicht, node.exe schon.
+   */
   await fs.mkdir(path.join(APP, "scripts"), { recursive: true });
-  await fs.copyFile(
-    path.join(ROOT, "scripts", "assistent-starten.ps1"),
-    path.join(APP, "scripts", "assistent-starten.ps1"),
-  );
+  for (const name of ["assistent-starten.ps1", "setup-python.mjs"]) {
+    await fs.copyFile(
+      path.join(ROOT, "scripts", name),
+      path.join(APP, "scripts", name),
+    );
+  }
 
   const tools = path.join(ROOT, "tools");
   if (fsSync.existsSync(tools)) {
@@ -600,6 +608,8 @@ async function pruefen() {
     "app/mediathek.ico",
     "app/ohne-konsole.vbs",
     "app/scripts/assistent-starten.ps1",
+    "app/scripts/setup-python.mjs",
+    "app/tools/requirements.txt",
     "Mediathek.cmd",
   ];
   for (const eintrag of muss) {
