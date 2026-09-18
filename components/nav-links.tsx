@@ -24,7 +24,7 @@ export function NavLinks() {
   const pathname = usePathname();
 
   return (
-    <nav className="flex items-center gap-1 text-sm">
+    <nav className="flex items-center gap-1 text-sm" data-tour="nav">
       {NAV_ITEMS.map((item) => {
         const active =
           pathname === item.href || pathname.startsWith(`${item.href}/`);

@@ -49,7 +49,10 @@ export function SidePanel({
   const [active, setActive] = useState<PanelTab>(tabs[0]?.id ?? "kapitel");
 
   return (
-    <div className="flex max-h-[calc(100dvh-8rem)] min-h-0 flex-col overflow-hidden rounded-xl border border-rand bg-grund-2 lg:sticky lg:top-20">
+    <div
+      data-tour="kapitel"
+      className="flex max-h-[calc(100dvh-8rem)] min-h-0 flex-col overflow-hidden rounded-xl border border-rand bg-grund-2 lg:sticky lg:top-20"
+    >
       <div
         role="tablist"
         aria-label="Zusatzinhalte"

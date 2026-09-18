@@ -36,7 +36,7 @@ export function ChainButton({
   const fehlt = result?.steps.filter((s) => s.state === "fehlt-werkzeug") ?? [];
 
   return (
-    <div className="space-y-2">
+    <div className="space-y-2" data-tour="kette">
       <Button
         variant="primaer"
         size="klein"

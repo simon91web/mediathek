@@ -5,6 +5,7 @@ import { FolderOpen, FolderTree, Lock } from "lucide-react";
 
 import {
   openLibraryFolderAction,
+  pickLibraryFolderAction,
   setLibraryDirAction,
 } from "@/app/einstellungen/actions";
 import type { ActionResult } from "@/app/einstellungen/actions";
@@ -14,10 +15,12 @@ import { Button } from "@/components/ui/basis";
  * Der Bibliotheksordner — der Ordner, in dem alles landet, was hochgeladen
  * wird, und aus dem alles gelesen wird.
  *
- * Bewusst ein Textfeld und kein Ordnerdialog: aus einer Webseite heraus gibt
- * es keinen. `webkitdirectory` liefert nur Dateinamen relativ zur Auswahl,
- * keinen Pfad, mit dem der Server etwas anfangen könnte. Der Pfad wird also
- * eingefügt — aus der Adresszeile des Explorers, mit Strg+V.
+ * Ein Textfeld UND ein Ordnerdialog: `webkitdirectory` liefert zwar nur
+ * Dateinamen relativ zur Auswahl, nie den Pfad selbst — aber der native
+ * Dialog des Betriebssystems (wie beim Begrüßungsschirm) tut genau das.
+ * Das Feld bleibt daneben bestehen, für UNC-Pfade, die man aus der
+ * Adresszeile des Explorers einfügt, ohne dass der Dialog sie überhaupt
+ * anbieten könnte.
  */
 
 export function LibraryDirForm({
@@ -79,6 +82,20 @@ export function LibraryDirForm({
     });
   };
 
+  const durchsuchen = () => {
+    setResult(null);
+    startTransition(async () => {
+      const gewaehlt = await pickLibraryFolderAction();
+      if (gewaehlt.ok) {
+        setValue(gewaehlt.dir);
+        return;
+      }
+      if (!gewaehlt.canceled) {
+        setResult({ ok: false, error: gewaehlt.error ?? "Der Dialog ging nicht." });
+      }
+    });
+  };
+
   return (
     <div className="space-y-2">
       <div className="flex flex-wrap items-center gap-2">
@@ -102,6 +119,10 @@ export function LibraryDirForm({
             className="h-10 w-full rounded-lg border border-rand bg-grund-2 pr-3 pl-8 font-mono text-xs disabled:opacity-50"
           />
         </div>
+        <Button size="klein" disabled={pending} onClick={durchsuchen}>
+          <FolderOpen aria-hidden className="size-3.5" />
+          Durchsuchen
+        </Button>
         <Button
           variant="primaer"
           disabled={pending || value.trim() === current}
@@ -116,9 +137,11 @@ export function LibraryDirForm({
         Hier liegen alle Beiträge, und hierhin wird hochgeladen. Der Ordner darf
         auf einem Netzlaufwerk liegen — besser als UNC-Pfad
         (&#92;&#92;10.0.4.200&#92;Geteilt&#92;Mediathek), denn ein gemappter
-        Laufwerksbuchstabe gilt nur in der angemeldeten Windows-Sitzung. Der
-        Ordner muss vorhanden sein; ein leerer ist in Ordnung. Feld leeren und
-        übernehmen stellt auf den Standard zurück.
+        Laufwerksbuchstabe gilt nur in der angemeldeten Windows-Sitzung; der
+        Ordner-Dialog liefert einen gemappten Laufwerksbuchstaben, falls
+        einer gewählt wird — für einen UNC-Pfad hilft nur das Einfügen von
+        Hand. Der Ordner muss vorhanden sein; ein leerer ist in Ordnung. Feld
+        leeren und übernehmen stellt auf den Standard zurück.
       </p>
 
       {result ? (

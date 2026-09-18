@@ -6,16 +6,19 @@ import {
 } from "@/components/library/settings-controls";
 import { Row, ToolRow } from "@/components/library/settings-rows";
 import { ShortcutButton } from "@/components/library/shortcut-button";
+import { TourSettingsButtons } from "@/components/tour/tour-settings-buttons";
 import { getFeatures } from "@/lib/features";
 import { findLauncher } from "@/lib/shell/shortcut";
 import { libraryStateDir, settingsFile } from "@/lib/settings";
+import { findTourDemoSlug } from "@/lib/tour/demo-item";
 
 export const metadata: Metadata = { title: "Programm" };
 
 export default async function ProgrammPage() {
-  const [features, launcher] = await Promise.all([
+  const [features, launcher, demoSlug] = await Promise.all([
     getFeatures(),
     findLauncher(),
+    findTourDemoSlug(),
   ]);
 
   return (
@@ -25,6 +28,10 @@ export default async function ProgrammPage() {
           authorMode={features.authorMode}
           readonly={features.readonly}
         />
+      </SettingsSection>
+
+      <SettingsSection title="Einführung">
+        <TourSettingsButtons hasDemoItem={demoSlug !== null} />
       </SettingsSection>
 
       {launcher ? (

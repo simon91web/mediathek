@@ -110,6 +110,13 @@ export type Settings = {
    * Bezüge). Ohne das endet die Automatik beim Transkript.
    */
   autoChain: boolean;
+  /**
+   * Der Rundgang durch die Oberfläche wurde schon gezeigt (fertig durchlaufen
+   * oder übersprungen) — er öffnet sich dann nicht noch einmal von selbst.
+   * Wie lastLibraryDir maschinenlokal: jede Maschine sieht ihn beim eigenen
+   * ersten Start, unabhängig davon, wer die Bibliothek sonst noch nutzt.
+   */
+  platformTourSeen: boolean;
 };
 
 const DEFAULTS: Settings = {
@@ -128,6 +135,7 @@ const DEFAULTS: Settings = {
   autoAssistant: false,
   autoAssistantArgs: ["-p", "--permission-mode", "acceptEdits"],
   autoChain: false,
+  platformTourSeen: false,
 };
 
 function stateRoot(): string {
@@ -213,6 +221,7 @@ export async function readSettings(): Promise<Settings> {
         ? record.autoAssistantArgs.filter(isToolName).slice(0, 8)
         : DEFAULTS.autoAssistantArgs,
       autoChain: record.autoChain === true,
+      platformTourSeen: record.platformTourSeen === true,
     };
   } catch {
     return { ...DEFAULTS };

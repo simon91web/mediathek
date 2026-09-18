@@ -2,6 +2,8 @@ import fs from "node:fs/promises";
 import path from "node:path";
 import { spawnSync } from "node:child_process";
 
+import { writeSettings } from "@/lib/settings";
+
 /**
  * Legt vor dem Testlauf eine frische Bibliothek an.
  *
@@ -18,6 +20,17 @@ async function main() {
   const root = process.cwd();
   const source = path.join(root, "bibliothek-dev");
   const target = path.join(root, "e2e", ".tmp-bibliothek");
+
+  /*
+   * Die maschinenlokale settings.json ist NICHT Teil der kopierten
+   * Bibliothek — e2e-Läufe teilen sich dieselbe Datei mit der echten
+   * Entwicklung auf dieser Maschine. Ohne diese Zeile stünde
+   * platformTourSeen dort, wo der Rundgang noch nie gezeigt wurde, auf
+   * false, und er öffnete sich vor JEDEM Test automatisch — sein Overlay
+   * blockierte dann jeden Klick auf die eigentliche Seite. Ein Test, der den
+   * Rundgang selbst prüfen will, müsste dasselbe Feld gezielt zurücksetzen.
+   */
+  await writeSettings({ platformTourSeen: true });
 
   // Fixtures nur erzeugen, wenn sie fehlen — das kostet ffmpeg-Zeit.
   try {

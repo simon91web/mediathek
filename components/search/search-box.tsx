@@ -64,6 +64,9 @@ export function SearchBox({
         event.preventDefault();
         submit();
       }}
+      // Nur die kompakte Kopfzeilen-Instanz ist ein Rundgang-Ziel — auf der
+      // Suchseite steht daneben noch eine zweite, nicht-kompakte SearchBox.
+      data-tour={compact ? "search" : undefined}
       className={cn("relative", compact ? "w-44 lg:w-64" : "w-full")}
     >
       <Search

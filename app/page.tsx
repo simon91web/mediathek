@@ -40,8 +40,8 @@ export default async function StartPage() {
             Neu in der Mediathek
           </SectionTitle>
           <ul className="grid grid-cols-1 gap-x-4 gap-y-6 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4">
-            {newest.map((item) => (
-              <li key={item.slug}>
+            {newest.map((item, index) => (
+              <li key={item.slug} data-tour={index === 0 ? "card1" : undefined}>
                 <ItemCard item={item} />
               </li>
             ))}

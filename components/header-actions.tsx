@@ -55,6 +55,7 @@ export function HeaderActions({
             href="/importieren"
             label="Importieren"
             active={pathname.startsWith("/importieren")}
+            tour="import"
           >
             <Upload aria-hidden className="size-4" />
           </IconLink>
@@ -72,6 +73,7 @@ export function SettingsIcon() {
       href="/einstellungen"
       label="Einstellungen"
       active={pathname.startsWith("/einstellungen")}
+      tour="settings"
     >
       <Settings aria-hidden className="size-4" />
     </IconLink>
@@ -101,6 +103,7 @@ function JobsIcon({ active }: { active: boolean }) {
       title={titel}
       aria-label={titel}
       aria-current={active ? "page" : undefined}
+      data-tour="jobs"
       className={cn(
         "relative flex size-9 shrink-0 items-center justify-center rounded-md transition-colors",
         active
@@ -128,11 +131,14 @@ function IconLink({
   href,
   label,
   active,
+  tour,
   children,
 }: {
   href: string;
   label: string;
   active: boolean;
+  /** data-tour-Attribut für den Rundgang, falls dieses Symbol ein Ziel ist. */
+  tour?: string;
   children: React.ReactNode;
 }) {
   return (
@@ -141,6 +147,7 @@ function IconLink({
       title={label}
       aria-label={label}
       aria-current={active ? "page" : undefined}
+      data-tour={tour}
       className={cn(
         "flex size-9 shrink-0 items-center justify-center rounded-md transition-colors",
         active

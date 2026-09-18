@@ -6,9 +6,11 @@ import { LibraryWatcher } from "@/components/library/library-watcher";
 import { NavLinks } from "@/components/nav-links";
 import { SearchBox } from "@/components/search/search-box";
 import { Willkommen } from "@/components/start/willkommen";
+import { TourOverlay } from "@/components/tour/tour-overlay";
 import { getFeatures } from "@/lib/features";
 import { firstRunState } from "@/lib/library/first-run";
 import { readSettings } from "@/lib/settings";
+import { findTourDemoSlug } from "@/lib/tour/demo-item";
 import "./globals.css";
 
 export const metadata: Metadata = {
@@ -55,6 +57,8 @@ export default async function RootLayout({
     );
   }
 
+  const demoSlug = await findTourDemoSlug();
+
   return (
     <html lang="de">
       <body className="min-h-dvh">
@@ -95,6 +99,10 @@ export default async function RootLayout({
         <main className="mx-auto max-w-7xl px-4 py-6">{children}</main>
 
         <LibraryWatcher />
+        <TourOverlay
+          platformTourSeen={settings.platformTourSeen}
+          demoSlug={demoSlug}
+        />
       </body>
     </html>
   );

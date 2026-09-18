@@ -15,6 +15,7 @@ import { reloadLibrary } from "@/lib/library";
 import { switchLibrary } from "@/lib/library/switch";
 import { libraryRoot } from "@/lib/paths";
 import { openInFileManager } from "@/lib/shell/open-folder";
+import { pickFolder } from "@/lib/shell/pick-folder";
 import { createDesktopShortcut } from "@/lib/shell/shortcut";
 import { invalidateTranscripts } from "@/lib/library/transcript";
 import { invalidateSearchIndex } from "@/lib/search";
@@ -257,6 +258,23 @@ export async function startLibraryAssistantAction(
       "liegt womöglich hinter diesem Fenster. Die Mediathek zeigt die " +
       "Änderungen, sobald die Dateien geschrieben sind.",
   };
+}
+
+export type PickResult =
+  | { ok: true; dir: string }
+  | { ok: false; canceled: boolean; error?: string };
+
+/**
+ * Öffnet den Ordner-Dialog des Betriebssystems für das Umstellen der
+ * Bibliothek. Wie beim Begrüßungsschirm geht nichts hinein und nichts wird
+ * dabei umgestellt — erst ein anschließendes "Übernehmen" ruft
+ * setLibraryDirAction mit dem gewählten Pfad auf.
+ */
+export async function pickLibraryFolderAction(): Promise<PickResult> {
+  const result = await pickFolder();
+  if (result.ok) return { ok: true, dir: result.dir };
+  if (result.canceled) return { ok: false, canceled: true };
+  return { ok: false, canceled: false, error: result.error };
 }
 
 /**
@@ -630,4 +648,21 @@ export async function setupPythonAction(options: {
       "Das Einrichten läuft. Es lädt einige hundert Megabyte und dauert " +
       "beim ersten Mal Minuten — der Fortschritt steht bei den Aufträgen.",
   };
+}
+
+/**
+ * Merkt sich, dass der Rundgang durch die Oberfläche gezeigt wurde (fertig
+ * durchlaufen oder übersprungen) — er öffnet sich dann nicht noch einmal von
+ * selbst. Kein assertAuthorMode: das ist keine privilegierte Änderung, nur
+ * eine stille Notiz für den nächsten Start.
+ */
+export async function markPlatformTourSeenAction(): Promise<ActionResult> {
+  const written = await writeSettings({ platformTourSeen: true });
+  if (!written.ok) {
+    return {
+      ok: false,
+      error: `Die Einstellung konnte nicht gespeichert werden: ${written.error}`,
+    };
+  }
+  return { ok: true, message: "" };
 }

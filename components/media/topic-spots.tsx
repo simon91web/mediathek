@@ -37,6 +37,7 @@ export function TopicSpots({
   return (
     <section
       aria-labelledby="themen-in-diesem-beitrag"
+      data-tour="themen"
       className="rounded-xl border border-rand bg-grund-2 px-3 py-2.5"
     >
       <p
