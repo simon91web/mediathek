@@ -3,10 +3,12 @@ import type { Metadata } from "next";
 import { AssistantPanel } from "@/components/assistant/assistant-panel";
 import { AutoAssistantSettings } from "@/components/assistant/auto-assistant-settings";
 import { ChatSettings } from "@/components/chat/chat-settings";
-import { Leer } from "@/components/ui/basis";
+import { Leer, SectionTitle } from "@/components/ui/basis";
+import { AnalyseKarte } from "@/components/vollstaendigkeit/analyse-karte";
 import { instructionsInstalled } from "@/lib/assistant/install";
 import { getFeatures } from "@/lib/features";
 import { getLibrary } from "@/lib/library";
+import { summarizeCompleteness } from "@/lib/library/completeness";
 import { readSettings } from "@/lib/settings";
 
 export const metadata: Metadata = { title: "KI-Assistent" };
@@ -31,6 +33,17 @@ export default async function AssistentPage() {
 
   return (
     <div className="space-y-8">
+      {library.topics.length > 0 ? (
+        <section>
+          <SectionTitle hint="lose Enden in den Themen">
+            Vollständigkeit
+          </SectionTitle>
+          <AnalyseKarte
+            {...summarizeCompleteness(library.topics, library.completeness)}
+          />
+        </section>
+      ) : null}
+
       <AssistantPanel
         assistantReady={features.assistant === "ok"}
         assistantCommand={features.assistantCommand}

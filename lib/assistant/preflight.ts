@@ -8,6 +8,7 @@ import { getLibrary } from "@/lib/library";
 import { isSlug } from "@/lib/library/slug";
 import { ITEM_FILES, paths } from "@/lib/paths";
 import { libraryStateDir, readSettings } from "@/lib/settings";
+import { ensureInstructionFile } from "./install";
 import { ASSISTANT_TASKS, INSTRUCTIONS_DIR, needsSlug } from "./tasks";
 import type { AssistantTask } from "./tasks";
 
@@ -86,16 +87,20 @@ export async function checkAssistantTask(
     checked = slug;
   }
 
-  const anleitung = path.join(paths.library, INSTRUCTIONS_DIR, `${task}.md`);
-  try {
-    await fs.access(anleitung);
-  } catch {
+  /*
+   * Fehlt die Anleitung, wird sie hier angelegt statt nur gemeldet — sonst
+   * müsste man für jedes neue Werkzeug erst unter Einstellungen suchen,
+   * bevor der erste Versuch überhaupt klappt. Vorhandene Dateien fasst das
+   * nicht an (siehe ensureInstructionFile).
+   */
+  const angelegt = await ensureInstructionFile(task);
+  if (!angelegt) {
     return {
       ok: false,
       error:
-        `In der Bibliothek fehlt ${INSTRUCTIONS_DIR}/${task}.md. Unter ` +
-        "Einstellungen lassen sich die Anleitungen anlegen — ohne sie kennt " +
-        "das Werkzeug die Regeln nicht.",
+        `In der Bibliothek fehlt ${INSTRUCTIONS_DIR}/${task}.md, und die ` +
+        "Vorlage dafür fehlt auch im Programm — vermutlich ist das Paket " +
+        "unvollständig.",
     };
   }
 

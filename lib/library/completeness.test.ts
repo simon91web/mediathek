@@ -7,6 +7,7 @@ import {
   deriveStufeFachfremd,
   deriveStufeFachkundig,
   parseCompletenessReport,
+  summarizeCompleteness,
 } from "./completeness";
 import type { Item, Spot, Topic } from "./types";
 
@@ -356,5 +357,61 @@ describe("buildCompleteness", () => {
     const eintrag = completeness.byTopic.get("thema-1")!;
     expect(eintrag.fachkundig.stufe).toBe("im-aufbau");
     expect(eintrag.fachkundig.befunde).toHaveLength(1);
+  });
+});
+
+describe("summarizeCompleteness", () => {
+  it("meldet 'Noch nicht geprüft', solange kein Bericht existiert", () => {
+    const topics = [makeTopic()];
+    const { completeness } = buildCompleteness(topics, new Map(), null);
+    const summary = summarizeCompleteness(topics, completeness);
+    expect(summary.geprueftAm).toBeNull();
+    expect(summary.fachkundigStufe).toBe("ungeprueft");
+    expect(summary.fachkundigHinweis).toBe("Noch nicht geprüft.");
+  });
+
+  it("meldet 'Keine Befunde', wenn der Bericht nichts findet", () => {
+    const topics = [makeTopic()];
+    const raw = "Zuletzt geprüft: 2026-01-01T00:00:00Z\n\n## [[thema-1]]\n";
+    const { completeness } = buildCompleteness(topics, new Map(), raw);
+    const summary = summarizeCompleteness(topics, completeness);
+    expect(summary.fachkundigStufe).toBe("breit");
+    expect(summary.fachkundigHinweis).toBe("Keine Befunde.");
+  });
+
+  it("zählt Befunde über mehrere Themen zusammen, mit korrekter Pluralform", () => {
+    const topics = [
+      makeTopic({ slug: "a" }),
+      makeTopic({ slug: "b" }),
+    ];
+    const raw = `Zuletzt geprüft: 2026-01-01T00:00:00Z
+
+## [[a]]
+
+### Unbelegte Zahl
+- Erste. [[x#01:00]]
+
+## [[b]]
+
+### Unbelegte Zahl
+- Zweite. [[x#02:00]]
+
+### Widerspruch
+- Dritte. [[x#03:00]] [[y#01:00]]
+`;
+    const { completeness } = buildCompleteness(topics, new Map(), raw);
+    const summary = summarizeCompleteness(topics, completeness);
+    expect(summary.fachkundigHinweis).toBe("2 unbelegte Zahlen · 1 Widerspruch");
+  });
+
+  it("zählt fachfremdOk nur breite/vertiefte Themen", () => {
+    const topics = [
+      makeTopic({ slug: "a", description: "" }), // lueckenhaft
+      makeTopic({ slug: "b", itemSlugs: ["x", "y"] }), // breit
+    ];
+    const { completeness } = buildCompleteness(topics, new Map(), null);
+    const summary = summarizeCompleteness(topics, completeness);
+    expect(summary.fachfremdOk).toBe(1);
+    expect(summary.fachfremdGesamt).toBe(2);
   });
 });

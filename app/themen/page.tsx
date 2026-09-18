@@ -2,87 +2,38 @@ import type { Metadata } from "next";
 import Link from "next/link";
 
 import { BelegPill } from "@/components/vollstaendigkeit/befund-liste";
-import { AnalyseKarte } from "@/components/vollstaendigkeit/analyse-karte";
+import { VollstaendigkeitDialog } from "@/components/vollstaendigkeit/vollstaendigkeit-dialog";
 import { STUFE_CLASS, STUFE_LABEL } from "@/components/vollstaendigkeit/stufe";
 import { SectionTitle, Leer } from "@/components/ui/basis";
+import { getFeatures } from "@/lib/features";
 import { getLibrary } from "@/lib/library";
-import { aggregateStufe } from "@/lib/library/completeness";
+import { summarizeCompleteness } from "@/lib/library/completeness";
 import { plural } from "@/lib/utils";
 
 export const metadata: Metadata = { title: "Themen" };
 
-const FACHKUNDIG_LABEL: Record<string, string> = {
-  widerspruch: "Widerspruch",
-  "unbelegte-zahl": "unbelegte Zahl",
-  "nur-normalfall": "Stelle nur Normalfall",
-  "offener-verweis": "offener Verweis",
-};
-const FACHKUNDIG_LABEL_PLURAL: Record<string, string> = {
-  widerspruch: "Widersprüche",
-  "unbelegte-zahl": "unbelegte Zahlen",
-  "nur-normalfall": "Stellen nur Normalfall",
-  "offener-verweis": "offene Verweise",
-};
-
 export default async function ThemenPage() {
-  const library = await getLibrary();
+  const [library, features] = await Promise.all([getLibrary(), getFeatures()]);
   const { completeness } = library;
-
-  const fachfremdStufen = library.topics.map(
-    (topic) => completeness.byTopic.get(topic.slug)?.fachfremd.stufe ?? "ungeprueft",
-  );
-  const fachfremdOk = fachfremdStufen.filter(
-    (stufe) => stufe === "breit" || stufe === "vertieft",
-  ).length;
-
-  const fachkundigStufen = library.topics.map(
-    (topic) => completeness.byTopic.get(topic.slug)?.fachkundig.stufe ?? "ungeprueft",
-  );
-  const fachkundigCounts = new Map<string, number>();
-  for (const topic of library.topics) {
-    for (const befund of completeness.byTopic.get(topic.slug)?.fachkundig.befunde ?? []) {
-      fachkundigCounts.set(
-        befund.kategorie,
-        (fachkundigCounts.get(befund.kategorie) ?? 0) + 1,
-      );
-    }
-  }
-  const fachkundigHinweis =
-    completeness.geprueftAm === null
-      ? "Noch nicht geprüft."
-      : fachkundigCounts.size === 0
-        ? "Keine Befunde."
-        : [...fachkundigCounts.entries()]
-            .map(([kategorie, anzahl]) =>
-              plural(
-                anzahl,
-                FACHKUNDIG_LABEL[kategorie],
-                FACHKUNDIG_LABEL_PLURAL[kategorie],
-              ),
-            )
-            .join(" · ");
 
   return (
     <div className="space-y-6">
-      <div>
-        <h1 className="text-2xl font-semibold tracking-tight">Themen</h1>
-        <p className="mt-1 text-sm text-schrift-2">
-          Ein Thema ist der Einstieg in ein Wissensgebiet: geordnete Beiträge,
-          einzelne Fundstellen quer durch alles — und Synonyme, die die Suche
-          erweitern.
-        </p>
-      </div>
+      <div className="flex flex-wrap items-start justify-between gap-4">
+        <div>
+          <h1 className="text-2xl font-semibold tracking-tight">Themen</h1>
+          <p className="mt-1 text-sm text-schrift-2">
+            Ein Thema ist der Einstieg in ein Wissensgebiet: geordnete
+            Beiträge, einzelne Fundstellen quer durch alles — und Synonyme,
+            die die Suche erweitern.
+          </p>
+        </div>
 
-      {library.topics.length > 0 ? (
-        <AnalyseKarte
-          geprueftAm={completeness.geprueftAm}
-          fachfremdStufe={aggregateStufe(fachfremdStufen)}
-          fachfremdOk={fachfremdOk}
-          fachfremdGesamt={library.topics.length}
-          fachkundigStufe={aggregateStufe(fachkundigStufen)}
-          fachkundigHinweis={fachkundigHinweis}
-        />
-      ) : null}
+        {features.authorMode && library.topics.length > 0 ? (
+          <VollstaendigkeitDialog
+            {...summarizeCompleteness(library.topics, completeness)}
+          />
+        ) : null}
+      </div>
 
       {library.topics.length === 0 ? (
         <Leer titel="Noch keine Themen">

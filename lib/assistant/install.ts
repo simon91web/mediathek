@@ -4,6 +4,7 @@ import fs from "node:fs/promises";
 import path from "node:path";
 
 import { paths } from "@/lib/paths";
+import { INSTRUCTIONS_DIR } from "./tasks";
 
 /*
  * Die Claude-Code-Dateien in die Bibliothek legen.
@@ -94,6 +95,40 @@ export async function installInstructions(): Promise<InstallResult> {
   }
 
   return { ok: true, created, kept, error: null };
+}
+
+/**
+ * Sorgt dafür, dass GENAU diese eine Anleitung existiert — aufgerufen aus
+ * dem Vorlauf vor jedem Werkzeug-Start (preflight.ts), nicht nur über den
+ * Knopf unter Einstellungen.
+ *
+ * Der Vorlagenordner wächst mit der App (siehe Programmänderungen); eine
+ * bestehende Bibliothek merkt davon nichts, solange niemand von Hand auf
+ * „Fehlende Dateien ergänzen" klickt — und genau das soll niemand mehr
+ * müssen, nur um ein neues Werkzeug zum ersten Mal zu benutzen. Dieselbe
+ * Regel wie `installInstructions()`: nur anlegen, nie überschreiben.
+ *
+ * Liefert `true`, wenn die Datei danach existiert (schon vorhanden oder neu
+ * angelegt), `false` nur, wenn selbst die Vorlage im Programm fehlt oder
+ * sich nicht kopieren ließ — dann ist tatsächlich das Paket unvollständig.
+ */
+export async function ensureInstructionFile(task: string): Promise<boolean> {
+  const target = path.join(paths.library, INSTRUCTIONS_DIR, `${task}.md`);
+  try {
+    await fs.access(target);
+    return true;
+  } catch {
+    // Nicht da: unten anlegen.
+  }
+
+  const source = path.join(templateDir(), INSTRUCTIONS_DIR, `${task}.md`);
+  try {
+    await fs.mkdir(path.dirname(target), { recursive: true });
+    await fs.copyFile(source, target);
+    return true;
+  } catch {
+    return false;
+  }
 }
 
 /**

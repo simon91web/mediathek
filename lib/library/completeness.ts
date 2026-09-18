@@ -387,3 +387,83 @@ export function buildCompleteness(
     problems: parsed.problems,
   };
 }
+
+const FACHKUNDIG_LABEL: Partial<Record<BefundKategorie, string>> = {
+  widerspruch: "Widerspruch",
+  "unbelegte-zahl": "unbelegte Zahl",
+  "nur-normalfall": "Stelle nur Normalfall",
+  "offener-verweis": "offener Verweis",
+};
+const FACHKUNDIG_LABEL_PLURAL: Partial<Record<BefundKategorie, string>> = {
+  widerspruch: "Widersprüche",
+  "unbelegte-zahl": "unbelegte Zahlen",
+  "nur-normalfall": "Stellen nur Normalfall",
+  "offener-verweis": "offene Verweise",
+};
+
+function pluralDe(count: number, one: string, many: string): string {
+  return `${count} ${count === 1 ? one : many}`;
+}
+
+export type VollstaendigkeitSummary = {
+  geprueftAm: string | null;
+  fachfremdStufe: Stufe;
+  fachfremdOk: number;
+  fachfremdGesamt: number;
+  fachkundigStufe: Stufe;
+  /** Fertiger Satz, z. B. "3 unbelegte Zahlen · 1 Widerspruch". */
+  fachkundigHinweis: string;
+};
+
+/**
+ * Eine Zusammenfassung für die ganze Bibliothek — dieselben Zahlen für die
+ * Übersichtskarte, egal ob sie in den Einstellungen fest steht oder auf
+ * /themen in einer schwebenden Karte auftaucht. Eine Stelle für die
+ * Aggregation, damit beide Orte nie auseinanderlaufen.
+ */
+export function summarizeCompleteness(
+  topics: readonly Topic[],
+  completeness: Vollstaendigkeit,
+): VollstaendigkeitSummary {
+  const fachfremdStufen = topics.map(
+    (topic) => completeness.byTopic.get(topic.slug)?.fachfremd.stufe ?? "ungeprueft",
+  );
+  const fachfremdOk = fachfremdStufen.filter(
+    (stufe) => stufe === "breit" || stufe === "vertieft",
+  ).length;
+
+  const fachkundigStufen = topics.map(
+    (topic) => completeness.byTopic.get(topic.slug)?.fachkundig.stufe ?? "ungeprueft",
+  );
+
+  const fachkundigCounts = new Map<BefundKategorie, number>();
+  for (const topic of topics) {
+    for (const befund of completeness.byTopic.get(topic.slug)?.fachkundig.befunde ?? []) {
+      fachkundigCounts.set(befund.kategorie, (fachkundigCounts.get(befund.kategorie) ?? 0) + 1);
+    }
+  }
+
+  const fachkundigHinweis =
+    completeness.geprueftAm === null
+      ? "Noch nicht geprüft."
+      : fachkundigCounts.size === 0
+        ? "Keine Befunde."
+        : [...fachkundigCounts.entries()]
+            .map(([kategorie, anzahl]) =>
+              pluralDe(
+                anzahl,
+                FACHKUNDIG_LABEL[kategorie] ?? kategorie,
+                FACHKUNDIG_LABEL_PLURAL[kategorie] ?? kategorie,
+              ),
+            )
+            .join(" · ");
+
+  return {
+    geprueftAm: completeness.geprueftAm,
+    fachfremdStufe: aggregateStufe(fachfremdStufen),
+    fachfremdOk,
+    fachfremdGesamt: topics.length,
+    fachkundigStufe: aggregateStufe(fachkundigStufen),
+    fachkundigHinweis,
+  };
+}
