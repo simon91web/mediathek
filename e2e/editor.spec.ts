@@ -24,13 +24,25 @@ test("Kapitel per Knopf einfügen, speichern, und es steht in der Datei", async 
     const area = page.locator("#beitrag-md");
     await expect(area).toBeVisible();
 
-    // Eine Kapitelzeile von Hand tippen — dasselbe Format wie überall.
-    const before = await area.inputValue();
-    await area.fill(
-      before.replace("00:00 Anfang", "00:00 Anfang\n00:20 Von Hand getippt"),
-    );
+    /*
+     * Ein bestehender Beitrag öffnet im Lesemodus — erst in den
+     * Schreibmodus wechseln, sonst lässt sich nichts eintippen.
+     */
+    await page.getByRole("button", { name: "Schreibmodus" }).click();
 
-    // Die Vorschau erkennt sie sofort.
+    /*
+     * Der Editor ist kein <textarea> mehr, sondern CodeMirror: eine
+     * Kapitelzeile von Hand tippen heißt jetzt wirklich tippen. Die
+     * vorhandene Zeile "00:00 Anfang" anklicken (dekoriert als Kapitel-
+     * Zeile, ein Klick zeigt sie roh und setzt den Cursor dort hin), ans
+     * Zeilenende springen, eine neue Kapitelzeile darunter eintippen.
+     */
+    await area.getByText("Anfang", { exact: true }).click();
+    await page.keyboard.press("End");
+    await page.keyboard.press("Enter");
+    await page.keyboard.type("00:20 Von Hand getippt");
+
+    // Wird sofort erkannt.
     await expect(page.getByText("Von Hand getippt").first()).toBeVisible();
 
     await page.getByRole("button", { name: "Speichern" }).click();
@@ -55,9 +67,14 @@ test("eine fremde Änderung wird nicht überschrieben", async ({ page }) => {
     await page.goto("/medien/kaputter-kopf/bearbeiten");
     const area = page.locator("#beitrag-md");
     await expect(area).toBeVisible();
+    await page.getByRole("button", { name: "Schreibmodus" }).click();
 
-    // Der Editor steht offen und hat etwas Ungespeichertes.
-    await area.fill(`${await area.inputValue()}\n\nMeine Ergänzung.`);
+    // Der Editor steht offen und hat etwas Ungespeichertes: ans Ende
+    // springen (unabhängig davon, welche Zeile gerade dekoriert ist) und
+    // dort weiterschreiben.
+    await area.click();
+    await page.keyboard.press("Control+End");
+    await page.keyboard.type("\n\nMeine Ergänzung.");
 
     // Jetzt schreibt jemand anders — in der Praxis Claude Code.
     await fs.writeFile(
@@ -79,7 +96,7 @@ test("eine fremde Änderung wird nicht überschrieben", async ({ page }) => {
     expect(onDisk).not.toContain("Meine Ergänzung.");
 
     // Die eigene Arbeit ist ebenfalls noch da.
-    await expect(area).toHaveValue(/Meine Ergänzung\./);
+    await expect(area).toContainText("Meine Ergänzung.");
 
     // Und die fremde Fassung lässt sich ansehen.
     await page.getByRole("button", { name: "Fremde Fassung ansehen" }).click();
@@ -103,8 +120,8 @@ test("ein neuer Textbeitrag lässt sich anlegen", async ({ page }) => {
 
     // Direkt im Editor, mit angelegter Vorlage.
     await expect(page).toHaveURL(new RegExp(`/medien/${slug}/bearbeiten`));
-    await expect(page.locator("#beitrag-md")).toHaveValue(
-      /titel: E2E Testbeitrag/,
+    await expect(page.locator("#beitrag-md")).toContainText(
+      "titel: E2E Testbeitrag",
     );
 
     const written = await fs.readFile(
