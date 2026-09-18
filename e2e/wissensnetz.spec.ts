@@ -17,7 +17,8 @@ test.describe("Themen", () => {
       "Zellspannungsmessung",
     );
     await expect(page.getByText("Auch genannt:")).toBeVisible();
-    await expect(page.getByText("Balancing")).toBeVisible();
+    // exact: seit der Lücken-Analyse nennt auch ein Befundtext das Synonym.
+    await expect(page.getByText("Balancing", { exact: true })).toBeVisible();
     await expect(page.getByText("3 Fundstellen")).toBeVisible();
 
     // Eine reine Fundstellenseite behauptet keine "0 Teile".
