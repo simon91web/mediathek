@@ -2,6 +2,7 @@ import "server-only";
 
 import { spawn } from "node:child_process";
 import fs from "node:fs/promises";
+import os from "node:os";
 import path from "node:path";
 
 /*
@@ -36,8 +37,12 @@ export type ShortcutTarget = {
  * eine Verknüpfung auf eine Datei anzubieten, die es nicht gibt.
  */
 export async function findLauncher(): Promise<ShortcutTarget | null> {
-  if (process.platform !== "win32") return null;
+  if (process.platform === "win32") return findLauncherWindows();
+  if (process.platform === "darwin") return findLauncherMac();
+  return null;
+}
 
+async function findLauncherWindows(): Promise<ShortcutTarget | null> {
   /*
    * Das Arbeitsverzeichnis ist app/. Dort liegt auch das Hilfsskript, mit
    * dem sich Mediathek.cmd unsichtbar macht — die Verknüpfung ruft es
@@ -62,12 +67,41 @@ export async function findLauncher(): Promise<ShortcutTarget | null> {
   return { packageDir, launcher, iconFile: hatSymbol ? iconFile : null };
 }
 
+async function findLauncherMac(): Promise<ShortcutTarget | null> {
+  /*
+   * Das Arbeitsverzeichnis ist Contents/Resources/app. Drei Ebenen höher
+   * liegt das .app-Bundle — das ist, worauf die Verknüpfung zeigt.
+   */
+  const bundle = path.resolve(process.cwd(), "../../..");
+  const plist = path.join(bundle, "Contents", "Info.plist");
+  const executable = path.join(bundle, "Contents", "MacOS", "mediathek");
+
+  try {
+    await fs.access(plist);
+    await fs.access(executable);
+  } catch {
+    return null;
+  }
+
+  const iconFile = path.join(bundle, "Contents", "Resources", "mediathek.icns");
+  const hatSymbol = await fs
+    .access(iconFile)
+    .then(() => true)
+    .catch(() => false);
+
+  return {
+    packageDir: path.dirname(bundle),
+    launcher: bundle,
+    iconFile: hatSymbol ? iconFile : null,
+  };
+}
+
 export type ShortcutResult =
   { ok: true; file: string } | { ok: false; error: string };
 
 /** Der Schreibtisch des angemeldeten Nutzers. */
 function desktopDir(): string | null {
-  const home = process.env.USERPROFILE;
+  const home = os.homedir();
   return home ? path.join(home, "Desktop") : null;
 }
 
@@ -94,6 +128,10 @@ export async function createDesktopShortcut(): Promise<ShortcutResult> {
       ok: false,
       error: "Der Schreibtisch-Ordner ließ sich nicht finden.",
     };
+  }
+
+  if (process.platform === "darwin") {
+    return createMacAlias(desktop, ziel);
   }
 
   const datei = path.join(desktop, "Mediathek.lnk");
@@ -177,4 +215,45 @@ export async function createDesktopShortcut(): Promise<ShortcutResult> {
       }
     });
   });
+}
+
+/** Ein Symlink auf das .app-Bundle — kein Sonderformat, Finder versteht ihn. */
+async function createMacAlias(
+  desktop: string,
+  ziel: ShortcutTarget,
+): Promise<ShortcutResult> {
+  const datei = path.join(desktop, "Mediathek.app");
+  try {
+    const info = await fs.lstat(datei);
+    if (info.isSymbolicLink()) {
+      await fs.unlink(datei);
+    } else {
+      return {
+        ok: false,
+        error:
+          "Auf dem Schreibtisch liegt schon etwas namens Mediathek.app — " +
+          "bitte zuerst umbenennen oder entfernen.",
+      };
+    }
+  } catch {
+    // Nichts da — gut.
+  }
+
+  try {
+    await fs.symlink(ziel.launcher, datei);
+  } catch (error) {
+    return {
+      ok: false,
+      error: `Die Verknüpfung ließ sich nicht anlegen: ${
+        error instanceof Error ? error.message : String(error)
+      }`,
+    };
+  }
+
+  try {
+    await fs.access(datei);
+    return { ok: true, file: datei };
+  } catch {
+    return { ok: false, error: "Die Verknüpfung wurde nicht angelegt." };
+  }
 }

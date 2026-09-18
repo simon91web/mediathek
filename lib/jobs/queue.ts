@@ -462,6 +462,10 @@ class JobQueue {
    * offenen Handle auf die Bibliothek. Zusätzlich hängt die Python-Seite
    * ihre Kinder an ein Win32-Job-Objekt, das beim Sterben des Elternteils
    * aufräumt (tools/procutil.py).
+   *
+   * Unter macOS/Linux startet der Auftrag mit `detached: true` (setsid),
+   * damit `kill(-pid)` die ganze Prozessgruppe trifft — sonst überlebt
+   * ein von Python gestartetes ffmpeg den Abbruch.
    */
   cancel(id: string): boolean {
     const job = this.#jobs.get(id);

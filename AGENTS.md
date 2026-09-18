@@ -57,9 +57,10 @@ Daraus folgen Regeln, die nicht verhandelbar sind:
 - **Zuschauer schreiben nie in die Bibliothek.** Der Ordner liegt womöglich
   schreibgeschützt auf einem Netzlaufwerk und wird von mehreren gelesen. Die
   Wiedergabeposition liegt im `localStorage` (`lib/watch-progress.ts`).
-- **Maschinenlokales gehört nach `%LOCALAPPDATA%\Mediathek`** — Programmpfade,
-  Autorenmodus, Job-Zustände. Laufwerksbuchstaben von Kollege A gelten nicht
-  für Kollege B.
+- **Maschinenlokales gehört nicht in die Bibliothek** — Programmpfade,
+  Autorenmodus, Job-Zustände. Unter Windows `%LOCALAPPDATA%\Mediathek`,
+  unter macOS `~/Library/Application Support/Mediathek`. Laufwerksbuchstaben
+  von Kollege A gelten nicht für Kollege B.
 
 ## Woher der Bibliotheksordner kommt
 
@@ -261,7 +262,7 @@ Daraus folgt der heutige Aufbau, und jede Änderung daran muss ihn erhalten:
   geprüft gegen `isToolName`: nur Buchstaben, Ziffern, Punkt, Bindestrich,
   Unterstrich. Kein Pfad, kein Leerzeichen — sonst stünde in der
   Kommandozeile plötzlich etwas anderes. Dieselbe Grammatik erzwingt
-  `assistent-starten.ps1` noch einmal per `ValidatePattern`.
+  `assistent-starten.ps1` / `.sh` noch einmal per Musterprüfung.
 
 Erprobt ist auf dieser Maschine nur `claude`. Der Mechanismus ist geprüft:
 mit `-Tool hostname -ToolArgs exec` baut das Skript nachweislich
@@ -269,7 +270,8 @@ mit `-Tool hostname -ToolArgs exec` baut das Skript nachweislich
 
 ## Der Knopf, der einen Prozess startet
 
-`lib/assistant/start.ts` + `scripts/assistent-starten.ps1` — die gefährlichste
+`lib/assistant/start.ts` + `scripts/assistent-starten.ps1` (Windows) bzw.
+`assistent-starten.sh` (macOS) — die gefährlichste
 Stelle der Anwendung, und ein bewusst **löschbares Paar**: wer beides
 entfernt, verliert einen Knopf. Der eigentliche Weg bleibt der Handbetrieb
 (`cd S:\Mediathek`, das Werkzeug starten, den Auftrag eingeben), und er
@@ -596,9 +598,13 @@ stünde nach jedem Speichern „Änderungen werden nicht gemeldet".
 ## Das weitergebbare Paket
 
 `npm run paket` baut `dist/Mediathek/` — einen Ordner, den man kopiert und
-per Doppelklick startet. **Nichts zu installieren**: `node.exe` und ffmpeg
-liegen darin. Die Ausnahme bleibt Python samt Whisper-Modellen; die sind
-mehrere Gigabyte groß und werden bei Bedarf einmalig geladen.
+per Doppelklick startet. **Nichts zu installieren**: node und ffmpeg liegen
+darin. Das Skript baut die Fassung der Maschine, auf der es läuft: unter
+Windows `Mediathek.cmd` plus `node.exe`, unter macOS `Mediathek.app` plus
+`node`. Zwei Pakete aus derselben Quelle, weil die Binärdateien der anderen
+Architektur dort nicht laufen. Die Ausnahme bleibt Python samt
+Whisper-Modellen; die sind mehrere Gigabyte groß und werden bei Bedarf
+einmalig geladen.
 
 Vier Dinge, die dabei nicht kaputtgehen dürfen:
 
@@ -615,42 +621,54 @@ Vier Dinge, die dabei nicht kaputtgehen dürfen:
 - **Das Arbeitsverzeichnis ist `app/`.** `vorlagen/`, `scripts/`, `tools/`
   und `ffmpeg/bin` werden gegen `process.cwd()` aufgelöst und liegen deshalb
   dort — sonst fehlt dem Autorenmodus die halbe Ausstattung.
-- **Eine Datei zum Anklicken: `Mediathek.cmd`.** Sie startet ohne
-  Konsolenfenster, indem sie sich selbst noch einmal aufruft — unsichtbar
-  über `wscript` und `app/ohne-konsole.vbs`, das mit `/intern` sagt: du bist
-  schon der zweite Aufruf. Der erste blitzt dabei kurz auf; das ist der Preis
-  dafür, dass oben genau eine Datei liegt und keine zweite erklärt werden
-  muss. Fehlt `wscript.exe` (VBScript ist abkündigt), bleibt die Konsole
-  stehen statt gar nichts zu tun.
-- **Die Konsole ist einschaltbar, nicht wegdefiniert**: `Mediathek.cmd
-  /konsole` (auch in den Eigenschaften einer Verknüpfung im Feld „Ziel"),
-  eine Datei `konsole.txt` daneben, oder `MEDIATHEK_KONSOLE=1`. Wer einen
-  Fehler sucht, braucht die Meldungen — sie dürfen nicht nur im Quelltext
+- **Eine Datei zum Anklicken.** Unter Windows `Mediathek.cmd`: sie startet
+  ohne Konsolenfenster, indem sie sich selbst noch einmal aufruft —
+  unsichtbar über `wscript` und `app/ohne-konsole.vbs`, das mit `/intern`
+  sagt: du bist schon der zweite Aufruf. Der erste blitzt dabei kurz auf;
+  das ist der Preis dafür, dass oben genau eine Datei liegt und keine zweite
+  erklärt werden muss. Fehlt `wscript.exe` (VBScript ist abkündigt), bleibt
+  die Konsole stehen statt gar nichts zu tun. Unter macOS `Mediathek.app`:
+  ein minimales Bundle (`Contents/MacOS/mediathek` als Shell-Skript), das
+  von Haus aus kein Terminal zeigt.
+- **Die Konsole ist einschaltbar, nicht wegdefiniert.** Windows:
+  `Mediathek.cmd /konsole` (auch in den Eigenschaften einer Verknüpfung im
+  Feld „Ziel"), eine Datei `konsole.txt` daneben, oder `MEDIATHEK_KONSOLE=1`.
+  macOS: `konsole.txt` neben die `.app` legen — dann öffnet sich das
+  Protokoll unter `~/Library/Logs/Mediathek/server.log`. Wer einen Fehler
+  sucht, braucht die Meldungen — sie dürfen nicht nur im Quelltext
   erreichbar sein.
-- **Starter und VBS sind REINES ASCII, und das wird geprüft.** cmd.exe liest
-  byteweise: ein UTF-8-Umlaut hinter `chcp 65001` verschiebt das Lesen (aus
-  `setlocal` wurde `tlocal`), und ein Zeichen, das die ASCII-Kodierung nicht
-  kennt, wird beim Schreiben zu einem NUL-Byte — eine Trennlinie aus
-  Kästchenzeichen reichte, damit cmd.exe die folgenden Zeilen falsch
-  auswertete und der Start still in den Konsolen-Zweig lief.
+- **Starter und VBS unter Windows sind REINES ASCII, und das wird geprüft.**
+  cmd.exe liest byteweise: ein UTF-8-Umlaut hinter `chcp 65001` verschiebt
+  das Lesen (aus `setlocal` wurde `tlocal`), und ein Zeichen, das die
+  ASCII-Kodierung nicht kennt, wird beim Schreiben zu einem NUL-Byte — eine
+  Trennlinie aus Kästchenzeichen reichte, damit cmd.exe die folgenden Zeilen
+  falsch auswertete und der Start still in den Konsolen-Zweig lief.
   `nurAsciiSchreiben` in `scripts/paket.mjs` bricht den Bau ab, statt sich auf
-  Disziplin zu verlassen.
+  Disziplin zu verlassen. Das macOS-Starterskript ist UTF-8; diese Prüfung
+  gilt dort nicht.
 - **Die Verknüpfung entsteht auf Klick, nicht im Paket** (Einstellungen →
   Programm). Eine .lnk merkt sich einen absoluten Pfad; mitgeliefert zählte
   sie nach dem ersten Kopieren ins Leere — und Kopieren ist genau der Zweck
-  des Pakets. Sie zeigt direkt auf `app/ohne-konsole.vbs` und startet damit
-  ganz ohne Aufblitzen. Das Symbol (`scripts/icon.mjs`) wird beim Packen
-  gezeichnet und von Hand als ICO geschrieben: eine Bilderbibliothek nur
+  des Pakets. Unter Windows zeigt sie direkt auf `app/ohne-konsole.vbs` und
+  startet damit ganz ohne Aufblitzen. Unter macOS ist sie ein Symlink auf
+  das `.app`-Bundle. Das Symbol (`scripts/icon.mjs`) wird beim Packen
+  gezeichnet: ICO von Hand, ICNS über `iconutil`. Eine Bilderbibliothek nur
   dafür wäre eine Abhängigkeit mehr im Bau eines Programms, dessen Witz das
   Fehlen von Abhängigkeiten ist.
-- **Ein eigenes Fenster, kein Browser-Tab.** Der Starter ruft Edge (sonst
-  Chrome) mit `--app=` und einem eigenen `--user-data-dir`. Das zweite ist
-  nicht Kosmetik: nur mit eigenem Profil klinkt sich der Aufruf nicht in eine
-  laufende Browser-Sitzung ein, wartet also bis zum Schließen des Fensters —
-  und erst dadurch kann der Starter den Server danach beenden. Die
-  Prozesskennung dafür schreibt `app/start.js` in eine Datei; aus einer
-  cmd-Datei ist die PID eines mit `start /b` gestarteten Prozesses sonst
-  nicht zu bekommen.
+- **Gatekeeper unter macOS.** Ein unsigniertes `.app`, das von einer anderen
+  Maschine kommt, startet nicht per Doppelklick. Der Kollege öffnet beim
+  ersten Mal per Rechtsklick → Öffnen, oder entfernt die Quarantäne mit
+  `xattr -cr Mediathek.app`. Das Paket trägt eine ad-hoc-Signatur für die
+  Build-Maschine; eine Developer-ID-Notarisierung ist nicht Teil des Baus.
+- **Ein eigenes Fenster, kein Browser-Tab.** Der Starter ruft Chrome (unter
+  Windows: Edge, sonst Chrome) mit `--app=` und einem eigenen
+  `--user-data-dir`. Das zweite ist nicht Kosmetik: nur mit eigenem Profil
+  klinkt sich der Aufruf nicht in eine laufende Browser-Sitzung ein, wartet
+  also bis zum Schließen des Fensters — und erst dadurch kann der Starter
+  den Server danach beenden. Unter Windows schreibt `app/start.js` die
+  Prozesskennung in eine Datei; aus einer cmd-Datei ist die PID eines mit
+  `start /b` gestarteten Prozesses sonst nicht zu bekommen. Unter macOS
+  liefert `$!` die PID direkt.
 
 ### Python im Paket
 
@@ -662,19 +680,18 @@ setup:python` stand in der Oberfläche und war beim Kollegen schlicht falsch
 
 Deshalb läuft das Einrichten als **Auftrag in der Schlange**
 (`lib/jobs/python-job.ts`): die Mediathek ruft `scripts/setup-python.mjs`
-mit `process.execPath` auf — im Paket ist das `app
-ode.exe`, in der
-Entwicklung das node aus dem Suchpfad. Beides ist dieselbe Fassung, die den
-Server ausführt. Das Skript gehört deshalb mit ins Paket, ebenso `tools/`
-(ohne `.venv`, die entsteht auf der Zielmaschine).
+mit `process.execPath` auf — im Paket ist das die mitgelieferte `node` /
+`node.exe`, in der Entwicklung das node aus dem Suchpfad. Beides ist
+dieselbe Fassung, die den Server ausführt. Das Skript gehört deshalb mit
+ins Paket, ebenso `tools/` (ohne `.venv`, die entsteht auf der Zielmaschine).
 
 Was die Mediathek NICHT tut: Python installieren. Das Skript sucht einen
 Interpreter ab 3.11 und bricht sonst mit genau dieser Auskunft ab, die dann
 auch in der Oberfläche steht. Ein Programm, das man in einen Ordner kopiert,
 greift nicht ins System ein.
 
-Nachgemessen im gepackten Programm: `node.exe scripts/setup-python.mjs`
-findet Python über den `py`-Launcher, legt `app/tools/.venv` an und beginnt
+Nachgemessen im gepackten Programm: `node scripts/setup-python.mjs` (unter
+Windows `node.exe`) findet Python, legt `app/tools/.venv` an und beginnt
 zu installieren.
 
 ## Der erste Start
@@ -695,11 +712,12 @@ gibt.
   nehmen. **Angeboten, nicht entschieden**: `D:\Projekte\Projekte` kann
   jemand so wollen. Die Regel ist rein und getestet
   (`lib/library/new-library.ts`).
-- **Der Ordner-Dialog ist der des Betriebssystems** (`lib/shell/pick-folder.ts`,
-  PowerShell mit WinForms, `-STA` ist Pflicht). Eine Webseite kann keinen
-  Ordner wählen: `webkitdirectory` liefert Dateinamen, nie den Pfad. In den
-  Aufruf geht NICHTS hinein — er öffnet einen Dialog und gibt zurück, was
-  ein Mensch angeklickt hat.
+- **Der Ordner-Dialog ist der des Betriebssystems** (`lib/shell/pick-folder.ts`).
+  Unter Windows PowerShell mit WinForms (`-STA` ist Pflicht), unter macOS
+  AppleScript `choose folder` (Abbruch ist Fehler -128, kein leerer Erfolg).
+  Eine Webseite kann keinen Ordner wählen: `webkitdirectory` liefert
+  Dateinamen, nie den Pfad. In den Aufruf geht NICHTS hinein — er öffnet
+  einen Dialog und gibt zurück, was ein Mensch angeklickt hat.
 - **Ohne Bibliothek wird nicht gescannt** (`instrumentation.ts`). Sonst läuft
   der erste Scan gegen den eingebauten Standard, also
   `<Programmordner>/bibliothek-dev`, und legt ihn beim Schreiben des
@@ -741,10 +759,15 @@ der Testlauf mit „Another next dev server is already running".
 **Der Start des Assistenten wird NICHT im Testlauf geprüft** — er öffnet ein
 Fenster auf der Maschine, in dem ein Sprachmodell in die Bibliothek schreibt.
 `e2e/assistent.spec.ts` prüft alles davor: die Riegel, die Beschriftungen und
-die Host-Abweisung. Das PS-Skript selbst lässt sich gefahrlos vorführen:
+die Host-Abweisung. Das Startskript selbst lässt sich gefahrlos vorführen:
 
 ```powershell
 .\scripts\assistent-starten.ps1 -LibraryDir S:\Mediathek -Tool claude -Prompt "Befolge die Anweisungen in anleitungen/kapitel.md." -WhatIf
+```
+
+```bash
+./scripts/assistent-starten.sh --library-dir ~/Mediathek --tool claude \
+  --prompt "Befolge die Anweisungen in anleitungen/kapitel.md." --dry-run
 ```
 
 **Für Etappe 4 vorgemerkt:** `outputFileTracingExcludes` wirkt unter Turbopack
@@ -759,7 +782,7 @@ Mediendatei, kein `tools/` und keine `.env` im Paket liegt.
 | ----------------------- | ----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
 | `MEDIATHEK_LIBRARY_DIR` | Bibliotheksordner, und zwar **fest**: ist sie gesetzt, lässt sich der Ordner in der Oberfläche nicht umstellen. Ohne sie gilt der unter Einstellungen gewählte, sonst `./bibliothek-dev`. Auf Netzlaufwerken besser UNC-Pfade — gemappte Buchstaben sind an die Windows-Sitzung gebunden. |
 | `MEDIATHEK_READONLY=1`  | Harter Riegel für das weitergegebene Viewer-Paket: der Autorenmodus lässt sich dann nicht einschalten.                                                                                                                                                                                    |
-| `MEDIATHEK_FFMPEG_DIR`  | Verzeichnis mit `ffmpeg.exe` UND `ffprobe.exe`. Immer das **Verzeichnis** — der übliche Windows-Build ist ein shared build mit sieben DLLs daneben.                                                                                                                                       |
+| `MEDIATHEK_FFMPEG_DIR`  | Verzeichnis mit ffmpeg UND ffprobe. Immer das **Verzeichnis** — der übliche Windows-Build ist ein shared build mit sieben DLLs daneben; unter macOS liegen die mitkopierten dylibs dort.                                                                                                  |
 | `MEDIATHEK_POLL_MS`     | Poll-Abstand des Beobachters, Standard 30 s.                                                                                                                                                                                                                                              |
 | `MEDIATHEK_HOSTS`       | Zusätzlich erlaubte Host-Namen (Komma-getrennt). Ohne sie antwortet die Mediathek nur auf `127.0.0.1` und `localhost` — siehe `proxy.ts`.                                                                                                                                                 |
 | `HOSTNAME=127.0.0.1`    | Für den Produktionsstart Pflicht: **ohne sie bindet Next standalone auf `0.0.0.0`** und die Mediathek wäre im Firmennetz offen.                                                                                                                                                           |
@@ -777,8 +800,9 @@ npm run dev
 Grafikkarte nutzbar ist. Auf dieser Maschine: RTX 4070, float16,
 `large-v3-turbo` — rund fünfundzwanzigmal schneller als Echtzeit.
 
-Zum täglichen Benutzen gibt es **`Mediathek starten.bat`**: Doppelklick,
-Browser öffnet sich, Fenster offen lassen. Sie startet bewusst `npm run dev`
+Zum täglichen Benutzen gibt es **`Mediathek starten.bat`** (Windows) und
+**`Mediathek starten.command`** (macOS): Doppelklick, Browser öffnet sich,
+Fenster offen lassen. Sie starten bewusst `npm run dev`
 und nicht den Produktionsserver — die Begründung steht ausführlich in der
 Datei, kurz: `next start` lehnt Next selbst ab, solange
 `output: "standalone"` gesetzt ist, und `node .next/standalone/server.js`
@@ -795,7 +819,7 @@ sind und in der Datei erklärt stehen:
   Eingabe umgeleitet ist.
 
 Der echte Produktionsstarter gehört ins Viewer-Paket (Etappe 4) — dort mit
-fertigem Bau, eigener `node.exe` und einem absichtlich festen
+fertigem Bau, eigener node-Binärdatei und einem absichtlich festen
 Bibliotheksordner.
 
 ## Stand
@@ -831,6 +855,6 @@ vier Seiten.
 
 Noch offen: die Vektorsuche (bewusst zurückgestellt, solange der Chat die
 bedeutungsnahe Suche übernimmt), ein Durchlauf des Pakets auf einer fremden
-Maschine mit Firmen-Virenschutz, und macOS — Plan in
-`docs/macos-portierung.md`, geschrieben ohne Zugriff auf einen Mac und daher
-ungetestet.
+Maschine mit Firmen-Virenschutz, und unter macOS die Developer-ID-
+Notarisierung (ohne sie muss der Kollege beim ersten Start Rechtsklick →
+Öffnen wählen; Plan und Umsetzung in `docs/macos-portierung.md`).

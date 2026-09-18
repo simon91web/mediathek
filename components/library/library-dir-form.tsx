@@ -44,7 +44,7 @@ export function LibraryDirForm({
   const OeffnenKnopf = (
     <Button size="klein" disabled={pending} onClick={oeffnen}>
       <FolderOpen aria-hidden className="size-3.5" />
-      Im Explorer öffnen
+      Im Dateimanager öffnen
     </Button>
   );
 

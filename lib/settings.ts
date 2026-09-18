@@ -15,8 +15,9 @@ import { paths } from "@/lib/paths";
  * Programmen, Job-Zustände und der Autorenmodus haben in einem Ordner, den
  * mehrere Leute lesen, nichts zu suchen.
  *
- * LOCALAPPDATA statt APPDATA, weil nichts davon einem Roaming-Profil folgen
- * soll.
+ * Unter Windows: LOCALAPPDATA statt APPDATA, weil nichts davon einem
+ * Roaming-Profil folgen soll. Unter macOS: Application Support. Unter
+ * Linux: XDG_STATE_HOME, sonst ~/.local/state.
  */
 
 /**
@@ -39,7 +40,7 @@ export type WhisperModel = (typeof WHISPER_MODELS)[number];
 export type Settings = {
   /** Nur wer das setzt, darf schreiben. Standard: aus. */
   authorMode: boolean;
-  /** Verzeichnis mit ffmpeg.exe UND ffprobe.exe (nicht die Datei selbst). */
+  /** Verzeichnis mit ffmpeg und ffprobe (nicht die Datei selbst). */
   ffmpegDir: string | null;
   /** Zuletzt geöffnete Bibliothek — für den Start ohne Umgebungsvariable. */
   lastLibraryDir: string | null;
@@ -139,10 +140,21 @@ const DEFAULTS: Settings = {
 };
 
 function stateRoot(): string {
+  if (process.platform === "win32") {
+    const base =
+      process.env.LOCALAPPDATA ?? path.join(os.homedir(), "AppData", "Local");
+    return path.join(base, "Mediathek");
+  }
+  if (process.platform === "darwin") {
+    return path.join(
+      os.homedir(),
+      "Library",
+      "Application Support",
+      "Mediathek",
+    );
+  }
   const base =
-    process.env.LOCALAPPDATA ??
-    process.env.XDG_STATE_HOME ??
-    path.join(os.homedir(), ".local", "state");
+    process.env.XDG_STATE_HOME ?? path.join(os.homedir(), ".local", "state");
   return path.join(base, "Mediathek");
 }
 

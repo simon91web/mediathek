@@ -2,10 +2,12 @@ import "server-only";
 
 import { spawn } from "node:child_process";
 import fs from "node:fs/promises";
+import os from "node:os";
 import path from "node:path";
 
 import { paths } from "@/lib/paths";
 import { readSettings } from "@/lib/settings";
+import { quotePosix } from "@/lib/shell/quote";
 import { checkAssistantTask, noteAssistantRun } from "./preflight";
 import { buildPrompt } from "./tasks";
 
@@ -28,9 +30,10 @@ import { buildPrompt } from "./tasks";
  *   Voreingestellt ist `claude`, weil es hier nachweislich läuft — erprobt
  *   ist nur dieses.
  *
- * Das Feature ist ein LÖSCHBARES PAAR: diese Datei und
- * scripts/assistent-starten.ps1. Wer beides entfernt, verliert einen Knopf.
- * Der eigentliche Weg bleibt der Handbetrieb:
+ * Das Feature ist ein LÖSCHBARES PAAR: diese Datei und das Startskript
+ * (`scripts/assistent-starten.ps1` unter Windows, `.sh` unter macOS). Wer
+ * beides entfernt, verliert einen Knopf. Der eigentliche Weg bleibt der
+ * Handbetrieb:
  *
  *     cd S:\Mediathek
  *     claude
@@ -72,7 +75,11 @@ export type LaunchResult =
   { ok: true; prompt: string; tool: string } | { ok: false; error: string };
 
 function scriptPath(): string {
-  return path.join(process.cwd(), "scripts", "assistent-starten.ps1");
+  const name =
+    process.platform === "win32"
+      ? "assistent-starten.ps1"
+      : "assistent-starten.sh";
+  return path.join(process.cwd(), "scripts", name);
 }
 
 export async function launchAssistant(
@@ -105,6 +112,43 @@ export async function launchAssistant(
 
   const prompt = buildPrompt(geprueft, checked);
 
+  const lauf =
+    process.platform === "darwin"
+      ? await runMac(script, tool, prompt, settings.assistantArgs, checked)
+      : process.platform === "win32"
+        ? await runWindows(
+            script,
+            tool,
+            prompt,
+            settings.assistantArgs,
+            checked,
+          )
+        : {
+            ok: false as const,
+            error:
+              "Ein sichtbares Assistenten-Fenster gibt es nur unter Windows " +
+              "und macOS. Der Handbetrieb steht unter Einstellungen.",
+          };
+  if (!lauf.ok) {
+    await noteAssistantRun(`FEHLGESCHLAGEN ${tool}: ${prompt} — ${lauf.error}`);
+    return { ok: false, error: lauf.error };
+  }
+
+  await noteAssistantRun(
+    `${tool}: ${prompt}  (${paths.library})  ${lauf.output}`.trim(),
+  );
+  return { ok: true, prompt, tool };
+}
+
+type ScriptRun = { ok: true; output: string } | { ok: false; error: string };
+
+function runWindows(
+  script: string,
+  tool: string,
+  prompt: string,
+  toolArgs: readonly string[],
+  slug: string | null,
+): Promise<ScriptRun> {
   const args = [
     "-NoProfile",
     /*
@@ -122,25 +166,70 @@ export async function launchAssistant(
     tool,
     "-Prompt",
     prompt,
-    ...(settings.assistantArgs.length > 0
-      ? ["-ToolArgs", ...settings.assistantArgs]
-      : []),
-    ...(checked ? ["-Slug", checked] : []),
+    ...(toolArgs.length > 0 ? ["-ToolArgs", ...toolArgs] : []),
+    ...(slug ? ["-Slug", slug] : []),
   ];
-
-  const lauf = await runScript(args);
-  if (!lauf.ok) {
-    await noteAssistantRun(`FEHLGESCHLAGEN ${tool}: ${prompt} — ${lauf.error}`);
-    return { ok: false, error: lauf.error };
-  }
-
-  await noteAssistantRun(
-    `${tool}: ${prompt}  (${paths.library})  ${lauf.output}`.trim(),
-  );
-  return { ok: true, prompt, tool };
+  return waitForHelper("powershell.exe", args, "PowerShell");
 }
 
-type ScriptRun = { ok: true; output: string } | { ok: false; error: string };
+/**
+ * Unter macOS darf der Auftragstext NICHT in einen `osascript -e`-String.
+ * AppleScript-Quotierung und Shell-Quotierung decken sich nicht — das wäre
+ * eine Einladung zur Befehls-Injektion.
+ *
+ * Stattdessen schreibt Node eine temporäre Datei, deren Inhalt mit
+ * `quotePosix` echte Shell-Wörter sind, und reicht osascript nur den PFAD
+ * dieser Datei — der Pfad selbst stammt nicht aus dem Auftragstext.
+ * Terminal.app führt die Datei aus; das Hüllskript öffnet das sichtbare
+ * Fenster, analog zu Start-Process unter Windows.
+ */
+async function runMac(
+  script: string,
+  tool: string,
+  prompt: string,
+  toolArgs: readonly string[],
+  slug: string | null,
+): Promise<ScriptRun> {
+  const tmp = path.join(
+    os.tmpdir(),
+    `mediathek-assistent-${process.pid}-${Date.now()}.sh`,
+  );
+
+  const teile = [
+    quotePosix(script),
+    "--library-dir",
+    quotePosix(paths.library),
+    "--tool",
+    quotePosix(tool),
+    "--prompt",
+    quotePosix(prompt),
+  ];
+  if (slug) teile.push("--slug", quotePosix(slug));
+  if (toolArgs.length > 0) {
+    teile.push("--tool-args", ...toolArgs.map(quotePosix));
+  }
+
+  const inhalt = [
+    "#!/bin/bash",
+    "set -euo pipefail",
+    `trap 'rm -f -- ${quotePosix(tmp)}' EXIT`,
+    teile.join(" "),
+    "",
+  ].join("\n");
+
+  await fs.writeFile(tmp, inhalt, { encoding: "utf8", mode: 0o700 });
+
+  const applescript = [
+    "on run argv",
+    '  tell application "Terminal"',
+    "    activate",
+    '    do script ("exec " & quoted form of (item 1 of argv))',
+    "  end tell",
+    "end run",
+  ].join("\n");
+
+  return waitForHelper("osascript", ["-", tmp], "osascript", applescript);
+}
 
 /**
  * Das Hüllskript ausführen und auf sein Ende WARTEN.
@@ -151,10 +240,16 @@ type ScriptRun = { ok: true; output: string } | { ok: false; error: string };
  * Ausführungsrichtlinie, ein unerreichbarer Ordner. Der Knopf sagte "Ein
  * Fenster ist offen", und es passierte nichts.
  *
- * Das Warten kostet nichts: das Skript ruft Start-Process und ist fertig.
- * Das eigentliche Fenster lebt unabhängig weiter.
+ * Das Warten kostet nichts: das Skript ruft Start-Process (Windows) bzw.
+ * osascript (macOS) und ist fertig. Das eigentliche Fenster lebt unabhängig
+ * weiter.
  */
-function runScript(args: readonly string[]): Promise<ScriptRun> {
+function waitForHelper(
+  command: string,
+  args: readonly string[],
+  label: string,
+  stdinText?: string,
+): Promise<ScriptRun> {
   return new Promise((resolve) => {
     let done = false;
     const finish = (result: ScriptRun) => {
@@ -165,26 +260,30 @@ function runScript(args: readonly string[]): Promise<ScriptRun> {
 
     let child: ReturnType<typeof spawn>;
     try {
-      child = spawn("powershell.exe", [...args], {
+      child = spawn(command, [...args], {
         // Kein shell: true. Die Argumente gehen einzeln, nie als eine Zeile.
         shell: false,
         // stdout und stderr werden GELESEN — sonst ist jeder Fehler unsichtbar.
-        stdio: ["ignore", "pipe", "pipe"],
+        stdio: [stdinText ? "pipe" : "ignore", "pipe", "pipe"],
         /*
          * Dieser Aufruf bleibt verborgen, sonst blitzte bei jedem Klick eine
-         * leere Konsole auf. Das sichtbare Fenster öffnet das Skript selbst
-         * per Start-Process mit -WindowStyle Normal.
+         * leere Konsole auf. Das sichtbare Fenster öffnet das Skript selbst.
          */
         windowsHide: true,
       });
     } catch (error) {
       finish({
         ok: false,
-        error: `PowerShell ließ sich nicht starten: ${
+        error: `${label} ließ sich nicht starten: ${
           error instanceof Error ? error.message : String(error)
         }`,
       });
       return;
+    }
+
+    if (stdinText) {
+      child.stdin?.write(stdinText);
+      child.stdin?.end();
     }
 
     let out = "";
@@ -211,7 +310,7 @@ function runScript(args: readonly string[]): Promise<ScriptRun> {
       clearTimeout(timer);
       finish({
         ok: false,
-        error: `PowerShell ließ sich nicht starten: ${error.message}`,
+        error: `${label} ließ sich nicht starten: ${error.message}`,
       });
     });
 

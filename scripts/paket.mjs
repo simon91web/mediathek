@@ -4,9 +4,14 @@
  *   node scripts/paket.mjs [--ohne-ffmpeg] [--smoke]
  *
  * ZIEL: keine Installation. Wer den Ordner bekommt, macht einen Doppelklick.
- * Deshalb liegen node.exe und ffmpeg mit im Paket — die einzige Ausnahme
+ * Deshalb liegen node und ffmpeg mit im Paket — die einzige Ausnahme
  * bleibt Python für die Transkription, weil dort Modelle von mehreren
  * Gigabyte dazugehören, die niemand mitkopieren will.
+ *
+ * Das Skript baut die Fassung der Maschine, auf der es läuft: unter Windows
+ * den Ordner mit Mediathek.cmd, unter macOS Mediathek.app. Zwei Pakete aus
+ * derselben Quelle, weil node und ffmpeg der anderen Architektur dort nicht
+ * laufen.
  *
  * DREI DINGE, DIE HIER NICHT SCHIEFGEHEN DÜRFEN:
  *
@@ -17,10 +22,11 @@
  * 2. **`outputFileTracingExcludes` wirkt unter Turbopack nicht** (Stand Next
  *    16.3): der Build zieht `bibliothek-dev` samt Mediendateien mit hinein.
  *    Hier wird deshalb selbst gefiltert UND danach geprüft.
- * 3. **Das Arbeitsverzeichnis ist `app/`.** `vorlagen/`, `scripts/`, `tools/`
- *    und `ffmpeg/bin` werden zur Laufzeit gegen `process.cwd()` aufgelöst —
- *    sie müssen dort drin liegen, sonst fehlt dem Autorenmodus die halbe
- *    Ausstattung.
+ * 3. **Das Arbeitsverzeichnis ist `app/`.** Unter macOS liegt dieser Ordner
+ *    in `Mediathek.app/Contents/Resources/app`. `vorlagen/`, `scripts/`,
+ *    `tools/` und `ffmpeg/bin` werden zur Laufzeit gegen `process.cwd()`
+ *    aufgelöst — sie müssen dort drin liegen, sonst fehlt dem Autorenmodus
+ *    die halbe Ausstattung.
  */
 
 import { spawn, spawnSync } from "node:child_process";
@@ -30,11 +36,17 @@ import net from "node:net";
 import os from "node:os";
 import path from "node:path";
 
-import { buildIcon } from "./icon.mjs";
+import { buildIcon, buildIcns } from "./icon.mjs";
+import pkg from "../package.json" with { type: "json" };
 
 const ROOT = process.cwd();
+const DARWIN = process.platform === "darwin";
+const NODE_NAME = DARWIN ? "node" : "node.exe";
 const DIST = path.join(ROOT, "dist", "Mediathek");
-const APP = path.join(DIST, "app");
+const BUNDLE = path.join(DIST, "Mediathek.app");
+const APP = DARWIN
+  ? path.join(BUNDLE, "Contents", "Resources", "app")
+  : path.join(DIST, "app");
 
 const args = process.argv.slice(2);
 const ohneFfmpeg = args.includes("--ohne-ffmpeg");
@@ -163,6 +175,12 @@ async function zusammenstellen() {
   sagen("Paket zusammenstellen …");
   await leeren(DIST);
   await fs.mkdir(APP, { recursive: true });
+  if (DARWIN) {
+    await fs.mkdir(path.join(BUNDLE, "Contents", "MacOS"), { recursive: true });
+    await fs.mkdir(path.join(BUNDLE, "Contents", "Resources"), {
+      recursive: true,
+    });
+  }
 
   /*
    * `.next` steht in NIE_OBEN, weil es beim Kopieren der Quellordner nichts
@@ -198,17 +216,21 @@ async function zusammenstellen() {
   );
 
   /*
-   * Beide Skripte werden zur Laufzeit gebraucht: das PS-Skript oeffnet das
-   * Assistenten-Fenster, setup-python.mjs richtet die Transkription ein. Das
-   * zweite ist der Grund, warum im Paket ueberhaupt eingerichtet werden kann
-   * — npm gibt es dort nicht, node.exe schon.
+   * Die Startskripte werden zur Laufzeit gebraucht: das PS-Skript (Windows)
+   * bzw. das Shell-Skript (macOS) oeffnet das Assistenten-Fenster,
+   * setup-python.mjs richtet die Transkription ein. Das zweite ist der Grund,
+   * warum im Paket ueberhaupt eingerichtet werden kann — npm gibt es dort
+   * nicht, node schon.
    */
   await fs.mkdir(path.join(APP, "scripts"), { recursive: true });
-  for (const name of ["assistent-starten.ps1", "setup-python.mjs"]) {
-    await fs.copyFile(
-      path.join(ROOT, "scripts", name),
-      path.join(APP, "scripts", name),
-    );
+  for (const name of [
+    "assistent-starten.ps1",
+    "assistent-starten.sh",
+    "setup-python.mjs",
+  ]) {
+    const ziel = path.join(APP, "scripts", name);
+    await fs.copyFile(path.join(ROOT, "scripts", name), ziel);
+    if (name.endsWith(".sh")) await fs.chmod(ziel, 0o755);
   }
 
   const tools = path.join(ROOT, "tools");
@@ -217,26 +239,131 @@ async function zusammenstellen() {
     await kopieren(tools, path.join(APP, "tools"));
   }
 
-  // Die eigene node.exe — exakt die Fassung, mit der gebaut wurde.
-  await fs.copyFile(process.execPath, path.join(APP, "node.exe"));
-  sagen(`  node.exe ${process.version} übernommen`);
+  await nodeDazu();
 
   /*
-   * Das Programmsymbol. Es liegt in app/, weil die Verknüpfung darauf zeigt
-   * und die App es über ihr Arbeitsverzeichnis findet.
+   * Das Programmsymbol. Unter Windows liegt es in app/, weil die Verknüpfung
+   * darauf zeigt. Unter macOS gehört es ins Bundle (Resources/mediathek.icns).
    */
-  await fs.writeFile(path.join(APP, "mediathek.ico"), buildIcon());
-  sagen("  Symbol erzeugt (mediathek.ico)");
+  if (DARWIN) {
+    buildIcns(path.join(BUNDLE, "Contents", "Resources", "mediathek.icns"));
+    sagen("  Symbol erzeugt (mediathek.icns)");
+  } else {
+    await fs.writeFile(path.join(APP, "mediathek.ico"), buildIcon());
+    sagen("  Symbol erzeugt (mediathek.ico)");
+  }
 
   await ffmpegDazu();
   await helferSchreiben();
   await starterSchreiben();
 }
 
+/** Die Node-Binärdatei — unter macOS eine eigenständige Fassung, kein Homebrew. */
+async function nodeDazu() {
+  const ziel = path.join(APP, NODE_NAME);
+  if (!DARWIN) {
+    await fs.copyFile(process.execPath, ziel);
+    sagen(`  ${NODE_NAME} ${process.version} übernommen`);
+    return;
+  }
+
+  const echt = await fs.realpath(process.execPath);
+  if (machONurSystem(echt)) {
+    await fs.copyFile(echt, ziel);
+    await fs.chmod(ziel, 0o755);
+    sagen(`  ${NODE_NAME} ${process.version} übernommen (eigenständig)`);
+    return;
+  }
+
+  try {
+    await nodeOffiziellHolen(ziel);
+    sagen(`  ${NODE_NAME} ${process.version} von nodejs.org (${process.arch})`);
+  } catch (fehler) {
+    sagen(
+      `  Offizielle node-Binärdatei nicht geladen (${
+        fehler instanceof Error ? fehler.message : fehler
+      }) — nimm die lokale mit Bibliotheken mit.`,
+    );
+    await machOMitnehmen(echt, path.dirname(ziel), NODE_NAME);
+    sagen(`  ${NODE_NAME} ${process.version} mit Bibliotheken übernommen`);
+  }
+
+  await fs.chmod(ziel, 0o755);
+  const probe = spawnSync(ziel, ["-e", "process.stdout.write(process.version)"], {
+    encoding: "utf8",
+  });
+  if (probe.status !== 0) {
+    throw new Error(
+      `Die mitgelieferte node-Binärdatei startet nicht: ${
+        (probe.stderr || probe.stdout || "").trim()
+      }`,
+    );
+  }
+}
+
+async function nodeOffiziellHolen(ziel) {
+  const version = process.version.replace(/^v/, "");
+  const arch = process.arch === "arm64" ? "arm64" : "x64";
+  const name = `node-v${version}-darwin-${arch}`;
+  const url = `https://nodejs.org/dist/v${version}/${name}.tar.gz`;
+  const tmp = await fs.mkdtemp(path.join(os.tmpdir(), "mediathek-node-"));
+  const tarball = path.join(tmp, `${name}.tar.gz`);
+  try {
+    sagen(`  node ${process.version} von nodejs.org laden …`);
+    const antwort = await fetch(url, { redirect: "follow" });
+    if (!antwort.ok) {
+      throw new Error(`${url} → ${antwort.status}`);
+    }
+    await fs.writeFile(tarball, Buffer.from(await antwort.arrayBuffer()));
+    const entpacken = spawnSync(
+      "tar",
+      ["-xzf", tarball, "-C", tmp, `${name}/bin/node`],
+      { encoding: "utf8" },
+    );
+    if (entpacken.status !== 0) {
+      throw new Error((entpacken.stderr || "tar fehlgeschlagen").trim());
+    }
+    const binaer = path.join(tmp, name, "bin", "node");
+    await fs.copyFile(binaer, ziel);
+  } finally {
+    await fs.rm(tmp, { recursive: true, force: true });
+  }
+}
+
 /** ffmpeg mitgeben, wenn es auf dieser Maschine liegt. */
 async function ffmpegDazu() {
   if (ohneFfmpeg) {
     sagen("  ffmpeg: ausgelassen (--ohne-ffmpeg)");
+    return;
+  }
+
+  if (DARWIN) {
+    const wo = spawnSync("which", ["ffmpeg"], { encoding: "utf8" });
+    const erste = (wo.stdout ?? "").split(/\r?\n/).find(Boolean);
+    if (!erste) {
+      sagen("  ffmpeg: nicht gefunden — Kachelbilder fehlen dem Paket.");
+      return;
+    }
+    const quelle = erste.trim();
+    const binDir = path.dirname(await fs.realpath(quelle));
+    const ziel = path.join(APP, "ffmpeg", "bin");
+    await fs.mkdir(ziel, { recursive: true });
+    await machOMitnehmen(quelle, ziel, "ffmpeg");
+    const ffprobe = path.join(binDir, "ffprobe");
+    if (fsSync.existsSync(ffprobe)) {
+      await machOMitnehmen(ffprobe, ziel, "ffprobe");
+    }
+    const probe = spawnSync(path.join(ziel, "ffmpeg"), ["-version"], {
+      encoding: "utf8",
+    });
+    if (probe.status !== 0) {
+      throw new Error(
+        `Das mitgelieferte ffmpeg startet nicht: ${
+          (probe.stderr || probe.stdout || "").trim().slice(0, 300)
+        }`,
+      );
+    }
+    sagen(`  ffmpeg aus ${binDir} übernommen (mit Bibliotheken)`);
     return;
   }
 
@@ -263,6 +390,127 @@ async function ffmpegDazu() {
     }
   }
   sagen(`  ffmpeg aus ${binDir} übernommen`);
+}
+
+const SYSTEM_DYLIB = /^(?:\/usr\/lib\/|\/System\/|\/Library\/Apple\/)/;
+
+function machONurSystem(datei) {
+  const deps = machODeps(datei);
+  return deps.every(
+    (dep) =>
+      SYSTEM_DYLIB.test(dep) ||
+      dep.startsWith("@executable_path/") ||
+      dep === datei,
+  );
+}
+
+function machODeps(datei) {
+  const lauf = spawnSync("otool", ["-L", datei], { encoding: "utf8" });
+  if (lauf.status !== 0) return [];
+  const deps = [];
+  for (const zeile of lauf.stdout.split("\n").slice(1)) {
+    const m = zeile.trim().match(/^(.+?)\s+\(compatibility/);
+    if (m) deps.push(m[1]);
+  }
+  return deps;
+}
+
+function machORpaths(datei) {
+  const lauf = spawnSync("otool", ["-l", datei], { encoding: "utf8" });
+  if (lauf.status !== 0) return [];
+  const pfade = [];
+  const zeilen = lauf.stdout.split("\n");
+  for (let i = 0; i < zeilen.length; i += 1) {
+    if (!zeilen[i].includes("LC_RPATH")) continue;
+    for (let j = i + 1; j < i + 6 && j < zeilen.length; j += 1) {
+      const m = zeilen[j].match(/path\s+(\S+)/);
+      if (m) {
+        pfade.push(m[1]);
+        break;
+      }
+    }
+  }
+  return pfade;
+}
+
+function rpathAufloesen(dep, binaer, rpaths) {
+  if (!dep.startsWith("@")) return dep;
+  const dir = path.dirname(binaer);
+  if (dep.startsWith("@loader_path/")) {
+    return path.resolve(dir, dep.slice("@loader_path/".length));
+  }
+  if (dep.startsWith("@executable_path/")) {
+    return path.resolve(dir, dep.slice("@executable_path/".length));
+  }
+  if (dep.startsWith("@rpath/")) {
+    const rest = dep.slice("@rpath/".length);
+    for (const rp of rpaths) {
+      const basis = rp
+        .replace("@loader_path", dir)
+        .replace("@executable_path", dir);
+      const kandidat = path.resolve(basis, rest);
+      if (fsSync.existsSync(kandidat)) return kandidat;
+    }
+  }
+  return null;
+}
+
+/**
+ * Kopiert eine Mach-O-Binärdatei samt nicht-systemischer dylibs und schreibt
+ * die Install-Namen auf @executable_path um. Danach ad-hoc signieren —
+ * sonst weigert sich Apple Silicon, die angefasste Datei zu starten.
+ */
+async function machOMitnehmen(quelle, zielDir, dateiname) {
+  await fs.mkdir(zielDir, { recursive: true });
+  const echt = await fs.realpath(quelle);
+  const ziel = path.join(zielDir, dateiname);
+  await fs.copyFile(echt, ziel);
+  await fs.chmod(ziel, 0o755);
+
+  const gesehen = new Set(
+    (await fs.readdir(zielDir)).filter((n) => n !== dateiname),
+  );
+  await dylibsSammeln(echt, ziel, zielDir, gesehen);
+
+  for (const name of await fs.readdir(zielDir)) {
+    spawnSync("codesign", ["-s", "-", "--force", path.join(zielDir, name)], {
+      stdio: "ignore",
+    });
+  }
+}
+
+async function dylibsSammeln(originalPfad, kopie, zielDir, gesehen) {
+  const rpaths = machORpaths(originalPfad);
+  for (const dep of machODeps(kopie)) {
+    const aufgeloest = rpathAufloesen(dep, originalPfad, rpaths);
+    if (!aufgeloest || SYSTEM_DYLIB.test(aufgeloest)) continue;
+    let echt;
+    try {
+      echt = await fs.realpath(aufgeloest);
+    } catch {
+      continue;
+    }
+    if (echt === originalPfad) continue;
+
+    const base = path.basename(echt);
+    const dest = path.join(zielDir, base);
+    if (!gesehen.has(base)) {
+      gesehen.add(base);
+      await fs.copyFile(echt, dest);
+      await fs.chmod(dest, 0o755);
+      spawnSync("install_name_tool", ["-id", `@executable_path/${base}`, dest], {
+        stdio: "ignore",
+      });
+      await dylibsSammeln(echt, dest, zielDir, gesehen);
+    }
+    if (dep !== `@executable_path/${base}`) {
+      spawnSync(
+        "install_name_tool",
+        ["-change", dep, `@executable_path/${base}`, kopie],
+        { stdio: "ignore" },
+      );
+    }
+  }
 }
 
 /** Zwei winzige Helfer, damit der Starter ohne Klammer-Akrobatik auskommt. */
@@ -534,6 +782,221 @@ Bildschirm "Einstellungen" sagt ausserdem, welche Werkzeuge gefunden wurden
 und wo die Bibliothek liegt.
 `;
 
+const STARTER_MAC = `#!/bin/bash
+# Startet die Mediathek als .app: Server im Hintergrund, eigenes Fenster.
+set -euo pipefail
+
+MACOS="$(cd "$(dirname "$0")" && pwd)"
+CONTENTS="$(cd "$MACOS/.." && pwd)"
+BUNDLE="$(cd "$CONTENTS/.." && pwd)"
+PACKET="$(cd "$BUNDLE/.." && pwd)"
+APP_DIR="$CONTENTS/Resources/app"
+NODE="$APP_DIR/node"
+
+if [ ! -x "$NODE" ]; then
+  osascript -e 'display alert "Mediathek" message "Die Datei Contents/Resources/app/node fehlt — das Paket ist unvollständig." as critical'
+  exit 1
+fi
+
+KONSOLE=""
+case "\${1:-}" in
+  /konsole|-konsole|--konsole) KONSOLE=1 ;;
+esac
+if [ -f "\$PACKET/konsole.txt" ] || [ -f "\$BUNDLE/konsole.txt" ]; then
+  KONSOLE=1
+fi
+if [ "\${MEDIATHEK_KONSOLE:-}" = "1" ]; then
+  KONSOLE=1
+fi
+
+if [ -f "\$PACKET/bibliothek.txt" ]; then
+  MEDIATHEK_LIBRARY_DIR="$(head -n 1 "\$PACKET/bibliothek.txt" | tr -d '\\r')"
+  export MEDIATHEK_LIBRARY_DIR
+fi
+
+export HOSTNAME=127.0.0.1
+export NODE_ENV=production
+
+if [ -d "\$APP_DIR/ffmpeg/bin" ]; then
+  export MEDIATHEK_FFMPEG_DIR="\$APP_DIR/ffmpeg/bin"
+  export PATH="\$APP_DIR/ffmpeg/bin:\$PATH"
+fi
+
+LOGDIR="\$HOME/Library/Logs/Mediathek"
+mkdir -p "\$LOGDIR"
+LOG="\$LOGDIR/server.log"
+
+cd "\$APP_DIR"
+
+PORT="\$("\$NODE" "\$APP_DIR/port.js")"
+if [ -z "\$PORT" ]; then
+  osascript -e 'display alert "Mediathek" message "Es ließ sich kein freier Port finden." as critical'
+  exit 1
+fi
+export PORT
+
+killtree() {
+  _pid="\$1"
+  for _child in $(pgrep -P "\$_pid" 2>/dev/null || true); do
+    killtree "\$_child"
+  done
+  kill -TERM "\$_pid" 2>/dev/null || true
+}
+
+cleanup() {
+  if [ -n "\${SERVER_PID:-}" ]; then
+    killtree "\$SERVER_PID"
+    wait "\$SERVER_PID" 2>/dev/null || true
+  fi
+}
+trap cleanup EXIT INT TERM
+
+"\$NODE" "\$APP_DIR/server.js" >>"\$LOG" 2>&1 &
+SERVER_PID=\$!
+
+if ! "\$NODE" "\$APP_DIR/warten.js" "\$PORT"; then
+  osascript -e 'display alert "Mediathek" message "Der Server hat nicht geantwortet. Einzelheiten stehen in ~/Library/Logs/Mediathek/server.log." as critical'
+  exit 1
+fi
+
+FENSTER="\$HOME/Library/Application Support/Mediathek/fenster"
+mkdir -p "\$FENSTER"
+
+if [ -n "\$KONSOLE" ]; then
+  open -a Console "\$LOG" || true
+fi
+
+BROWSER=""
+for kandidat in \\
+  "/Applications/Google Chrome.app/Contents/MacOS/Google Chrome" \\
+  "\$HOME/Applications/Google Chrome.app/Contents/MacOS/Google Chrome" \\
+  "/Applications/Microsoft Edge.app/Contents/MacOS/Microsoft Edge" \\
+  "/Applications/Chromium.app/Contents/MacOS/Chromium" \\
+  "/Applications/Brave Browser.app/Contents/MacOS/Brave Browser"
+do
+  if [ -x "\$kandidat" ]; then
+    BROWSER="\$kandidat"
+    break
+  fi
+done
+
+if [ -n "\$BROWSER" ]; then
+  "\$BROWSER" \\
+    --app="http://127.0.0.1:\$PORT" \\
+    --user-data-dir="\$FENSTER" \\
+    --window-size=1400,900 \\
+    --no-first-run \\
+    --no-default-browser-check
+else
+  open "http://127.0.0.1:\$PORT"
+  osascript -e 'display notification "Die Mediathek läuft im Standardbrowser. Das Mediathek-Symbol im Dock beendet den Server." with title "Mediathek"'
+  wait "\$SERVER_PID" || true
+fi
+`;
+
+const INFO_PLIST = `<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE plist PUBLIC "-//Apple//DTD PLIST 1.0//EN" "http://www.apple.com/DTDs/PropertyList-1.0.dtd">
+<plist version="1.0">
+<dict>
+  <key>CFBundleName</key>
+  <string>Mediathek</string>
+  <key>CFBundleDisplayName</key>
+  <string>Mediathek</string>
+  <key>CFBundleIdentifier</key>
+  <string>web.simon91.mediathek</string>
+  <key>CFBundleVersion</key>
+  <string>${pkg.version}</string>
+  <key>CFBundleShortVersionString</key>
+  <string>${pkg.version}</string>
+  <key>CFBundleExecutable</key>
+  <string>mediathek</string>
+  <key>CFBundleIconFile</key>
+  <string>mediathek</string>
+  <key>CFBundlePackageType</key>
+  <string>APPL</string>
+  <key>CFBundleInfoDictionaryVersion</key>
+  <string>6.0</string>
+  <key>LSMinimumSystemVersion</key>
+  <string>12.0</string>
+  <key>NSHighResolutionCapable</key>
+  <true/>
+  <key>LSArchitecturePriority</key>
+  <array>
+    <string>${process.arch === "arm64" ? "arm64" : "x86_64"}</string>
+  </array>
+</dict>
+</plist>
+`;
+
+const LIESMICH_MAC = `Mediathek
+=========
+
+Starten
+-------
+Doppelklick auf „Mediathek.app“. Die Mediathek öffnet sich in einem eigenen
+Fenster — ohne Terminal. Beenden: das Fenster schließen. Der Server geht mit.
+
+Beim ersten Start wird gefragt, wo die Bibliothek liegen soll — also der
+Ordner mit den Aufnahmen. Man kann einen bestehenden wählen (etwa auf dem
+Netzlaufwerk) oder einen neuen anlegen. Die Antwort wird gemerkt.
+
+Architektur dieses Pakets: ${process.arch}
+(arm64 = Apple Silicon, x64 = Intel. Ein Paket läuft nicht auf der anderen.)
+
+Gatekeeper
+----------
+Das Programm ist nicht von Apple notariert. Wurde es von einer anderen
+Maschine kopiert, verweigert macOS den Start („kann nicht geöffnet werden,
+da der Entwickler nicht verifiziert werden kann“). Beim ersten Mal:
+
+  Rechtsklick auf Mediathek.app → Öffnen → Öffnen
+
+Oder in einem Terminal:
+
+  xattr -cr Mediathek.app
+
+Ganz ohne Terminal, mit Symbol
+------------------------------
+Einstellungen → Programm → „Verknüpfung auf dem Schreibtisch“. Sie zeigt
+auf diesen Ort — wird der Ordner später verschoben, einfach eine neue
+anlegen.
+
+Konsolenfenster / Protokoll
+---------------------------
+Wenn etwas klemmt, will man die Meldungen sehen.
+
+  1. Eine leere Datei „konsole.txt“ neben Mediathek.app legen. Dann öffnet
+     sich die Konsole mit dem Server-Protokoll.
+  2. Das Protokoll liegt unter ~/Library/Logs/Mediathek/server.log.
+
+Was mitgeliefert ist
+--------------------
+- node          der Server. Nichts zu installieren.
+- ffmpeg        für Kachelbilder und die Tonspur.
+- anleitungen/  die Regeln, nach denen ein KI-Werkzeug schreiben darf.
+
+Was NICHT mitgeliefert ist
+--------------------------
+- Python und die Whisper-Modelle für die Transkription. Die Modelle sind
+  mehrere Gigabyte groß; sie werden bei Bedarf einmalig geladen.
+  Ohne sie läuft alles andere — nur transkribiert wird nicht.
+- Das KI-Kommandozeilenwerkzeug (voreingestellt „claude“). Ohne es fehlen
+  Kapitel, Themen und der Chat; Ansehen, Suchen und Importieren gehen.
+
+Einen festen Bibliotheksordner vorgeben
+---------------------------------------
+Eine Datei „bibliothek.txt“ neben Mediathek.app legen, mit dem Pfad in der
+ersten Zeile. Dann wird nicht gefragt, und der Ordner lässt sich in der
+Oberfläche auch nicht umstellen — so gibt man ein vorbereitetes Paket
+weiter.
+
+Wenn etwas klemmt
+-----------------
+Das Protokoll unter ~/Library/Logs/Mediathek/server.log lesen. Der Bildschirm
+„Einstellungen“ sagt außerdem, welche Werkzeuge gefunden wurden und wo die
+Bibliothek liegt.
+`;
+
 /**
  * Schreibt eine Datei und besteht darauf, dass sie reines ASCII ist.
  *
@@ -564,6 +1027,33 @@ async function nurAsciiSchreiben(datei, inhalt) {
 }
 
 async function starterSchreiben() {
+  if (DARWIN) {
+    const launcher = path.join(BUNDLE, "Contents", "MacOS", "mediathek");
+    await fs.writeFile(launcher, STARTER_MAC, "utf8");
+    await fs.chmod(launcher, 0o755);
+    await fs.writeFile(
+      path.join(BUNDLE, "Contents", "Info.plist"),
+      INFO_PLIST,
+      "utf8",
+    );
+    await fs.writeFile(path.join(DIST, "LIESMICH.txt"), LIESMICH_MAC, "utf8");
+    const signatur = spawnSync(
+      "codesign",
+      ["--force", "--deep", "--sign", "-", BUNDLE],
+      { encoding: "utf8" },
+    );
+    if (signatur.status !== 0) {
+      sagen(
+        `  Hinweis: ad-hoc-Signatur fehlgeschlagen (${(
+          signatur.stderr || ""
+        ).trim()}). Der erste Start auf diesem Mac kann haken.`,
+      );
+    } else {
+      sagen("  ad-hoc signiert (für diesen Mac; beim Kollegen Gatekeeper, siehe LIESMICH)");
+    }
+    return;
+  }
+
   await nurAsciiSchreiben(path.join(DIST, "Mediathek.cmd"), STARTER);
   /*
    * Die VBS liegt in app/ und nicht oben: sie ist Werkzeug, kein Einstieg.
@@ -600,18 +1090,32 @@ async function pruefen() {
   }
   await durchgehen(DIST);
 
-  const muss = [
-    "app/server.js",
-    "app/node.exe",
-    "app/.next/static",
-    "app/vorlagen/bibliothek/anleitungen/kapitel.md",
-    "app/mediathek.ico",
-    "app/ohne-konsole.vbs",
-    "app/scripts/assistent-starten.ps1",
-    "app/scripts/setup-python.mjs",
-    "app/tools/requirements.txt",
-    "Mediathek.cmd",
-  ];
+  const muss = DARWIN
+    ? [
+        "Mediathek.app/Contents/MacOS/mediathek",
+        "Mediathek.app/Contents/Info.plist",
+        "Mediathek.app/Contents/Resources/mediathek.icns",
+        "Mediathek.app/Contents/Resources/app/server.js",
+        "Mediathek.app/Contents/Resources/app/node",
+        "Mediathek.app/Contents/Resources/app/.next/static",
+        "Mediathek.app/Contents/Resources/app/vorlagen/bibliothek/anleitungen/kapitel.md",
+        "Mediathek.app/Contents/Resources/app/scripts/assistent-starten.sh",
+        "Mediathek.app/Contents/Resources/app/scripts/setup-python.mjs",
+        "Mediathek.app/Contents/Resources/app/tools/requirements.txt",
+        "LIESMICH.txt",
+      ]
+    : [
+        "app/server.js",
+        "app/node.exe",
+        "app/.next/static",
+        "app/vorlagen/bibliothek/anleitungen/kapitel.md",
+        "app/mediathek.ico",
+        "app/ohne-konsole.vbs",
+        "app/scripts/assistent-starten.ps1",
+        "app/scripts/setup-python.mjs",
+        "app/tools/requirements.txt",
+        "Mediathek.cmd",
+      ];
   for (const eintrag of muss) {
     if (!fsSync.existsSync(path.join(DIST, eintrag))) {
       funde.push(`FEHLT: ${eintrag}`);
@@ -648,7 +1152,7 @@ async function smokeTest() {
     server.on("error", reject);
   });
 
-  const kind = spawn(path.join(APP, "node.exe"), [path.join(APP, "server.js")], {
+  const kind = spawn(path.join(APP, NODE_NAME), [path.join(APP, "server.js")], {
     cwd: APP,
     env: {
       ...process.env,
@@ -717,11 +1221,23 @@ try {
   sagen("");
   sagen(`Fertig: ${DIST}`);
   sagen(`Größe: ${mb(bytes)}`);
-  sagen("Zum Weitergeben den Ordner kopieren — nicht zippen.");
-  sagen(
-    "(Aus einem ZIP trägt jede Datei das Mark-of-the-Web, und Windows " +
-      "blockiert den Start.)",
-  );
+  if (DARWIN) {
+    sagen("Zum Weitergeben den Ordner kopieren.");
+    sagen(
+      `Dieses Paket ist ${process.arch} (${
+        process.arch === "arm64" ? "Apple Silicon" : "Intel"
+      }).`,
+    );
+    sagen(
+      "Beim Kollegen: Rechtsklick → Öffnen (Gatekeeper), siehe LIESMICH.txt.",
+    );
+  } else {
+    sagen("Zum Weitergeben den Ordner kopieren — nicht zippen.");
+    sagen(
+      "(Aus einem ZIP trägt jede Datei das Mark-of-the-Web, und Windows " +
+        "blockiert den Start.)",
+    );
+  }
 } catch (fehler) {
   process.stderr.write(`\n${fehler instanceof Error ? fehler.message : fehler}\n`);
   process.exit(1);

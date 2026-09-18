@@ -24,6 +24,10 @@ export type FfmpegTools = {
 
 const EXE = process.platform === "win32" ? ".exe" : "";
 
+export function ffmpegBinaries(): { ffmpeg: string; ffprobe: string } {
+  return { ffmpeg: `ffmpeg${EXE}`, ffprobe: `ffprobe${EXE}` };
+}
+
 function binary(dir: string | null, name: string): string {
   return dir ? path.join(dir, `${name}${EXE}`) : name;
 }
@@ -106,12 +110,12 @@ export async function locateFfmpeg(): Promise<FfmpegTools | null> {
 export async function requireFfmpeg(): Promise<FfmpegTools> {
   const tools = await locateFfmpeg();
   if (tools) return tools;
+  const { ffmpeg, ffprobe } = ffmpegBinaries();
   throw new MediaToolsError(
-    "ffmpeg wurde nicht gefunden. Gebraucht werden ffmpeg.exe und " +
-      "ffprobe.exe, um Dauer, Kachelbild und Tonspur zu lesen. Gesucht " +
-      "wurde in den Einstellungen, in MEDIATHEK_FFMPEG_DIR, neben der " +
-      "Anwendung und im Suchpfad. Den Ordner mit den beiden Dateien unter " +
-      "Einstellungen eintragen — typisch " +
-      "C:\\ffmpeg-master-latest-win64-gpl-shared\\bin",
+    "ffmpeg wurde nicht gefunden. Gebraucht werden " +
+      `${ffmpeg} und ${ffprobe}, um Dauer, Kachelbild und Tonspur zu lesen. ` +
+      "Gesucht wurde in den Einstellungen, in MEDIATHEK_FFMPEG_DIR, neben " +
+      "der Anwendung und im Suchpfad. Den Ordner mit den beiden Dateien " +
+      "unter Einstellungen eintragen.",
   );
 }
