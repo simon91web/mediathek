@@ -6,10 +6,10 @@ import path from "node:path";
 import { revalidatePath } from "next/cache";
 
 import { assertAuthorMode, NotAllowedError } from "@/lib/features";
+import { collectMediaFiles } from "@/lib/import/collect";
 import { importFile } from "@/lib/import/import-file";
 import { enqueueAutoJobs } from "@/lib/jobs/auto";
 import { reloadLibrary } from "@/lib/library";
-import { isMediaFile, isTextFile } from "@/lib/library/media-kind";
 
 export type FolderImportResult = {
   ok: boolean;
@@ -18,34 +18,6 @@ export type FolderImportResult = {
   imported: string[];
   error: string | null;
 };
-
-/** Wie tief in Unterordner geschaut wird. */
-const MAX_DEPTH = 3;
-
-async function collect(
-  dir: string,
-  depth: number,
-  found: string[],
-): Promise<void> {
-  if (depth > MAX_DEPTH || found.length >= 200) return;
-  let entries;
-  try {
-    entries = await fs.readdir(dir, { withFileTypes: true });
-  } catch {
-    return;
-  }
-  for (const entry of entries) {
-    if (found.length >= 200) return;
-    const full = path.join(dir, entry.name);
-    if (entry.isDirectory()) {
-      if (entry.name.startsWith(".")) continue;
-      await collect(full, depth + 1, found);
-      continue;
-    }
-    if (!entry.isFile()) continue;
-    if (isMediaFile(entry.name) || isTextFile(entry.name)) found.push(full);
-  }
-}
 
 /**
  * Liest einen Ordner ein, der schon irgendwo auf der Platte liegt.
@@ -95,19 +67,11 @@ export async function importFolderAction(input: {
     };
   }
 
-  const files: string[] = [];
-  await collect(dir, 0, files);
-
-  if (files.length === 0) {
-    return {
-      ok: false,
-      lines: [],
-      imported: [],
-      error:
-        "In diesem Ordner liegt keine Video-, Audio- oder Markdown-Datei " +
-        `(bis ${MAX_DEPTH} Ebenen tief durchsucht).`,
-    };
+  const collected = await collectMediaFiles(dir);
+  if (!collected.ok) {
+    return { ok: false, lines: [], imported: [], error: collected.error };
   }
+  const files = collected.files;
 
   const lines: string[] = [];
   const imported: string[] = [];

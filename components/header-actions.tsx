@@ -7,6 +7,7 @@ import {
   ListChecks,
   Mic,
   MessageSquare,
+  ScanSearch,
   Settings,
   Upload,
 } from "lucide-react";
@@ -68,6 +69,13 @@ export function HeaderActions({
           >
             <Upload aria-hidden className="size-4" />
           </IconLink>
+          <IconLink
+            href="/sichten"
+            label="Sichten"
+            active={pathname.startsWith("/sichten")}
+          >
+            <ScanSearch aria-hidden className="size-4" />
+          </IconLink>
         </>
       ) : null}
     </>
@@ -91,7 +99,10 @@ export function SettingsIcon() {
 
 function JobsIcon({ active }: { active: boolean }) {
   const { jobs } = useJobs();
-  const offen = jobs.filter((job) => !isFinished(job.state));
+  // Sichtung läuft explorativ und außerhalb dieser Liste — siehe job-queue.tsx.
+  const offen = jobs.filter(
+    (job) => !isFinished(job.state) && job.kind !== "sichtung",
+  );
   const laeuft = offen.find((job) => job.state === "laeuft");
   const prozent = laeuft
     ? Math.round(Math.min(1, Math.max(0, laeuft.progress)) * 100)
