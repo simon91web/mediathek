@@ -97,7 +97,7 @@ test.describe("KI-Assistent", () => {
     page,
   }) => {
     // Der Knopf ist Bequemlichkeit; der Weg von Hand ist der eigentliche.
-    await page.goto("/einstellungen");
+    await page.goto("/einstellungen/assistent");
     await expect(
       page.getByRole("heading", { name: "KI-Assistent" }),
     ).toBeVisible();
