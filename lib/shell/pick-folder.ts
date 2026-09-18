@@ -41,19 +41,38 @@ export type PickResult =
  * Als eine Zeichenkette und nicht als Datei, weil es NICHTS Veränderliches
  * enthält: keine Eingabe wird hineingereicht, es gibt also auch nichts zu
  * maskieren. Die Ausgabe ist der gewählte Pfad oder nichts.
+ *
+ * BEWUSST ein OpenFileDialog und kein FolderBrowserDialog: Letzterer ist
+ * unter Windows der alte SHBrowseForFolder-Baum ohne Adressleiste, ohne
+ * Schnellzugriff, ohne Einfügen eines Pfads — für einen Ordner, der tief
+ * verschachtelt oder auf einem Netzlaufwerk liegt, ein mühsames Durchklicken.
+ * Der OpenFileDialog ist ab Windows Vista derselbe moderne Explorer, den
+ * jedes andere Programm zum Öffnen einer Datei zeigt — nur wird hier eine
+ * Datei verlangt, deren Namen es nie geben wird (CheckFileExists = false),
+ * damit am Ende der ausgewählte ORDNER übrig bleibt: der Ordner, in den man
+ * hineinnavigiert hat, plus dem Platzhalter-Dateinamen im Feld. Ein Klick auf
+ * einen Ordner in der Liste öffnet ihn (wie gewohnt) statt ihn auszuwählen —
+ * der Kniff kann also nichts falsch zurückgeben, nur tiefer navigieren.
  */
 const SKRIPT = [
   "Add-Type -AssemblyName System.Windows.Forms",
-  "$dialog = New-Object System.Windows.Forms.FolderBrowserDialog",
-  "$dialog.Description = 'Ordner fuer die Mediathek waehlen'",
-  "$dialog.ShowNewFolderButton = $true",
+  "$dialog = New-Object System.Windows.Forms.OpenFileDialog",
+  "$dialog.Title = 'Ordner fuer die Mediathek waehlen'",
+  "$dialog.CheckFileExists = $false",
+  "$dialog.CheckPathExists = $true",
+  "$dialog.ValidateNames = $false",
+  "$dialog.Multiselect = $false",
+  // Blendet echte Dateien aus; Ordner bleiben unabhaengig vom Filter sichtbar.
+  "$dialog.Filter = 'Ordner|*.kein-echter-dateityp'",
+  "$dialog.FileName = 'Diesen Ordner waehlen'",
   // Damit das Fenster nicht hinter dem Browser aufgeht.
   "$vorn = New-Object System.Windows.Forms.Form",
   "$vorn.TopMost = $true",
   "$ergebnis = $dialog.ShowDialog($vorn)",
   "$vorn.Dispose()",
   "if ($ergebnis -eq [System.Windows.Forms.DialogResult]::OK) {",
-  "  [Console]::Out.Write($dialog.SelectedPath)",
+  "  $ordner = [System.IO.Path]::GetDirectoryName($dialog.FileName)",
+  "  [Console]::Out.Write($ordner)",
   "}",
 ].join("; ");
 
