@@ -55,14 +55,14 @@ const PLATFORM_STEPS: TourStep[] = [
     text: "Läuft gerade eine Transkription oder die Kette, siehst du das hier – mit Zähler, solange etwas offen ist.",
   },
   {
-    target: "import",
+    target: "werkzeuge",
     title: "Neue Aufnahmen importieren",
-    text: "Hochladen oder aus einem Ordner übernehmen – von hier aus kommt alles Neue in die Bibliothek.",
+    text: "Unter den Werkzeugen: Hochladen oder aus einem Ordner übernehmen – von hier aus kommt alles Neue in die Bibliothek.",
   },
   {
-    target: "settings",
+    target: "werkzeuge",
     title: "Einstellungen",
-    text: "Bibliotheksordner wechseln, Verarbeitung konfigurieren – und diesen Rundgang jederzeit wiederholen.",
+    text: "Auch die liegen unter den Werkzeugen: Bibliotheksordner wechseln, Verarbeitung konfigurieren – und diesen Rundgang jederzeit wiederholen.",
   },
   {
     target: "card1",
@@ -80,9 +80,9 @@ const WORKFLOW_STEPS: TourStep[] = [
     secondary: "Überspringen",
   },
   {
-    target: "import",
+    target: "werkzeuge",
     title: "Import",
-    text: "Datei hochladen oder Ordner angeben – Video, Audio oder gleich ein Textbeitrag.",
+    text: "Unter den Werkzeugen: Datei hochladen oder Ordner angeben – Video, Audio oder gleich ein Textbeitrag.",
   },
   {
     target: "kette",

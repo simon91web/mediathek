@@ -1,12 +1,14 @@
 import type { Metadata } from "next";
 import Link from "next/link";
 
-import { HeaderActions, SettingsIcon } from "@/components/header-actions";
+import { FloatingChat } from "@/components/chat/floating-chat";
+import { HeaderActions } from "@/components/header-actions";
 import { LibraryWatcher } from "@/components/library/library-watcher";
 import { NavLinks } from "@/components/nav-links";
 import { SearchBox } from "@/components/search/search-box";
 import { Willkommen } from "@/components/start/willkommen";
 import { TourOverlay } from "@/components/tour/tour-overlay";
+import { WerkzeugeMenu } from "@/components/werkzeuge/werkzeuge-menu";
 import { getFeatures } from "@/lib/features";
 import { firstRunState } from "@/lib/library/first-run";
 import { readSettings } from "@/lib/settings";
@@ -79,19 +81,17 @@ export default async function RootLayout({
             <NavLinks />
 
             {/*
-             * Werkzeuge statt Orte: Verlauf, Importieren, Suche,
-             * Einstellungen. Das Suchfeld steht zwischen ihnen, weil es das
-             * einzige ist, das man benutzt statt anzuklicken.
+             * Werkzeuge statt Orte: Verlauf, Suche, dann alles andere
+             * gebündelt (Einstellungen, Aufnehmen, Neuer Beitrag,
+             * Importieren, Sichten) ganz rechts. Chat lebt jetzt als
+             * schwebender Knopf unten rechts, nicht mehr hier.
              */}
             <div className="ml-auto flex items-center gap-1">
-              <HeaderActions
-                authorMode={features.authorMode}
-                chatEnabled={settings.chatEnabled && !features.readonly}
-              />
+              <HeaderActions authorMode={features.authorMode} />
               <div className="mx-1">
                 <SearchBox compact />
               </div>
-              <SettingsIcon />
+              <WerkzeugeMenu authorMode={features.authorMode} />
             </div>
           </div>
         </header>
@@ -103,6 +103,7 @@ export default async function RootLayout({
           platformTourSeen={settings.platformTourSeen}
           demoSlug={demoSlug}
         />
+        <FloatingChat />
       </body>
     </html>
   );
