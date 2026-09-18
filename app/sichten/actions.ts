@@ -45,6 +45,29 @@ export type PreviewScreeningResult =
   | { ok: true; candidates: ScreeningCandidate[] }
   | { ok: false; error: string };
 
+/** Stellt — außer bei einem Cache-Treffer — den Sichtung-Auftrag für eine Datei an. */
+async function startOne(
+  sourcePath: string,
+  fileName: string,
+  info: ReturnType<typeof parseMediaFilename>,
+  durationSec: number | null,
+): Promise<{ jobId: string | null; state: ScreeningCandidate["state"] }> {
+  const media = info.kind === "video" || info.kind === "audio";
+  const hash = hashSourcePath(sourcePath);
+  const started = await startScreeningJob({
+    sourcePath,
+    hash,
+    title: info.title ?? fileName,
+    kind: media ? "media" : "text",
+    durationSec,
+  });
+  if (!started.ok) return { jobId: null, state: "wartet" };
+  return {
+    jobId: started.job.id,
+    state: started.job.state === "laeuft" ? "laeuft" : "wartet",
+  };
+}
+
 /**
  * Scan + Vorschau + Anstellen der Sichtung-Aufträge in einem Schritt.
  *
@@ -97,7 +120,6 @@ export async function previewScreeningAction(
 
     const media = info.kind === "video" || info.kind === "audio";
     const probed = media && ffmpeg ? await probeMedia(sourcePath, ffmpeg) : null;
-    const hash = hashSourcePath(sourcePath);
     const durationSec = probed?.durationSec ?? null;
 
     const cached = await getCachedScreening(sourcePath);
@@ -107,22 +129,14 @@ export async function previewScreeningAction(
     if (cached) {
       state = "fertig";
     } else {
-      const started = await startScreeningJob({
-        sourcePath,
-        hash,
-        title: info.title ?? fileName,
-        kind: media ? "media" : "text",
-        durationSec,
-      });
-      if (started.ok) {
-        jobId = started.job.id;
-        state = started.job.state === "laeuft" ? "laeuft" : "wartet";
-      }
+      const outcome = await startOne(sourcePath, fileName, info, durationSec);
+      jobId = outcome.jobId;
+      state = outcome.state;
     }
 
     candidates.push({
       sourcePath,
-      hash,
+      hash: hashSourcePath(sourcePath),
       fileName,
       kind: info.kind,
       titleGuess: info.title,
@@ -145,6 +159,41 @@ export async function previewScreeningAction(
   }
 
   return { ok: true, candidates };
+}
+
+/**
+ * Setzt pausierte Zeilen fort — dieselbe Anstell-Logik wie beim Scan, aber
+ * ohne ihn zu wiederholen: Titel, Art und Dauer stehen schon fest, der
+ * Client schickt sie mit.
+ */
+export async function resumeScreeningAction(
+  input: readonly {
+    sourcePath: string;
+    fileName: string;
+    kind: ScreeningCandidate["kind"];
+    titleGuess: string | null;
+    durationSec: number | null;
+  }[],
+): Promise<Record<string, { jobId: string | null; state: ScreeningCandidate["state"] }>> {
+  try {
+    await assertAuthorMode();
+  } catch {
+    return {};
+  }
+
+  const result: Record<
+    string,
+    { jobId: string | null; state: ScreeningCandidate["state"] }
+  > = {};
+  for (const entry of input) {
+    result[entry.sourcePath] = await startOne(
+      entry.sourcePath,
+      entry.fileName,
+      { title: entry.titleGuess, slug: "", recorded: null, kind: entry.kind },
+      entry.durationSec,
+    );
+  }
+  return result;
 }
 
 export type ScreeningResultPayload = {
@@ -191,6 +240,7 @@ export type ImportScreenedResult = {
  */
 export async function importScreenedAction(
   sourcePaths: readonly string[],
+  move: boolean,
 ): Promise<ImportScreenedResult> {
   try {
     await assertAuthorMode();
@@ -215,7 +265,7 @@ export async function importScreenedAction(
 
   for (const sourcePath of sourcePaths) {
     const outcome = await importFile(sourcePath, {
-      move: false,
+      move,
       originalName: path.basename(sourcePath),
     });
     if (outcome.ok) {
