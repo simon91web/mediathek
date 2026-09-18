@@ -54,6 +54,20 @@ function isBlockName(value: string): value is BlockName {
 }
 
 /**
+ * Erkennt eine einzelne Zeile als Marker, ohne einen Block zu suchen — für
+ * den Live-Vorschau-Editor, der jede Zeile für sich beurteilt.
+ */
+export function matchBlockMarker(
+  line: string,
+): { name: BlockName; isStart: boolean } | null {
+  const match = BLOCK_MARKER.exec(line);
+  if (!match) return null;
+  const name = match[1].toLowerCase();
+  if (!isBlockName(name)) return null;
+  return { name, isStart: match[2].toLowerCase() === "start" };
+}
+
+/**
  * Findet alle Marker-Blöcke. Unbekannte Namen und unpaarige Marker erzeugen
  * einen Hinweis, brechen aber nichts: eine Datei mit einem vergessenen
  * Ende-Marker soll weiter anzeigbar bleiben.

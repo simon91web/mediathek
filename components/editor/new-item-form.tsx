@@ -53,8 +53,10 @@ export function NewItemForm() {
         setError(result.error);
         return;
       }
-      // Direkt in den Editor: dort wird der Inhalt geschrieben.
-      router.push(`/medien/${result.slug}/bearbeiten`);
+      // Direkt in den Editor: dort wird der Inhalt geschrieben. "neu=1"
+      // sorgt dafür, dass der Editor im Schreibmodus öffnet, nicht im
+      // Lesemodus — es gibt ja noch nichts zu lesen.
+      router.push(`/medien/${result.slug}/bearbeiten?neu=1`);
     });
   };
 

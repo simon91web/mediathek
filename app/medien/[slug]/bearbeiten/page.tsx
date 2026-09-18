@@ -23,10 +23,13 @@ export async function generateMetadata({
 
 export default async function BearbeitenPage({
   params,
+  searchParams,
 }: {
   params: Promise<{ slug: string }>;
+  searchParams: Promise<{ neu?: string }>;
 }) {
   const { slug } = await params;
+  const { neu } = await searchParams;
   if (!isSlug(slug)) notFound();
 
   const [item, features] = await Promise.all([getItem(slug), getFeatures()]);
@@ -83,6 +86,7 @@ export default async function BearbeitenPage({
       poster={posterUrl(item)}
       chapters={item.chapters}
       durationSeconds={item.durationSeconds}
+      initialMode={neu !== undefined ? "schreiben" : "lesen"}
     />
   );
 }

@@ -82,7 +82,7 @@ function formatVttTime(seconds: number): string {
  * Erkannt werden umzäunte Blöcke (``` und ~~~) sowie Zeilen mit vier oder
  * mehr Leerzeichen Einrückung (in Markdown ein Codeblock).
  */
-function markCodeLines(lines: readonly string[]): boolean[] {
+export function markCodeLines(lines: readonly string[]): boolean[] {
   const inCode = new Array<boolean>(lines.length).fill(false);
   let fence: string | null = null;
   for (let i = 0; i < lines.length; i += 1) {

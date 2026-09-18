@@ -9,10 +9,15 @@ import {
 } from "react";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
-import { AlertTriangle, Clock, Save } from "lucide-react";
+import { AlertTriangle, BookOpen, Clock, PenLine, Save } from "lucide-react";
 
 import { saveItemAction } from "@/app/medien/[slug]/bearbeiten/actions";
 import type { SaveResult } from "@/app/medien/[slug]/bearbeiten/actions";
+import type {
+  LivePreviewEditorHandle,
+  LivePreviewMode,
+} from "@/components/editor/live-preview-editor";
+import { LivePreviewEditor } from "@/components/editor/live-preview-editor";
 import { MediaView } from "@/components/player/media-view";
 import { PlayerProvider } from "@/components/player/player-provider";
 import { usePlayerStore } from "@/components/player/player-store";
@@ -24,12 +29,16 @@ import { cn } from "@/lib/utils";
 
 /*
  * Der Editor arbeitet auf dem Rohtext von beitrag.md — bewusst kein
- * WYSIWYG.
+ * WYSIWYG, auch wenn er wie einer aussieht.
  *
- * Zwei Gründe: eine Oberfläche, die Markdown "hübsch" bearbeitet, würde die
- * Marker-Blöcke zerstören, an denen Claude Code sich orientiert. Und der
- * Rohtext ist genau das Format, das Simon und Claude Code teilen — wer hier
- * etwas sieht, sieht dasselbe wie im Terminal.
+ * Geschrieben wird im Lesemodus (wie Obsidians Live-Preview): Überschriften,
+ * Fett/Kursiv, Wikilinks und Marker-Blöcke werden nur solange dekoriert, wie
+ * der Cursor nicht in ihrer Zeile steht — components/editor/live-preview-
+ * editor.tsx zeichnet das über echtem Markdown-Text, ändert ihn aber nie.
+ * Das bleibt aus zwei Gründen wichtig: Claude Code orientiert sich an den
+ * Marker-Blöcken, und der Rohtext ist genau das Format, das Simon und Claude
+ * Code teilen — was hier gespeichert wird, ist dasselbe, was im Terminal
+ * steht.
  */
 
 const DRAFT_PREFIX = "mediathek:entwurf:";
@@ -48,6 +57,7 @@ export function BeitragEditor({
   poster,
   chapters,
   durationSeconds,
+  initialMode = "lesen",
 }: {
   slug: string;
   title: string;
@@ -59,10 +69,13 @@ export function BeitragEditor({
   poster: string | null;
   chapters: Chapter[];
   durationSeconds: number | null;
+  /** "schreiben" für einen frisch angelegten Beitrag — da gibt es noch nichts zu lesen. */
+  initialMode?: LivePreviewMode;
 }) {
   const router = useRouter();
-  const area = useRef<HTMLTextAreaElement>(null);
+  const editor = useRef<LivePreviewEditorHandle>(null);
   const [content, setContent] = useState(initialContent);
+  const [mode, setMode] = useState<LivePreviewMode>(initialMode);
   const [mtimeMs, setMtimeMs] = useState(initialMtimeMs);
   const [saving, setSaving] = useState(false);
   const [note, setNote] = useState<string | null>(null);
@@ -157,12 +170,11 @@ export function BeitragEditor({
     });
     setContent(result.content);
     setNote(result.note);
+    // Wer eine Kapitelmarke setzt, will den Platzhaltertitel auch bearbeiten.
+    setMode("schreiben");
     // Den Platzhaltertitel markieren, damit das erste Zeichen ihn ersetzt.
     requestAnimationFrame(() => {
-      const element = area.current;
-      if (!element) return;
-      element.focus();
-      element.setSelectionRange(result.selectionStart, result.selectionEnd);
+      editor.current?.setSelection(result.selectionStart, result.selectionEnd);
     });
   };
 
@@ -278,31 +290,44 @@ export function BeitragEditor({
           </p>
         ) : null}
 
-        <div className="grid grid-cols-1 gap-4 lg:grid-cols-2">
-          <div>
+        <div>
+          <div className="mb-1.5 flex items-center justify-between gap-3">
             <label
               htmlFor="beitrag-md"
-              className="mb-1.5 block text-xs tracking-wide text-schrift-3 uppercase"
+              className="block text-xs tracking-wide text-schrift-3 uppercase"
             >
               Text
             </label>
-            <textarea
-              id="beitrag-md"
-              ref={area}
-              value={content}
-              onChange={(event) => setContent(event.target.value)}
-              spellCheck={false}
-              className="h-[60vh] w-full resize-y rounded-xl border border-rand bg-grund-2 p-3 font-mono text-[13px] leading-relaxed"
-            />
+            <Button
+              size="klein"
+              variant="leise"
+              onClick={() =>
+                setMode((current) => (current === "schreiben" ? "lesen" : "schreiben"))
+              }
+            >
+              {mode === "schreiben" ? (
+                <>
+                  <BookOpen aria-hidden className="size-3.5" />
+                  Lesemodus
+                </>
+              ) : (
+                <>
+                  <PenLine aria-hidden className="size-3.5" />
+                  Schreibmodus
+                </>
+              )}
+            </Button>
           </div>
-          <div>
-            <p className="mb-1.5 text-xs tracking-wide text-schrift-3 uppercase">
-              Vorschau
-            </p>
-            <div className="h-[60vh] overflow-y-auto rounded-xl border border-rand bg-grund-2 p-3">
-              <Preview content={content} />
-            </div>
-          </div>
+          <LivePreviewEditor
+            ref={editor}
+            id="beitrag-md"
+            value={content}
+            onChange={setContent}
+            kind={kind}
+            mode={mode}
+            durationSeconds={durationSeconds}
+            className="h-[60vh] w-full overflow-hidden rounded-xl border border-rand bg-grund-2"
+          />
         </div>
 
         <p className="text-xs text-schrift-2">
@@ -310,7 +335,13 @@ export function BeitragEditor({
           <code className="rounded bg-grund-3 px-1">01:24 Akku prüfen</code>{" "}
           zwischen den Markern. Alles außerhalb der Marker bleibt unberührt —
           auch wenn Claude Code später Kapitel und Zusammenfassungen einträgt.
-          Mit <kbd className="rounded bg-grund-3 px-1">Strg</kbd>+
+          Solange der Cursor nicht in ihrer Zeile steht, werden Überschriften,
+          Fett/Kursiv, Wikilinks und Marker-Blöcke dargestellt statt
+          roh gezeigt — am Rohtext ändert das nichts. Im Schreibmodus setzt
+          ein Klick auf einen Wikilink den Cursor in die Zeile,{" "}
+          <kbd className="rounded bg-grund-3 px-1">Strg</kbd>+Klick folgt ihm
+          trotzdem; im Lesemodus folgt jeder Klick. Mit{" "}
+          <kbd className="rounded bg-grund-3 px-1">Strg</kbd>+
           <kbd className="rounded bg-grund-3 px-1">S</kbd> speichern.{" "}
           <Link href={`/medien/${slug}`} className="text-akzent hover:underline">
             Zur Ansicht
@@ -357,60 +388,6 @@ function ChapterButton({ onInsert }: { onInsert: (seconds: number) => void }) {
       </span>
     </div>
   );
-}
-
-/**
- * Eine schlichte Vorschau: sie zeigt Struktur, nicht Typografie. Für das
- * gerenderte Ergebnis gibt es die Ansicht — hier zählt, ob die Kapitel
- * erkannt werden.
- */
-function Preview({ content }: { content: string }) {
-  const chapters = parseChapterLines(content);
-
-  return (
-    <div className="space-y-3 text-sm">
-      <div>
-        <p className="mb-1 text-xs tracking-wide text-schrift-3 uppercase">
-          Erkannte Kapitel ({chapters.length})
-        </p>
-        {chapters.length === 0 ? (
-          <p className="text-xs text-schrift-2">
-            Noch keine. Eine Zeile braucht Zeit UND Titel, damit sie als
-            Kapitel gilt.
-          </p>
-        ) : (
-          <ol className="space-y-0.5">
-            {chapters.map((chapter, index) => (
-              <li key={index} className="flex gap-2 text-xs">
-                <span className="w-14 shrink-0 text-right tabular-nums text-schrift-3">
-                  {chapter.raw.trim().split(/\s+/)[0]}
-                </span>
-                <span>{chapter.title}</span>
-              </li>
-            ))}
-          </ol>
-        )}
-      </div>
-
-      <div className="border-t border-rand pt-3">
-        <p className="mb-1 text-xs tracking-wide text-schrift-3 uppercase">
-          Text
-        </p>
-        <pre className="whitespace-pre-wrap break-words font-sans text-[13px] leading-relaxed text-schrift-2">
-          {stripStructure(content) || "—"}
-        </pre>
-      </div>
-    </div>
-  );
-}
-
-/** Frontmatter und Marker für die Vorschau ausblenden. */
-function stripStructure(content: string): string {
-  return content
-    .replace(/^---\n[\s\S]*?\n---\n/, "")
-    .replace(/<!--[\s\S]*?-->/g, "")
-    .replace(/\n{3,}/g, "\n\n")
-    .trim();
 }
 
 function ConflictNotice({
