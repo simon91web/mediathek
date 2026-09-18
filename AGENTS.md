@@ -830,5 +830,7 @@ Symbolen statt Navigationspunkten, Chat über den Bestand, Einstellungen in
 vier Seiten.
 
 Noch offen: die Vektorsuche (bewusst zurückgestellt, solange der Chat die
-bedeutungsnahe Suche übernimmt) und ein Durchlauf des Pakets auf einer
-fremden Maschine mit Firmen-Virenschutz.
+bedeutungsnahe Suche übernimmt), ein Durchlauf des Pakets auf einer fremden
+Maschine mit Firmen-Virenschutz, und macOS — Plan in
+`docs/macos-portierung.md`, geschrieben ohne Zugriff auf einen Mac und daher
+ungetestet.
