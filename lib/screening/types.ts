@@ -29,8 +29,12 @@ export type ScreeningCandidate = {
   recorded: string | null;
   durationSec: number | null;
   sizeBytes: number | null;
-  /** Wächst über den Ablauf: erst "wartet", nach der Transkription ein Urteil. */
-  state: "wartet" | "laeuft" | "fertig" | "fehler";
+  /**
+   * Wächst über den Ablauf: erst "wartet", nach der Transkription ein
+   * Urteil. "pausiert" ist rein clientseitig — kein Job-Zustand, sondern
+   * "hier wartet noch etwas, aber absichtlich ohne laufenden Auftrag".
+   */
+  state: "wartet" | "laeuft" | "fertig" | "fehler" | "pausiert";
   /** Job-Kennung, solange die Transkription läuft oder wartet. */
   jobId: string | null;
   /** Nur während `state === "laeuft"` gefüllt — direkt aus dem Job übernommen. */

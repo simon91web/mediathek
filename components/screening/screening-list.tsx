@@ -12,6 +12,7 @@ import {
   Hourglass,
   Link2,
   Mic,
+  Pause,
   Play,
   Sparkles,
   Video,
@@ -249,6 +250,14 @@ function RowState({ candidate }: { candidate: ScreeningCandidate }) {
       <span className="flex items-center gap-1 text-xs text-schrift-2">
         <Hourglass aria-hidden className="size-3" />
         wartet
+      </span>
+    );
+  }
+  if (candidate.state === "pausiert") {
+    return (
+      <span className="flex items-center gap-1 text-xs text-schrift-2">
+        <Pause aria-hidden className="size-3" />
+        pausiert
       </span>
     );
   }
