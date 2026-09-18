@@ -3,6 +3,7 @@
 import Link from "next/link";
 import { usePathname } from "next/navigation";
 import {
+  AlertTriangle,
   Loader2,
   ListChecks,
   Mic,
@@ -19,15 +20,16 @@ import { cn } from "@/lib/utils";
 /*
  * Die Werkzeuge rechts in der Kopfzeile.
  *
- * Reihenfolge von links: Aufträge, Aufnehmen, Importieren, Suchfeld,
+ * Reihenfolge von links: Verlauf, Aufnehmen, Importieren, Suchfeld,
  * Einstellungen.
  * Alles davon war einmal ein Navigationspunkt — aber es sind keine Orte, die
  * man durchblättert, sondern Handgriffe. Als Wortliste haben sie die
  * eigentliche Navigation zugedeckt.
  *
- * Das Auftragssymbol ist das einzige, das sich verändert: solange etwas
- * läuft, dreht es sich und zeigt die Anzahl. Genau das ist die Frage, die
- * man hat, während man woanders in der Mediathek arbeitet.
+ * Das Verlaufssymbol ist das einzige, das sich verändert: solange etwas
+ * läuft, dreht es sich und zeigt die Anzahl; bleibt ein Fehler stehen, wird
+ * es zum Warndreieck. Genau das ist die Frage, die man hat, während man
+ * woanders in der Mediathek arbeitet.
  */
 
 export function HeaderActions({
@@ -103,19 +105,27 @@ function JobsIcon({ active }: { active: boolean }) {
   const offen = jobs.filter(
     (job) => !isFinished(job.state) && job.kind !== "sichtung",
   );
+  // Bleibt sichtbar, bis der Verlauf geleert wird — sonst verschwindet ein
+  // Fehler spurlos, sobald der letzte Auftrag durchläuft (isFinished zählt
+  // "fehler" schon als fertig).
+  const fehlerhaft = jobs.filter(
+    (job) => job.state === "fehler" && job.kind !== "sichtung",
+  );
   const laeuft = offen.find((job) => job.state === "laeuft");
   const prozent = laeuft
     ? Math.round(Math.min(1, Math.max(0, laeuft.progress)) * 100)
     : null;
 
   const titel =
-    offen.length === 0
-      ? "Aufträge — nichts in Arbeit"
-      : laeuft
+    offen.length > 0
+      ? laeuft
         ? `${laeuft.title}: ${laeuft.message || "läuft"}${
             prozent !== null ? ` (${prozent} %)` : ""
           }`
-        : `${offen.length} ${offen.length === 1 ? "Auftrag wartet" : "Aufträge warten"}`;
+        : `${offen.length} ${offen.length === 1 ? "Auftrag wartet" : "Aufträge warten"}`
+      : fehlerhaft.length > 0
+        ? `${fehlerhaft.length} ${fehlerhaft.length === 1 ? "Auftrag mit Fehler" : "Aufträge mit Fehler"}`
+        : "Verlauf — nichts in Arbeit";
 
   return (
     <Link
@@ -130,17 +140,25 @@ function JobsIcon({ active }: { active: boolean }) {
           ? "bg-grund-3 text-schrift"
           : offen.length > 0
             ? "text-akzent hover:bg-grund-2"
-            : "text-schrift-2 hover:bg-grund-2 hover:text-schrift",
+            : fehlerhaft.length > 0
+              ? "text-warnung hover:bg-grund-2"
+              : "text-schrift-2 hover:bg-grund-2 hover:text-schrift",
       )}
     >
       {offen.length > 0 ? (
         <Loader2 aria-hidden className="size-4 animate-spin" />
+      ) : fehlerhaft.length > 0 ? (
+        <AlertTriangle aria-hidden className="size-4" />
       ) : (
         <ListChecks aria-hidden className="size-4" />
       )}
       {offen.length > 0 ? (
         <span className="absolute -top-0.5 -right-0.5 grid min-w-4 place-items-center rounded-full bg-akzent px-1 text-[10px] leading-4 font-semibold text-white tabular-nums">
           {offen.length}
+        </span>
+      ) : fehlerhaft.length > 0 ? (
+        <span className="absolute -top-0.5 -right-0.5 grid min-w-4 place-items-center rounded-full bg-warnung px-1 text-[10px] leading-4 font-semibold text-white tabular-nums">
+          {fehlerhaft.length}
         </span>
       ) : null}
     </Link>

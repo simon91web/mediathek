@@ -60,7 +60,7 @@ export function ChainButton({
             <p className="text-akzent">
               In der Schlange:{" "}
               {angestellt.map((step) => KIND_LABEL[step.kind]).join(" → ")}. Der
-              Fortschritt steht bei den Aufträgen.
+              Fortschritt steht im Verlauf.
             </p>
           ) : (
             <p className="text-schrift-2">

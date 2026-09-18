@@ -8,7 +8,7 @@ import { cn } from "@/lib/utils";
 /*
  * Die Hauptnavigation — nur noch das, was man durchblättert.
  *
- * Suche, Importieren, Aufträge und Einstellungen stehen rechts als Symbole:
+ * Suche, Importieren, Verlauf und Einstellungen stehen rechts als Symbole:
  * das sind Werkzeuge, keine Orte. "Mediathek" heißt hier "Medien", weil das
  * Wort schon im Logo daneben steht und zweimal dasselbe keine Orientierung
  * gibt.

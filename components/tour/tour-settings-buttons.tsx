@@ -28,7 +28,7 @@ export function TourSettingsButtons({
             Rundgang durch die Mediathek
           </p>
           <p className="mt-0.5 max-w-sm text-xs text-schrift-2">
-            Kopfzeile, Suche, Aufträge und ein Beitrag im Detail — einmal
+            Kopfzeile, Suche, Verlauf und ein Beitrag im Detail — einmal
             alles gezeigt. Öffnet sich automatisch beim ersten Start.
           </p>
         </div>

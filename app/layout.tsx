@@ -79,7 +79,7 @@ export default async function RootLayout({
             <NavLinks />
 
             {/*
-             * Werkzeuge statt Orte: Aufträge, Importieren, Suche,
+             * Werkzeuge statt Orte: Verlauf, Importieren, Suche,
              * Einstellungen. Das Suchfeld steht zwischen ihnen, weil es das
              * einzige ist, das man benutzt statt anzuklicken.
              */}

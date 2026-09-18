@@ -4,7 +4,7 @@ import { JobQueue } from "@/components/jobs/job-queue";
 import { ButtonLink, Leer } from "@/components/ui/basis";
 import { getFeatures } from "@/lib/features";
 
-export const metadata: Metadata = { title: "Aufträge" };
+export const metadata: Metadata = { title: "Verlauf" };
 
 export default async function AuftraegePage() {
   const features = await getFeatures();
@@ -12,7 +12,7 @@ export default async function AuftraegePage() {
   if (!features.authorMode) {
     return (
       <div className="mx-auto max-w-xl py-10">
-        <Leer titel="Aufträge sind ausgeschaltet">
+        <Leer titel="Verlauf ist ausgeschaltet">
           {features.readonly
             ? "Diese Mediathek ist zum Ansehen eingerichtet."
             : "Der Autorenmodus ist aus. Er lässt sich unter Einstellungen " +
@@ -33,7 +33,7 @@ export default async function AuftraegePage() {
   return (
     <div className="mx-auto max-w-3xl space-y-6">
       <div>
-        <h1 className="text-2xl font-semibold tracking-tight">Aufträge</h1>
+        <h1 className="text-2xl font-semibold tracking-tight">Verlauf</h1>
         <p className="mt-1 text-sm text-schrift-2">
           Transkription, Kachelbilder und Text aus Anhängen. Es läuft immer nur
           eines — es gibt eine Grafikkarte, und zwei Whisper-Läufe gleichzeitig

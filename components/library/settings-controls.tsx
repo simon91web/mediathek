@@ -142,7 +142,7 @@ export function AutoJobsControl({
           <span className="mt-0.5 block text-xs text-schrift-2">
             Erzeugt Kachelbild, liest Anhänge und transkribiert, ohne dass man
             jeden Beitrag einzeln anklickt. Es läuft immer nur eines; der
-            Fortschritt steht unter Aufträge. Vorhandenes wird nie
+            Fortschritt steht im Verlauf. Vorhandenes wird nie
             überschrieben.
           </span>
         </span>

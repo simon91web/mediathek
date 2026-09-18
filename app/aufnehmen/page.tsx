@@ -57,7 +57,7 @@ export default async function AufnehmenPage() {
           transkribiert — Kapitel, Suche und Bezüge laufen danach von selbst
           weiter. Der Fortschritt steht unter{" "}
           <Link href="/auftraege" className="text-akzent hover:underline">
-            Aufträge
+            Verlauf
           </Link>
           .
         </p>

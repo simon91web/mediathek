@@ -165,7 +165,7 @@ export function AutoAssistantSettings({
         <p className="border-t border-rand pt-3 text-xs text-schrift-3">
           Jeder Lauf steht mit Zeit und Auftragstext im maschinenlokalen
           Protokoll <code>assistent-starts.log</code>. Abbrechen geht jederzeit
-          über die Aufträge — das beendet auch den Prozess des Werkzeugs.
+          über den Verlauf — das beendet auch den Prozess des Werkzeugs.
         </p>
       </Card>
     </section>

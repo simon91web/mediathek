@@ -25,7 +25,11 @@ import {
 } from "lucide-react";
 
 import { cancelJobAction } from "@/app/medien/[slug]/actions";
-import { catchUpJobsAction, chainAllAction } from "@/app/auftraege/actions";
+import {
+  catchUpJobsAction,
+  chainAllAction,
+  clearFinishedJobsAction,
+} from "@/app/auftraege/actions";
 import { useJobs } from "@/components/jobs/use-jobs";
 import { Button, Leer } from "@/components/ui/basis";
 import type { Job, JobKind, JobState } from "@/lib/jobs/types";
@@ -161,9 +165,19 @@ export function JobQueue() {
 
       {done.length > 0 ? (
         <section>
-          <h2 className="mb-2 text-sm font-semibold tracking-wide text-schrift-2 uppercase">
-            Erledigt
-          </h2>
+          <div className="mb-2 flex items-center justify-between gap-3">
+            <h2 className="text-sm font-semibold tracking-wide text-schrift-2 uppercase">
+              Erledigt
+            </h2>
+            <Button
+              size="klein"
+              variant="leise"
+              disabled={pending}
+              onClick={() => lauf(clearFinishedJobsAction)}
+            >
+              Leeren
+            </Button>
+          </div>
           <ul className="space-y-2">
             {done.slice(0, 30).map((job) => (
               <li key={job.id}>

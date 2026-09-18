@@ -93,7 +93,7 @@ export function PythonSetup({ ready }: { ready: boolean }) {
         <p>
           Geladen werden dabei einige hundert Megabyte (faster-whisper,
           ctranslate2, cuBLAS). Das dauert beim ersten Mal Minuten; der
-          Fortschritt steht bei den Aufträgen und lässt sich dort auch
+          Fortschritt steht im Verlauf und lässt sich dort auch
           abbrechen.
         </p>
         <p>
