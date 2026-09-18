@@ -11,6 +11,7 @@ export type JobKind =
   | "suchindex"
   | "bezuege"
   | "fragen"
+  | "vollstaendigkeit"
   | "pythonsetup"
   | "sichtung";
 
@@ -84,6 +85,7 @@ export const KIND_LABEL: Record<JobKind, string> = {
   suchindex: "Suche aktualisieren",
   bezuege: "Verwandte Stellen",
   fragen: "Fragen zusammenfassen",
+  vollstaendigkeit: "Lücken analysieren",
   pythonsetup: "Python einrichten",
   sichtung: "Sichtung",
 };
@@ -93,6 +95,7 @@ export const ASSISTANT_KINDS: readonly JobKind[] = [
   "kapitel",
   "bezuege",
   "fragen",
+  "vollstaendigkeit",
 ];
 
 export function isAssistantKind(kind: JobKind): boolean {

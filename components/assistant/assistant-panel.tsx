@@ -7,6 +7,7 @@ import {
   FolderPlus,
   Layers,
   MessagesSquare,
+  Radar,
   Terminal,
 } from "lucide-react";
 
@@ -69,6 +70,15 @@ const TASKS: Array<{
       "die Transkription — dort ist ein Schreibfehler am billigsten zu " +
       "verhindern.",
     Icon: BookMarked,
+  },
+  {
+    task: "vollstaendigkeit",
+    label: "Lücken analysieren",
+    hint:
+      "Sucht Widersprüche, unbelegte Zahlen und offene Verweise — nur was " +
+      "sich innerhalb der Bibliothek belegen lässt. Steht danach auch als " +
+      "Knopf auf /themen; dort läuft es als Auftrag statt in diesem Fenster.",
+    Icon: Radar,
   },
 ];
 

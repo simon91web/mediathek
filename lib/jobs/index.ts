@@ -33,6 +33,7 @@ async function ensureReady() {
   queue.register("kapitel", runAssistantJob);
   queue.register("bezuege", runAssistantJob);
   queue.register("fragen", runAssistantJob);
+  queue.register("vollstaendigkeit", runAssistantJob);
   queue.register("suchindex", runSearchIndexJob);
   queue.register("pythonsetup", runPythonSetupJob);
   queue.register("sichtung", runScreeningJob);

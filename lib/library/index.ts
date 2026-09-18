@@ -1,5 +1,10 @@
 import "server-only";
 
+import fs from "node:fs/promises";
+import path from "node:path";
+
+import { paths } from "@/lib/paths";
+import { buildCompleteness } from "./completeness";
 import { readCache, writeCache } from "./cache";
 import { applyStoredLibraryDir } from "./library-dir";
 import { scanLibrary } from "./scan";
@@ -21,6 +26,22 @@ import type {
  * Die einzige Tür zur Bibliothek. Alles geht durch diese Funktionen — nie
  * direkt an store.state, denn nach einem Hot Reload wäre das der alte Stand.
  */
+
+/**
+ * `analysen/vollstaendigkeit.md` — komplett generiert, kein Marker-Block.
+ * Fehlt sie (noch nie geprüft, oder der Ordner existiert nicht), ist das kein
+ * Fehler: Fachkundig bleibt dann für jedes Thema "ungeprueft".
+ */
+async function readCompletenessReportRaw(): Promise<string | null> {
+  try {
+    return await fs.readFile(
+      path.join(paths.analysen, "vollstaendigkeit.md"),
+      "utf8",
+    );
+  } catch {
+    return null;
+  }
+}
 
 function applyStatus(state: LibraryState): LibraryState {
   state.cache = { ...store.cacheStatus };
@@ -54,6 +75,32 @@ async function runScan(options: {
     onlySlugs: options.onlySlugs ?? null,
     generation: store.generation,
   });
+
+  /*
+   * Bewusst NICHT Teil von scanLibrary/scan.ts: die Lücken-Analyse braucht
+   * keine fingerprintbasierte Zwischenspeicherung — sie liest nur bereits
+   * geladene Themen und Beiträge (Fachfremd) plus eine einzige generierte
+   * Datei (Fachkundig) und ist dafür günstig genug, bei jedem Scan neu zu
+   * laufen.
+   */
+  const reportRaw = await readCompletenessReportRaw();
+  const { completeness, problems: completenessProblems } = buildCompleteness(
+    result.state.topics,
+    result.state.bySlug,
+    reportRaw,
+  );
+  result.state.completeness = completeness;
+  if (completenessProblems.length > 0) {
+    result.state.problems = [
+      ...result.state.problems,
+      ...completenessProblems.map((problem) => ({
+        path: "analysen/vollstaendigkeit.md",
+        message: problem.line
+          ? `Zeile ${problem.line}: ${problem.message}`
+          : problem.message,
+      })),
+    ];
+  }
 
   store.state = result.state;
   store.cache = result.cache;

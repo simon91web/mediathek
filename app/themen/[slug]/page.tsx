@@ -7,6 +7,8 @@ import { MarkdownText } from "@/components/markdown";
 import { ItemCard } from "@/components/media/item-card";
 import { SpotList } from "@/components/media/spot-list";
 import { SectionTitle } from "@/components/ui/basis";
+import { BefundListe } from "@/components/vollstaendigkeit/befund-liste";
+import { STUFE_CLASS, STUFE_LABEL } from "@/components/vollstaendigkeit/stufe";
 import { getTopic, getLibrary } from "@/lib/library";
 import { isSlug } from "@/lib/library/slug";
 import { plural } from "@/lib/utils";
@@ -33,6 +35,8 @@ export default async function ThemaPage({
   const [topic, library] = await Promise.all([getTopic(slug), getLibrary()]);
   if (!topic) notFound();
 
+  const vollstaendigkeit = library.completeness.byTopic.get(topic.slug);
+
   // Die Reihenfolge der Datei gewinnt — sie ist die Reihenfolge im Thema.
   const items = topic.itemSlugs
     .map((entry) => library.bySlug.get(entry))
@@ -45,6 +49,20 @@ export default async function ThemaPage({
         <h1 className="mt-1 text-2xl font-semibold tracking-tight">
           {topic.title}
         </h1>
+        {vollstaendigkeit ? (
+          <div className="mt-2 flex flex-wrap gap-2">
+            <span
+              className={`inline-flex items-center rounded-lg px-2.5 py-1 text-xs font-semibold ${STUFE_CLASS[vollstaendigkeit.fachfremd.stufe]}`}
+            >
+              Fachfremd: {STUFE_LABEL[vollstaendigkeit.fachfremd.stufe]}
+            </span>
+            <span
+              className={`inline-flex items-center rounded-lg px-2.5 py-1 text-xs font-semibold ${STUFE_CLASS[vollstaendigkeit.fachkundig.stufe]}`}
+            >
+              Fachkundig: {STUFE_LABEL[vollstaendigkeit.fachkundig.stufe]}
+            </span>
+          </div>
+        ) : null}
         <p className="mt-1 text-sm text-schrift-2">
           {/* "0 Teile" wäre bei einer reinen Fundstellenseite nur Lärm. */}
           {[
@@ -118,6 +136,45 @@ export default async function ThemaPage({
             Fundstellen
           </SectionTitle>
           <SpotList spots={topic.spots} bySlug={library.bySlug} />
+        </section>
+      ) : null}
+
+      {vollstaendigkeit ? (
+        <section className="space-y-4">
+          <div>
+            <SectionTitle hint="Breite für Einsteiger, live berechnet">
+              Sicht: Fachfremd
+            </SectionTitle>
+            <BefundListe
+              befunde={vollstaendigkeit.fachfremd.befunde}
+              bySlug={library.bySlug}
+            />
+          </div>
+          <div>
+            <SectionTitle
+              hint={
+                vollstaendigkeit.fachkundig.stufe === "ungeprueft"
+                  ? "noch nicht geprüft"
+                  : "Tiefe und Präzision für Experten"
+              }
+            >
+              Sicht: Fachkundig
+            </SectionTitle>
+            {vollstaendigkeit.fachkundig.stufe === "ungeprueft" ? (
+              <p className="text-sm text-schrift-2">
+                Noch nicht geprüft. Der Knopf „Lücken analysieren“ auf{" "}
+                <Link href="/themen" className="text-akzent hover:underline">
+                  /themen
+                </Link>{" "}
+                trägt das hier nach.
+              </p>
+            ) : (
+              <BefundListe
+                befunde={vollstaendigkeit.fachkundig.befunde}
+                bySlug={library.bySlug}
+              />
+            )}
+          </div>
         </section>
       ) : null}
 

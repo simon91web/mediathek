@@ -25,6 +25,7 @@ const TASK_OF: Record<string, AssistantTask> = {
   kapitel: "kapitel",
   bezuege: "bezuege",
   fragen: "fragen",
+  vollstaendigkeit: "vollstaendigkeit",
 };
 
 export async function runAssistantJob(context: JobContext): Promise<void> {
