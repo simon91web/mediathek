@@ -8,12 +8,15 @@ import { assertAuthorMode, NotAllowedError } from "@/lib/features";
 import { isAllowedHost, wrongHostMessage } from "@/lib/http/host";
 import { cleanIncoming, importFile } from "@/lib/import/import-file";
 import { enqueueAutoJobs } from "@/lib/jobs/auto";
+import { startChain } from "@/lib/jobs/chain";
 import { reloadLibrary } from "@/lib/library";
 import {
   formatBytes,
   isMediaFile,
   isTextFile,
 } from "@/lib/library/media-kind";
+import { locateFfmpeg } from "@/lib/media/locate";
+import { transcodeToMp3 } from "@/lib/media/transcode";
 import { paths } from "@/lib/paths";
 
 /*
@@ -168,17 +171,46 @@ export async function PUT(request: Request) {
     }
   }
 
-  const outcome = await importFile(temporary, {
+  /*
+   * Für den Rekorder unter /aufnehmen: der Browser liefert WebM/Opus, kein
+   * Browser kann direkt MP3 aufnehmen. "wandeln=mp3" wandelt VOR dem
+   * Einsortieren, damit audio.mp3 in der Bibliothek liegt wie jede andere
+   * Sprachmemo-Datei — der Rest der Route bleibt für gewöhnliche Uploads
+   * unverändert.
+   */
+  const istAufnahme = url.searchParams.get("wandeln") === "mp3";
+  let sourceFile = temporary;
+  let importName = name;
+  if (istAufnahme) {
+    const tools = await locateFfmpeg();
+    if (!tools) {
+      await fs.rm(temporary, { force: true }).catch(() => {});
+      return Response.json(
+        { error: "ffmpeg wurde nicht gefunden — die Aufnahme kann nicht nach MP3 gewandelt werden." },
+        { status: 500 },
+      );
+    }
+    const mp3File = `${temporary}.mp3`;
+    const converted = await transcodeToMp3(temporary, mp3File, tools);
+    await fs.rm(temporary, { force: true }).catch(() => {});
+    if (!converted.ok) {
+      return Response.json({ error: converted.error }, { status: 500 });
+    }
+    sourceFile = mp3File;
+    importName = `${path.parse(name).name}.mp3`;
+  }
+
+  const outcome = await importFile(sourceFile, {
     // Aus dem Zwischenlager wird immer verschoben — es ist eine Kopie.
     move: true,
-    originalName: name,
+    originalName: importName,
   });
 
   // Reste aus früheren Abbrüchen mitnehmen, kostet nichts.
   void cleanIncoming();
 
   if (!outcome.ok) {
-    await fs.rm(temporary, { force: true }).catch(() => {});
+    await fs.rm(sourceFile, { force: true }).catch(() => {});
     return Response.json({ error: outcome.error }, { status: 400 });
   }
 
@@ -191,6 +223,15 @@ export async function PUT(request: Request) {
    * unter /auftraege.
    */
   const auto = await enqueueAutoJobs(outcome.slug);
+
+  /*
+   * Eine Aufnahme soll IMMER direkt transkribiert werden, unabhängig von der
+   * Einstellung "Automatik nach Import" — aufnehmen ist selbst schon die
+   * ausdrückliche Handlung. startChain() prüft für sich, was schon da ist
+   * und was das Werkzeug (nicht) kann; ein Job, den enqueueAutoJobs() oben
+   * schon angestellt hat, wird nicht doppelt angestellt.
+   */
+  if (istAufnahme) await startChain(outcome.slug);
 
   return Response.json({
     slug: outcome.slug,

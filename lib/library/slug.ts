@@ -31,6 +31,7 @@ const RESERVED_NAMES = new Set([
   "import",
   "importieren",
   "anlegen",
+  "aufnehmen",
   "bearbeiten",
   "suche",
   "api",

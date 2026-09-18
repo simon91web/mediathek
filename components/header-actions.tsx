@@ -5,6 +5,7 @@ import { usePathname } from "next/navigation";
 import {
   Loader2,
   ListChecks,
+  Mic,
   MessageSquare,
   Settings,
   Upload,
@@ -17,7 +18,8 @@ import { cn } from "@/lib/utils";
 /*
  * Die Werkzeuge rechts in der Kopfzeile.
  *
- * Reihenfolge von links: Aufträge, Importieren, Suchfeld, Einstellungen.
+ * Reihenfolge von links: Aufträge, Aufnehmen, Importieren, Suchfeld,
+ * Einstellungen.
  * Alles davon war einmal ein Navigationspunkt — aber es sind keine Orte, die
  * man durchblättert, sondern Handgriffe. Als Wortliste haben sie die
  * eigentliche Navigation zugedeckt.
@@ -51,6 +53,13 @@ export function HeaderActions({
       {authorMode ? (
         <>
           <JobsIcon active={pathname.startsWith("/auftraege")} />
+          <IconLink
+            href="/aufnehmen"
+            label="Aufnehmen"
+            active={pathname.startsWith("/aufnehmen")}
+          >
+            <Mic aria-hidden className="size-4" />
+          </IconLink>
           <IconLink
             href="/importieren"
             label="Importieren"
