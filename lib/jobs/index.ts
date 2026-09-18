@@ -2,6 +2,7 @@ import "server-only";
 
 import { getItem } from "@/lib/library";
 import { assertSlug } from "@/lib/library/slug";
+import { runScreeningJob } from "@/lib/screening/runner";
 import { runAssistantJob } from "./assistant-job";
 import { runExtractJob } from "./extract-job";
 import { runPosterJob } from "./poster-job";
@@ -34,6 +35,7 @@ async function ensureReady() {
   queue.register("fragen", runAssistantJob);
   queue.register("suchindex", runSearchIndexJob);
   queue.register("pythonsetup", runPythonSetupJob);
+  queue.register("sichtung", runScreeningJob);
   await queue.load();
   return queue;
 }
@@ -121,6 +123,42 @@ export async function startLibraryJob(
   const running = queue.activeFor(variante, kind);
   if (running) return { ok: true, job: running };
   return { ok: true, job: queue.enqueue({ kind, slug: variante, title }) };
+}
+
+/**
+ * Ein Sichtung-Auftrag: transkribiert eine Datei, die noch nicht in der
+ * Bibliothek steckt. Kein `startLibraryJob`, weil der weder einen
+ * Quellpfad mitgeben kann noch — bei gleichem Kennwort für jede Datei —
+ * mehr als den ersten Auftrag anstellen würde (`activeFor` dedupliziert über
+ * Kennwort und Art). `hash` macht jede Datei zu einem eigenen Kennwort UND
+ * ist der Schlüssel, unter dem der Runner sein Ergebnis ablegt
+ * (`lib/screening/runner.ts::screeningDir`).
+ */
+export async function startScreeningJob(input: {
+  sourcePath: string;
+  hash: string;
+  title: string;
+  kind: "media" | "text";
+  durationSec: number | null;
+}): Promise<StartResult> {
+  const queue = await ensureReady();
+  const slug = `sichtung:${input.hash}`;
+  const running = queue.activeFor(slug, "sichtung");
+  if (running) return { ok: true, job: running };
+  return {
+    ok: true,
+    job: queue.enqueue({
+      kind: "sichtung",
+      slug,
+      title: input.title,
+      payload: {
+        sourcePath: input.sourcePath,
+        hash: input.hash,
+        kind: input.kind,
+        durationSec: input.durationSec,
+      },
+    }),
+  };
 }
 
 export async function cancelJob(id: string): Promise<boolean> {

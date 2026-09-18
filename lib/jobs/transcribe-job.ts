@@ -187,11 +187,18 @@ export async function runTranscribeJob(context: JobContext): Promise<void> {
   );
 }
 
-type RunOutcome =
+export type RunOutcome =
   | { ok: true; segments: number; device: "cuda" | "cpu"; wallSec: number }
   | { ok: false; code: JobErrorCode; message: string; detail?: string };
 
-async function runOnce(input: {
+/**
+ * Der eigentliche Whisper-Lauf, losgelöst von einem Beitrag: `mediaFile`,
+ * `outDir` und `workDir` sind einfache Pfade. `runTranscribeJob` ruft das für
+ * einen echten Beitrag auf; die Sichtung (`lib/screening/runner.ts`) für eine
+ * noch nicht importierte Datei — beide teilen sich denselben Prozessstart und
+ * dieselbe JSON-Lines-Auswertung, statt sie zweimal zu pflegen.
+ */
+export async function runOnce(input: {
   context: JobContext;
   python: Awaited<ReturnType<typeof findPythonEnv>> & object;
   tools: NonNullable<Awaited<ReturnType<typeof locateFfmpeg>>>;

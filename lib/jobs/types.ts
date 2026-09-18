@@ -11,7 +11,8 @@ export type JobKind =
   | "suchindex"
   | "bezuege"
   | "fragen"
-  | "pythonsetup";
+  | "pythonsetup"
+  | "sichtung";
 
 export type JobState =
   "wartet" | "laeuft" | "fertig" | "fehler" | "abgebrochen";
@@ -84,6 +85,7 @@ export const KIND_LABEL: Record<JobKind, string> = {
   bezuege: "Verwandte Stellen",
   fragen: "Fragen zusammenfassen",
   pythonsetup: "Python einrichten",
+  sichtung: "Sichtung",
 };
 
 /** Welche Arten ein KI-Werkzeug starten — für Hinweis und Riegel. */

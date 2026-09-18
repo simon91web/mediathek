@@ -16,6 +16,7 @@ import {
   Mic,
   PackagePlus,
   Play,
+  ScanSearch,
   Search,
   Wand2,
   X,
@@ -48,6 +49,7 @@ const KIND_ICON: Record<JobKind, typeof Mic> = {
   bezuege: Link2,
   fragen: MessagesSquare,
   pythonsetup: PackagePlus,
+  sichtung: ScanSearch,
 };
 
 const STATE_LABEL: Record<JobState, string> = {
@@ -72,9 +74,16 @@ export function JobQueue() {
   const [pending, startTransition] = useTransition();
   const [note, setNote] = useState<string | null>(null);
 
+  /*
+   * Sichtung-Aufträge laufen zwar in derselben Schlange (eine Grafikkarte),
+   * gehören aber nicht in diese Liste: sie sind rein explorativ, oft nie
+   * importiert, und die eigene Fortschrittsanzeige steht schon auf /sichten.
+   */
+  const sichtbar = jobs.filter((job) => job.kind !== "sichtung");
+
   // Neueste zuerst, aber Laufende und Wartende immer oben.
-  const open = jobs.filter((job) => !isFinished(job.state));
-  const done = [...jobs].reverse().filter((job) => isFinished(job.state));
+  const open = sichtbar.filter((job) => !isFinished(job.state));
+  const done = [...sichtbar].reverse().filter((job) => isFinished(job.state));
 
   const lauf = (
     aktion: () => Promise<{ ok: boolean; message?: string; error?: string }>,
