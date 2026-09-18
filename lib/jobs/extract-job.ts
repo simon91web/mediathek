@@ -46,6 +46,7 @@ export async function runExtractJob(context: JobContext): Promise<void> {
     {
       cwd: python.toolsDir,
       windowsHide: true,
+      detached: process.platform !== "win32",
       stdio: ["ignore", "pipe", "pipe"],
       // Kein ffmpeg nötig; PATH bleibt trotzdem konsistent.
       env: childEnv(python, null),

@@ -1,10 +1,29 @@
 # macOS-Portierung
 
-Ein Plan, kein Code. Dieses Dokument entstand auf einer Windows-Maschine ohne
-Zugriff auf einen Mac — jede Stelle ist mit Datei und Zeile belegt, aber
-**nichts davon wurde ausgeführt oder getestet**. Die Umsetzung passiert auf
-einem echten Mac; dieser Plan soll dabei das Suchen ersparen, nicht das
-Prüfen.
+Umgesetzt auf einem Apple-Silicon-Mac (Branch `macos-portierung`). Der Plan
+darunter bleibt als Begründung stehen.
+
+**Teil A (Laufzeit):** Ordner-Dialog über `osascript`, Assistent-Start über
+`scripts/assistent-starten.sh` und Terminal.app (Auftragstext nie in
+AppleScript interpoliert), Aufträge mit `detached` / Prozessgruppe, Zustand
+unter `~/Library/Application Support/Mediathek`, Verknüpfung als Symlink auf
+das `.app`.
+
+**Teil B (Paket):** `npm run paket` baut unter macOS `dist/Mediathek/Mediathek.app`.
+Node kommt als offizielle `darwin-arm64`-Binärdatei von nodejs.org (Homebrew-
+node ist nicht eigenständig), ffmpeg samt dylibs, Icon über `iconutil`,
+Starter als `Contents/MacOS/mediathek`. Windows-Paket unverändert, wenn das
+Skript unter Windows läuft.
+
+**Offen:** Developer-ID-Notarisierung (Kollege braucht Rechtsklick → Öffnen),
+ein Intel-Paket nur von einem Intel-Mac. Homebrew-ffmpeg wird mitkopiert, nicht
+als statischer Download bezogen.
+
+---
+
+Ein Plan, kein Code — so entstand dieser Text auf einer Windows-Maschine ohne
+Zugriff auf einen Mac. Jede Stelle ist mit Datei und Zeile belegt. Die
+Umsetzung steht im Code; dieser Plan erklärt, warum sie so aussieht.
 
 Zwei unabhängige Blöcke: **Teil A** macht `npm run dev` auf einem Mac
 benutzbar (Ordner-Dialog, Assistent-Start, Aufträge abbrechen). **Teil B**

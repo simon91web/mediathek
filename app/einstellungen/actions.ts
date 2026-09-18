@@ -111,7 +111,7 @@ export async function reprobeToolsAction(): Promise<ActionResult> {
   };
 }
 
-/** Merkt sich das Verzeichnis mit ffmpeg.exe und ffprobe.exe. */
+/** Merkt sich das Verzeichnis mit ffmpeg und ffprobe. */
 export async function setFfmpegDirAction(dir: string): Promise<ActionResult> {
   const trimmed = dir.trim();
   const written = await writeSettings({ ffmpegDir: trimmed || null });
@@ -130,9 +130,8 @@ export async function setFfmpegDirAction(dir: string): Promise<ActionResult> {
     return {
       ok: false,
       error:
-        `In "${trimmed}" ließ sich ffprobe.exe nicht aufrufen. Erwartet wird ` +
-        "das Verzeichnis, in dem ffmpeg.exe und ffprobe.exe liegen — " +
-        "typisch C:\\ffmpeg-master-latest-win64-gpl-shared\\bin",
+        `In "${trimmed}" ließ sich ffprobe nicht aufrufen. Erwartet wird ` +
+        "das Verzeichnis, in dem ffmpeg und ffprobe liegen.",
     };
   }
 
@@ -253,10 +252,10 @@ export async function startLibraryAssistantAction(
   return {
     ok: true,
     message:
-      `Ein PowerShell-Fenster mit „${result.prompt}“ ist offen — dort ` +
-      "arbeitet Claude Code, und dort kann man mitlesen und nachfragen. Es " +
-      "liegt womöglich hinter diesem Fenster. Die Mediathek zeigt die " +
-      "Änderungen, sobald die Dateien geschrieben sind.",
+      `Ein Fenster mit „${result.prompt}“ ist offen — dort arbeitet das ` +
+      "KI-Werkzeug, und dort kann man mitlesen und nachfragen. Es liegt " +
+      "womöglich hinter diesem Fenster. Die Mediathek zeigt die Änderungen, " +
+      "sobald die Dateien geschrieben sind.",
   };
 }
 

@@ -21,6 +21,11 @@ import { spawn } from "node:child_process";
  * Unter Windows über PowerShell mit WinForms. `-STA` ist Pflicht: der
  * Dialog ist ein COM-Objekt und verlangt einen Single-Threaded-Apartment —
  * ohne das kommt kein Fenster, sondern ein Fehler.
+ *
+ * Unter macOS über `osascript` und `choose folder` — der native
+ * Finder-Dialog. Ein Abbruch ist dort kein leerer Erfolg, sondern der
+ * AppleScript-Fehler -128 ("User canceled."); der wird zu `canceled`, nicht
+ * zu einer Fehlermeldung.
  */
 
 /** So lange darf jemand überlegen, bevor abgebrochen wird. */
@@ -82,12 +87,12 @@ const SKRIPT = [
  * Bricht der Nutzer ab, ist das kein Fehler: `canceled`.
  */
 export async function pickFolder(): Promise<PickResult> {
-  if (process.platform !== "win32") {
+  if (process.platform !== "win32" && process.platform !== "darwin") {
     return {
       ok: false,
       error:
-        "Der Ordner-Dialog gibt es nur unter Windows. Der Pfad lässt sich " +
-        "auch von Hand eintragen.",
+        "Der Ordner-Dialog gibt es nur unter Windows und macOS. Der Pfad " +
+        "lässt sich auch von Hand eintragen.",
     };
   }
 
@@ -102,73 +107,115 @@ export async function pickFolder(): Promise<PickResult> {
   globalForPicker.mediathekPickerOpen = true;
 
   try {
-    return await new Promise<PickResult>((resolve) => {
-      let fertig = false;
-      const schliessen = (result: PickResult) => {
-        if (fertig) return;
-        fertig = true;
-        clearTimeout(timer);
-        resolve(result);
-      };
-
-      let child: ReturnType<typeof spawn>;
-      try {
-        child = spawn(
-          "powershell.exe",
-          ["-NoProfile", "-STA", "-Command", SKRIPT],
-          { windowsHide: true, shell: false },
-        );
-      } catch (error) {
-        schliessen({
-          ok: false,
-          error: `Der Dialog ließ sich nicht öffnen: ${
-            error instanceof Error ? error.message : String(error)
-          }`,
-        });
-        return;
-      }
-
-      const timer = setTimeout(() => {
-        child.kill();
-        schliessen({ ok: false, canceled: true });
-      }, TIMEOUT_MS);
-
-      let ausgabe = "";
-      let fehler = "";
-      child.stdout?.on("data", (chunk: Buffer) => {
-        ausgabe += chunk.toString("utf8");
-      });
-      child.stderr?.on("data", (chunk: Buffer) => {
-        fehler += chunk.toString("utf8");
-      });
-
-      child.on("error", (error) => {
-        schliessen({
-          ok: false,
-          error: `Der Dialog ließ sich nicht öffnen: ${error.message}`,
-        });
-      });
-
-      child.on("close", (code) => {
-        const dir = ausgabe.trim();
-        if (dir) {
-          schliessen({ ok: true, dir });
-          return;
-        }
-        if (code === 0) {
-          // Kein Pfad, aber sauber beendet: abgebrochen.
-          schliessen({ ok: false, canceled: true });
-          return;
-        }
-        schliessen({
-          ok: false,
-          error:
-            `Der Dialog endete mit ${code}.` +
-            (fehler.trim() ? ` ${fehler.trim().slice(0, 200)}` : ""),
-        });
-      });
-    });
+    return process.platform === "darwin"
+      ? await pickFolderMac()
+      : await pickFolderWindows();
   } finally {
     globalForPicker.mediathekPickerOpen = false;
   }
+}
+
+function pickFolderWindows(): Promise<PickResult> {
+  return runPicker(
+    "powershell.exe",
+    ["-NoProfile", "-STA", "-Command", SKRIPT],
+    (ausgabe, fehler, code) => {
+      const dir = ausgabe.trim();
+      if (dir) return { ok: true, dir };
+      if (code === 0) return { ok: false, canceled: true };
+      return {
+        ok: false,
+        error:
+          `Der Dialog endete mit ${code}.` +
+          (fehler.trim() ? ` ${fehler.trim().slice(0, 200)}` : ""),
+      };
+    },
+  );
+}
+
+function pickFolderMac(): Promise<PickResult> {
+  return runPicker(
+    "osascript",
+    [
+      "-e",
+      'POSIX path of (choose folder with prompt "Ordner für die Mediathek wählen")',
+    ],
+    (ausgabe, fehler, code) => {
+      const dir = normaliseMacDir(ausgabe.trim());
+      if (dir) return { ok: true, dir };
+      // -128: Nutzer hat Abbrechen gedrückt. Ohne das wäre jeder Abbruch
+      // eine Fehlermeldung.
+      if (fehler.includes("-128") || /user canceled/i.test(fehler)) {
+        return { ok: false, canceled: true };
+      }
+      return {
+        ok: false,
+        error:
+          `Der Dialog endete mit ${code}.` +
+          (fehler.trim() ? ` ${fehler.trim().slice(0, 200)}` : ""),
+      };
+    },
+  );
+}
+
+/** Schrägstrich am Ende weg, Unicode in NFC — sonst zählen zwei Schreibweisen. */
+function normaliseMacDir(dir: string): string {
+  if (!dir) return dir;
+  const nfc = dir.normalize("NFC");
+  if (nfc === "/") return nfc;
+  return nfc.replace(/\/+$/, "");
+}
+
+function runPicker(
+  command: string,
+  args: string[],
+  auswerten: (ausgabe: string, fehler: string, code: number | null) => PickResult,
+): Promise<PickResult> {
+  return new Promise((resolve) => {
+    let fertig = false;
+    const schliessen = (result: PickResult) => {
+      if (fertig) return;
+      fertig = true;
+      clearTimeout(timer);
+      resolve(result);
+    };
+
+    let child: ReturnType<typeof spawn>;
+    try {
+      child = spawn(command, args, { windowsHide: true, shell: false });
+    } catch (error) {
+      schliessen({
+        ok: false,
+        error: `Der Dialog ließ sich nicht öffnen: ${
+          error instanceof Error ? error.message : String(error)
+        }`,
+      });
+      return;
+    }
+
+    const timer = setTimeout(() => {
+      child.kill();
+      schliessen({ ok: false, canceled: true });
+    }, TIMEOUT_MS);
+
+    let ausgabe = "";
+    let fehler = "";
+    child.stdout?.on("data", (chunk: Buffer) => {
+      ausgabe += chunk.toString("utf8");
+    });
+    child.stderr?.on("data", (chunk: Buffer) => {
+      fehler += chunk.toString("utf8");
+    });
+
+    child.on("error", (error) => {
+      schliessen({
+        ok: false,
+        error: `Der Dialog ließ sich nicht öffnen: ${error.message}`,
+      });
+    });
+
+    child.on("close", (code) => {
+      schliessen(auswerten(ausgabe, fehler, code));
+    });
+  });
 }
