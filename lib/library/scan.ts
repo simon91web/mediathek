@@ -875,6 +875,14 @@ export async function scanLibrary(options: {
     questions: questionResult.questions,
     questionsBySlug,
     backlinks,
+    /*
+     * Platzhalter: lib/library/index.ts (runScan) berechnet die echte
+     * Lücken-Analyse gleich danach und überschreibt dieses Feld. Sie braucht
+     * dafür keine fingerprintbasierte Zwischenspeicherung wie der Rest
+     * dieser Datei, sondern liest nur bereits Geladenes plus eine einzelne
+     * generierte Datei — deshalb absichtlich nicht hier.
+     */
+    completeness: { geprueftAm: null, byTopic: new Map(), unverorteteFaeden: [] },
     tags,
     problems,
     cache: { readable: options.cache !== null, writable: true, note: null },

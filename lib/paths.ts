@@ -104,6 +104,10 @@ export const paths = {
   get glossary(): string {
     return path.join(libraryRoot(), "glossar.txt");
   },
+  /** Generierte Berichte, allen voran die Lücken-Analyse. Kein Marker-Block. */
+  get analysen(): string {
+    return path.join(libraryRoot(), "analysen");
+  },
   /**
    * Die Bibliothek ist selbst ein Claude-Code-Projekt: hier liegen CLAUDE.md
    * und die Slash-Befehle, nach denen geschrieben werden darf. Sie wandern

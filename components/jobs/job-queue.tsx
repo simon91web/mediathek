@@ -16,6 +16,7 @@ import {
   Mic,
   PackagePlus,
   Play,
+  Radar,
   Search,
   Wand2,
   X,
@@ -47,6 +48,7 @@ const KIND_ICON: Record<JobKind, typeof Mic> = {
   suchindex: Search,
   bezuege: Link2,
   fragen: MessagesSquare,
+  vollstaendigkeit: Radar,
   pythonsetup: PackagePlus,
 };
 

@@ -112,7 +112,8 @@ export type ProblemKind =
   | "bezug"
   | "anhang"
   | "datei"
-  | "transkript";
+  | "transkript"
+  | "vollstaendigkeit";
 
 /**
  * Ein Hinweis, der dem Nutzer auf Deutsch angezeigt wird.
@@ -259,6 +260,63 @@ export type Question = {
 /** Eine Fundstelle mit dem Thema, aus dem sie stammt. */
 export type TopicSpot = { topic: Topic; spot: Spot };
 
+/**
+ * Wie vollständig ein Thema aus einer Sichtweise wirkt — abgeleitet aus einer
+ * Zählung, nie ein Gefühlswert der KI. "ungeprueft" heißt: aus dieser
+ * Sichtweise wurde noch gar nicht geprüft (kein Bericht, oder das Thema kam
+ * darin noch nicht vor).
+ */
+export type Stufe = "ungeprueft" | "lueckenhaft" | "im-aufbau" | "breit" | "vertieft";
+
+/**
+ * "keine-beschreibung", "synonym-ohne-fundstelle" und "wenige-fundstellen"
+ * werden ohne KI berechnet (reiner Textabgleich); die übrigen vier kommen aus
+ * `analysen/vollstaendigkeit.md` und tragen deshalb immer mindestens einen
+ * Beleg — ein Befund ohne Beleg wird beim Einlesen verworfen.
+ */
+export type BefundKategorie =
+  | "keine-beschreibung"
+  | "synonym-ohne-fundstelle"
+  | "wenige-fundstellen"
+  | "widerspruch"
+  | "unbelegte-zahl"
+  | "nur-normalfall"
+  | "offener-verweis";
+
+export type Befund = {
+  kategorie: BefundKategorie;
+  text: string;
+  belege: Spot[];
+};
+
+export type PerspektiveErgebnis = {
+  stufe: Stufe;
+  befunde: Befund[];
+};
+
+/**
+ * "Fachfremd" prüft Breite für Einsteiger, immer live berechnet.
+ * "Fachkundig" prüft Tiefe/Präzision für Experten und braucht dafür den
+ * zuletzt erzeugten Bericht — ohne ihn bleibt die Stufe "ungeprueft".
+ */
+export type ThemaVollstaendigkeit = {
+  fachfremd: PerspektiveErgebnis;
+  fachkundig: PerspektiveErgebnis;
+};
+
+/** Ein Begriff, der in mehreren Beiträgen auftaucht, aber zu keinem Thema gehört. */
+export type UnverorteterFaden = {
+  text: string;
+  belege: Spot[];
+};
+
+export type Vollstaendigkeit = {
+  /** Aus dem Bericht, ISO-Zeitstempel als Text. null: noch nie geprüft. */
+  geprueftAm: string | null;
+  byTopic: Map<Slug, ThemaVollstaendigkeit>;
+  unverorteteFaeden: UnverorteterFaden[];
+};
+
 export type WatchMode = "recursive" | "flach" | "poll" | "aus";
 
 export type LibraryState = {
@@ -286,6 +344,8 @@ export type LibraryState = {
   questionsBySlug: Map<Slug, Question>;
   /** Rückverweise: berechnet, nicht geschrieben. */
   backlinks: Map<Slug, Reference[]>;
+  /** Lose Enden: Fachfremd live berechnet, Fachkundig aus dem letzten Bericht. */
+  completeness: Vollstaendigkeit;
   tags: Array<{ tag: string; count: number }>;
   /** Ordner und Dateien, die gar nicht gelesen werden konnten. */
   problems: Array<{ path: string; message: string }>;

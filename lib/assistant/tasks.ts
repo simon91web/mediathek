@@ -15,6 +15,7 @@ export const ASSISTANT_TASKS = [
   "themen",
   "glossar",
   "fragen",
+  "vollstaendigkeit",
 ] as const;
 
 export type AssistantTask = (typeof ASSISTANT_TASKS)[number];
@@ -33,6 +34,7 @@ export const ASSISTANT_TASK_LABEL: Record<AssistantTask, string> = {
   themen: "Themenseiten erzeugen",
   glossar: "Glossar sammeln",
   fragen: "Ähnliche Fragen zusammenfassen",
+  vollstaendigkeit: "Lücken analysieren",
 };
 
 /** Der Ordner in der Bibliothek, in dem die Anleitungen liegen. */

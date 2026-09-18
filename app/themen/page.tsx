@@ -1,14 +1,66 @@
 import type { Metadata } from "next";
 import Link from "next/link";
 
-import { Leer } from "@/components/ui/basis";
+import { BelegPill } from "@/components/vollstaendigkeit/befund-liste";
+import { AnalyseKarte } from "@/components/vollstaendigkeit/analyse-karte";
+import { STUFE_CLASS, STUFE_LABEL } from "@/components/vollstaendigkeit/stufe";
+import { SectionTitle, Leer } from "@/components/ui/basis";
 import { getLibrary } from "@/lib/library";
+import { aggregateStufe } from "@/lib/library/completeness";
 import { plural } from "@/lib/utils";
 
 export const metadata: Metadata = { title: "Themen" };
 
+const FACHKUNDIG_LABEL: Record<string, string> = {
+  widerspruch: "Widerspruch",
+  "unbelegte-zahl": "unbelegte Zahl",
+  "nur-normalfall": "Stelle nur Normalfall",
+  "offener-verweis": "offener Verweis",
+};
+const FACHKUNDIG_LABEL_PLURAL: Record<string, string> = {
+  widerspruch: "Widersprüche",
+  "unbelegte-zahl": "unbelegte Zahlen",
+  "nur-normalfall": "Stellen nur Normalfall",
+  "offener-verweis": "offene Verweise",
+};
+
 export default async function ThemenPage() {
   const library = await getLibrary();
+  const { completeness } = library;
+
+  const fachfremdStufen = library.topics.map(
+    (topic) => completeness.byTopic.get(topic.slug)?.fachfremd.stufe ?? "ungeprueft",
+  );
+  const fachfremdOk = fachfremdStufen.filter(
+    (stufe) => stufe === "breit" || stufe === "vertieft",
+  ).length;
+
+  const fachkundigStufen = library.topics.map(
+    (topic) => completeness.byTopic.get(topic.slug)?.fachkundig.stufe ?? "ungeprueft",
+  );
+  const fachkundigCounts = new Map<string, number>();
+  for (const topic of library.topics) {
+    for (const befund of completeness.byTopic.get(topic.slug)?.fachkundig.befunde ?? []) {
+      fachkundigCounts.set(
+        befund.kategorie,
+        (fachkundigCounts.get(befund.kategorie) ?? 0) + 1,
+      );
+    }
+  }
+  const fachkundigHinweis =
+    completeness.geprueftAm === null
+      ? "Noch nicht geprüft."
+      : fachkundigCounts.size === 0
+        ? "Keine Befunde."
+        : [...fachkundigCounts.entries()]
+            .map(([kategorie, anzahl]) =>
+              plural(
+                anzahl,
+                FACHKUNDIG_LABEL[kategorie],
+                FACHKUNDIG_LABEL_PLURAL[kategorie],
+              ),
+            )
+            .join(" · ");
 
   return (
     <div className="space-y-6">
@@ -20,6 +72,17 @@ export default async function ThemenPage() {
           erweitern.
         </p>
       </div>
+
+      {library.topics.length > 0 ? (
+        <AnalyseKarte
+          geprueftAm={completeness.geprueftAm}
+          fachfremdStufe={aggregateStufe(fachfremdStufen)}
+          fachfremdOk={fachfremdOk}
+          fachfremdGesamt={library.topics.length}
+          fachkundigStufe={aggregateStufe(fachkundigStufen)}
+          fachkundigHinweis={fachkundigHinweis}
+        />
+      ) : null}
 
       {library.topics.length === 0 ? (
         <Leer titel="Noch keine Themen">
@@ -35,6 +98,7 @@ export default async function ThemenPage() {
           {library.topics.map((topic) => {
             const vorhanden =
               topic.itemSlugs.length - topic.missingSlugs.length;
+            const eigeneVollstaendigkeit = completeness.byTopic.get(topic.slug);
             return (
               <li key={topic.slug}>
                 <Link
@@ -42,6 +106,20 @@ export default async function ThemenPage() {
                   className="flex h-full flex-col rounded-xl border border-rand bg-grund-2 p-4 transition-colors hover:border-akzent/50"
                 >
                   <p className="font-medium">{topic.title}</p>
+                  {eigeneVollstaendigkeit ? (
+                    <div className="mt-1.5 flex flex-wrap gap-1.5">
+                      <span
+                        className={`inline-flex items-center rounded-md px-2 py-0.5 text-[11px] font-semibold ${STUFE_CLASS[eigeneVollstaendigkeit.fachfremd.stufe]}`}
+                      >
+                        fachfremd: {STUFE_LABEL[eigeneVollstaendigkeit.fachfremd.stufe]}
+                      </span>
+                      <span
+                        className={`inline-flex items-center rounded-md px-2 py-0.5 text-[11px] font-semibold ${STUFE_CLASS[eigeneVollstaendigkeit.fachkundig.stufe]}`}
+                      >
+                        fachkundig: {STUFE_LABEL[eigeneVollstaendigkeit.fachkundig.stufe]}
+                      </span>
+                    </div>
+                  ) : null}
                   <p className="mt-1 text-xs text-schrift-2">
                     {[
                       vorhanden > 0 ? plural(vorhanden, "Teil", "Teile") : null,
@@ -78,6 +156,33 @@ export default async function ThemenPage() {
           })}
         </ul>
       )}
+
+      {completeness.unverorteteFaeden.length > 0 ? (
+        <section>
+          <SectionTitle hint="Kandidaten für ein neues Thema">
+            Unverortete Fäden
+          </SectionTitle>
+          <ul className="divide-y divide-rand rounded-xl border border-rand bg-grund-2">
+            {completeness.unverorteteFaeden.map((faden, index) => (
+              <li key={index} className="flex flex-col gap-1.5 px-4 py-3">
+                <span className="text-sm">{faden.text}</span>
+                {faden.belege.length > 0 ? (
+                  <div className="flex flex-wrap gap-1.5">
+                    {faden.belege.map((beleg, i) => (
+                      <BelegPill
+                        key={i}
+                        slug={beleg.slug}
+                        target={beleg.target}
+                        bySlug={library.bySlug}
+                      />
+                    ))}
+                  </div>
+                ) : null}
+              </li>
+            ))}
+          </ul>
+        </section>
+      ) : null}
     </div>
   );
 }
