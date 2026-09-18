@@ -32,8 +32,8 @@ export async function runPosterJob(context: JobContext): Promise<void> {
   if (!tools) {
     throw new JobError(
       "ffmpeg_missing",
-      "ffmpeg wurde nicht gefunden. Den Ordner mit ffmpeg.exe und " +
-        "ffprobe.exe unter Einstellungen eintragen.",
+      "ffmpeg wurde nicht gefunden. Den Ordner mit ffmpeg und ffprobe " +
+        "unter Einstellungen eintragen.",
     );
   }
 

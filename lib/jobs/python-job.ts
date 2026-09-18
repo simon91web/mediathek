@@ -73,6 +73,7 @@ export async function runPythonSetupJob(context: JobContext): Promise<void> {
       cwd: process.cwd(),
       shell: false,
       windowsHide: true,
+      detached: process.platform !== "win32",
       stdio: ["ignore", "pipe", "pipe"],
     });
 

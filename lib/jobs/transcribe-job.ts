@@ -115,7 +115,7 @@ export async function runTranscribeJob(context: JobContext): Promise<void> {
     throw new JobError(
       "ffmpeg_missing",
       "ffmpeg wurde nicht gefunden — es liest die Tonspur. Den Ordner mit " +
-        "ffmpeg.exe und ffprobe.exe unter Einstellungen eintragen.",
+        "ffmpeg und ffprobe unter Einstellungen eintragen.",
     );
   }
 
@@ -247,6 +247,7 @@ export async function runOnce(input: {
   const child = spawn(python.exe, args, {
     cwd: python.toolsDir,
     windowsHide: true,
+    detached: process.platform !== "win32",
     stdio: ["ignore", "pipe", "pipe"],
     env: childEnv(python, tools.dir),
   });

@@ -140,7 +140,7 @@ async function main() {
   if (ffmpegDir === undefined) {
     say(
       "\nHinweis: ffmpeg wurde nicht gefunden. Die Transkription braucht es, " +
-        "um die Tonspur zu lesen.\nDen Ordner mit ffmpeg.exe und ffprobe.exe " +
+        "um die Tonspur zu lesen.\nDen Ordner mit ffmpeg und ffprobe " +
         "unter Einstellungen eintragen.",
     );
   } else {

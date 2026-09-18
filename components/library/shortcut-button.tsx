@@ -39,9 +39,9 @@ export function ShortcutButton() {
         {pending ? "Wird angelegt …" : "Verknüpfung auf dem Schreibtisch"}
       </Button>
       <p className="text-xs text-schrift-2">
-        Startet die Mediathek in einem eigenen Fenster, ohne schwarzen Kasten.
-        Sie zeigt auf den Ort, an dem das Programm jetzt liegt — wird der Ordner
-        später verschoben, hier einfach eine neue anlegen.
+        Startet die Mediathek in einem eigenen Fenster. Sie zeigt auf den Ort,
+        an dem das Programm jetzt liegt — wird der Ordner später verschoben,
+        hier einfach eine neue anlegen.
       </p>
       {note ? (
         <p

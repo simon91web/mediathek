@@ -163,10 +163,9 @@ export function FfmpegControl({ ffmpegDir }: { ffmpegDir: string | null }) {
         ffmpeg-Verzeichnis
       </label>
       <p className="text-xs text-schrift-2">
-        Das <em>Verzeichnis</em>, in dem ffmpeg.exe und ffprobe.exe liegen —
-        nicht die Datei selbst. Der übliche Windows-Build ist ein shared build,
-        bei dem daneben sieben DLLs liegen; eine einzeln kopierte ffmpeg.exe
-        startet nicht.
+        Das <em>Verzeichnis</em>, in dem ffmpeg und ffprobe liegen — nicht
+        die Datei selbst. Unter Windows gehört der shared build dazu (DLLs
+        neben der exe); eine einzeln kopierte ffmpeg.exe startet dort nicht.
       </p>
       <div className="flex flex-wrap gap-2">
         <input
@@ -174,7 +173,7 @@ export function FfmpegControl({ ffmpegDir }: { ffmpegDir: string | null }) {
           type="text"
           value={dir}
           onChange={(event) => setDir(event.target.value)}
-          placeholder="C:\ffmpeg-master-latest-win64-gpl-shared\bin"
+          placeholder="Verzeichnis mit ffmpeg und ffprobe"
           spellCheck={false}
           className="min-w-0 flex-1 rounded-lg border border-rand bg-grund px-3 py-2 font-mono text-xs"
         />

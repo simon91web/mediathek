@@ -10,8 +10,8 @@ import type { AssistantTask } from "@/lib/assistant/start";
 /*
  * Die zwei Knöpfe am Beitrag, die Claude Code holen.
  *
- * Sie erzeugen nichts selbst — sie öffnen ein sichtbares PowerShell-Fenster
- * im Bibliotheksordner. Danach passiert alles dort, und man liest mit. Wenn
+ * Sie erzeugen nichts selbst — sie öffnen ein sichtbares Fenster im
+ * Bibliotheksordner. Danach passiert alles dort, und man liest mit. Wenn
  * das Fenster fertig ist, meldet der Verzeichnis-Beobachter die geänderte
  * beitrag.md und die Seite zeigt die neuen Kapitel — ohne Serverneustart.
  */

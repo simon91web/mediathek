@@ -1,6 +1,15 @@
+import path from "node:path";
+
 import { describe, expect, it } from "vitest";
 
 import { folderName, planLibraryFolder } from "./new-library";
+
+const DATEN =
+  process.platform === "win32" ? "D:\\Daten" : "/tmp/Daten";
+const MEDIATHEK =
+  process.platform === "win32" ? "D:\\Mediathek" : "/tmp/Mediathek";
+const mediathekKlein =
+  process.platform === "win32" ? "D:\\mediathek" : "/tmp/mediathek";
 
 describe("folderName", () => {
   it("lässt einen lesbaren Namen lesbar", () => {
@@ -31,10 +40,10 @@ describe("folderName", () => {
 
 describe("planLibraryFolder", () => {
   it("hängt den Namen an das Verzeichnis", () => {
-    const plan = planLibraryFolder("D:\\Daten", "Mediathek");
+    const plan = planLibraryFolder(DATEN, "Mediathek");
     expect(plan.ok).toBe(true);
     if (!plan.ok) return;
-    expect(plan.target.replace(/\//g, "\\")).toBe("D:\\Daten\\Mediathek");
+    expect(plan.target).toBe(path.join(DATEN, "Mediathek"));
     expect(plan.suggestParent).toBe(false);
   });
 
@@ -44,23 +53,25 @@ describe("planLibraryFolder", () => {
      * an, wählt ihn und tippt „Mediathek". Wörtlich genommen entstünde
      * D:\Mediathek\Mediathek.
      */
-    const plan = planLibraryFolder("D:\\Mediathek", "Mediathek");
+    const plan = planLibraryFolder(MEDIATHEK, "Mediathek");
     expect(plan.ok).toBe(true);
     if (!plan.ok) return;
     expect(plan.suggestParent).toBe(true);
     // Der Vorschlag ersetzt das Ziel NICHT — entschieden wird in der Oberfläche.
-    expect(plan.target.replace(/\//g, "\\")).toBe("D:\\Mediathek\\Mediathek");
+    expect(plan.target).toBe(path.join(MEDIATHEK, "Mediathek"));
   });
 
   it("vergleicht ohne Rücksicht auf Groß- und Kleinschreibung", () => {
     // Unter Windows sind "Mediathek" und "mediathek" derselbe Ordner.
-    const plan = planLibraryFolder("D:\\mediathek", "Mediathek");
+    const plan = planLibraryFolder(mediathekKlein, "Mediathek");
     expect(plan.ok && plan.suggestParent).toBe(true);
   });
 
   it("schlägt nichts vor, wenn der Ordner anders heißt", () => {
-    const plan = planLibraryFolder("D:\\Daten", "Mediathek");
-    expect(plan.ok && plan.suggestParent).toBe(false);
+    const plan = planLibraryFolder(DATEN, "Mediathek");
+    expect(plan.ok).toBe(true);
+    if (!plan.ok) return;
+    expect(plan.suggestParent).toBe(false);
   });
 
   it("lehnt einen relativen Pfad ab", () => {
@@ -71,13 +82,13 @@ describe("planLibraryFolder", () => {
   });
 
   it("lehnt einen Namen ab, aus dem kein Ordnername wird", () => {
-    const plan = planLibraryFolder("D:\\Daten", "??");
+    const plan = planLibraryFolder(DATEN, "??");
     expect(plan.ok).toBe(false);
   });
 
   it("lehnt Windows-Gerätenamen ab", () => {
     // "D:\Daten\CON" lässt sich nicht anlegen, und die Meldung wäre kryptisch.
-    const plan = planLibraryFolder("D:\\Daten", "con");
+    const plan = planLibraryFolder(DATEN, "con");
     expect(plan.ok).toBe(false);
     if (plan.ok) return;
     expect(plan.error).toContain("Gerätename");
