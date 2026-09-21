@@ -889,6 +889,21 @@ direkt unsichtbar und traegt das Programmsymbol. Angelegt wird sie erst auf
 Klick, weil sie sich den Pfad merkt - wird der Ordner spaeter verschoben,
 einfach eine neue anlegen.
 
+Von GitHub heruntergeladen?
+----------------------------
+Eine ZIP-Datei aus dem Internet traegt eine unsichtbare Markierung
+(Mark-of-the-Web). Windows uebertraegt sie beim Entpacken auf jede
+einzelne Datei - danach warnt SmartScreen beim Start oder blockiert ihn.
+
+Am einfachsten VOR dem Entpacken einmal:
+  Rechtsklick auf die heruntergeladene ZIP-Datei -> Eigenschaften ->
+  unten bei "Sicherheit" das Kaestchen "Zulassen" anhaken -> OK.
+  Erst danach entpacken.
+
+Schon entpackt und es klemmt trotzdem? In einer PowerShell im Mediathek-
+Ordner:
+  Get-ChildItem -Recurse | Unblock-File
+
 Konsolenfenster einschalten
 ---------------------------
 Wenn etwas klemmt, will man die Meldungen sehen. Drei Wege:
