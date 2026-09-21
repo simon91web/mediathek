@@ -19,7 +19,8 @@ import type { Slug } from "./types";
  *      nicht auf uns selbst reagiert und einen Rescan auslöst.
  */
 
-async function writeAtomic(file: string, content: string): Promise<void> {
+/** Exportiert für alles außerhalb von beitrag.md, das denselben Schutz braucht. */
+export async function writeAtomic(file: string, content: string): Promise<void> {
   const temporary = `${file}.tmp`;
   markOwnWrite(file);
   markOwnWrite(temporary);

@@ -1,5 +1,5 @@
 ---
-description: Fachbegriffe mit korrekter Schreibweise in glossar.txt sammeln
+description: Fachbegriffe mit korrekter Schreibweise als glossar/*.md sammeln
 ---
 Befolge die Anweisungen in `anleitungen/glossar.md`.
 

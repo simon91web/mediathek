@@ -11,6 +11,7 @@ import { scanLibrary } from "./scan";
 import { store } from "./store";
 import type {
   Collection,
+  GlossaryEntry,
   Question,
   Topic,
   TopicSpot,
@@ -209,6 +210,13 @@ export async function getTopicSpotsForItem(
   return library.topicSpotsByItem.get(slug) ?? [];
 }
 
+export async function getGlossaryEntry(
+  slug: string,
+): Promise<GlossaryEntry | null> {
+  const library = await getLibrary();
+  return library.glossaryBySlug.get(slug) ?? null;
+}
+
 export async function getCollection(slug: string): Promise<Collection | null> {
   const library = await getLibrary();
   return library.collectionsBySlug.get(slug) ?? null;
@@ -314,6 +322,7 @@ export async function listItems(
 
 export type {
   Collection,
+  GlossaryEntry,
   Question,
   Topic,
   TopicSpot,

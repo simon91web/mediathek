@@ -5,6 +5,7 @@ import { paths } from "@/lib/paths";
 import type {
   Collection,
   Fingerprint,
+  GlossaryEntry,
   Item,
   Question,
   Slug,
@@ -19,7 +20,7 @@ import type {
  */
 
 /** Bei jeder Formatänderung erhöhen: alte Dateien werden dann verworfen. */
-export const CACHE_VERSION = 6;
+export const CACHE_VERSION = 7;
 
 /**
  * Zusätzlich zur Formatversion hängt der Cache an der App-Version. Ändert
@@ -45,6 +46,10 @@ export type LibraryCache = {
   libraryPath: string;
   items: Record<Slug, CachedItem>;
   topics: Record<Slug, { size: number; mtimeMs: number; topic: Topic }>;
+  glossary: Record<
+    Slug,
+    { size: number; mtimeMs: number; entry: GlossaryEntry }
+  >;
   collections: Record<
     Slug,
     { size: number; mtimeMs: number; collection: Collection }
@@ -63,6 +68,7 @@ export function emptyCache(): LibraryCache {
     libraryPath: paths.library,
     items: {},
     topics: {},
+    glossary: {},
     collections: {},
     questions: {},
   };
@@ -90,6 +96,7 @@ export async function readCache(): Promise<LibraryCache | null> {
     }
     if (!cache.items || typeof cache.items !== "object") return null;
     if (!cache.topics || typeof cache.topics !== "object") return null;
+    if (!cache.glossary || typeof cache.glossary !== "object") return null;
     if (!cache.collections || typeof cache.collections !== "object") {
       return null;
     }

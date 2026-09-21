@@ -242,6 +242,21 @@ export function yamlString(value: string): string {
 }
 
 /**
+ * Eine Kurzschreibliste wie `[Balancing, Zellprüfer]`. Anders als
+ * {@link yamlString} allein muss hier zusätzlich das Komma und die eckigen
+ * Klammern selbst geprüft werden — sie trennen sonst die Einträge der Liste.
+ */
+export function yamlList(values: readonly string[]): string {
+  return `[${values
+    .map((value) =>
+      /[,[\]]/.test(value)
+        ? `"${value.replace(/\\/g, "\\\\").replace(/"/g, '\\"')}"`
+        : yamlString(value),
+    )
+    .join(", ")}]`;
+}
+
+/**
  * Die Dauer wird in Anführungszeichen geschrieben. In YAML 1.2 wäre das nicht
  * nötig, aber so kann auch ein Werkzeug, das noch YAML 1.1 liest, aus
  * 00:42:15 keine Zahl machen.

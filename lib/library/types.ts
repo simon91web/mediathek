@@ -214,6 +214,30 @@ export type Topic = {
 };
 
 /**
+ * Ein Begriff aus glossar/ — die kanonische Schreibweise, eine kurze
+ * Definition (die auf andere Begriffe und auf Beiträge verweisen darf) und
+ * einzelne Fundstellen. `glossar.txt` (Whisper-Hotwords) wird DARAUS
+ * generiert, nie von Hand gepflegt.
+ */
+export type GlossaryEntry = {
+  slug: Slug;
+  /** Die kanonische Schreibweise — hier wird "Erka-Control" korrigiert. */
+  begriff: string;
+  /** Kurze, handgeschriebene Definition mit [[wikilinks]]. Darf leer sein. */
+  description: string;
+  /**
+   * Andere Schreibweisen — auch falsch transkribierte. Erweitern die
+   * Suchanfrage wie Themen-Synonyme: wer "Erka-Control" sucht, findet auch
+   * die Stelle, an der "erko-control" transkribiert wurde.
+   */
+  schreibweisen: string[];
+  /** Einzelne Stellen aus dem Block "fundstellen". */
+  spots: Spot[];
+  changedAtMs: number;
+  problems: ItemProblem[];
+};
+
+/**
  * Eine Sammlung ist ein geordneter Weg durch Ausschnitte — der Themenpfad.
  * Mit `query` wird sie zur gespeicherten Suche, die bei jedem Aufruf neu
  * läuft, statt eine Liste festzuschreiben.
@@ -337,6 +361,8 @@ export type LibraryState = {
    * "Themen in diesem Beitrag" — abgeleitet, nicht zweitgeschrieben.
    */
   topicSpotsByItem: Map<Slug, TopicSpot[]>;
+  glossary: GlossaryEntry[];
+  glossaryBySlug: Map<Slug, GlossaryEntry>;
   collections: Collection[];
   collectionsBySlug: Map<Slug, Collection>;
   /** Sortiert: zuletzt gefragt zuerst. */

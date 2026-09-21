@@ -18,6 +18,7 @@ const NAV_ITEMS = [
   { href: "/themen", label: "Themen" },
   { href: "/sammlungen", label: "Sammlungen" },
   { href: "/fragen", label: "Fragen" },
+  { href: "/glossar", label: "Glossar" },
 ] as const;
 
 export function NavLinks() {

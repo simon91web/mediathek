@@ -3,23 +3,27 @@ import { foldTerm, tokenize } from "./normalize";
 /*
  * Bedeutungsnahe Suche ohne Embeddings.
  *
- * Die Themenseiten führen Synonyme ("Balancing", "Spannungsspreizung" für
- * "Zellspannungsmessung"). Steht ein solches Wort in der Anfrage, wird
- * zusätzlich nach den übrigen Wörtern derselben Gruppe gesucht. Wer
- * "Balancing" sucht, findet damit die Stelle, an der "Zellspannung" gesagt
- * wurde — ohne ein Modell im Browser des Kollegen und ohne einen zweiten
- * Index.
+ * Zwei Quellen speisen dieselbe Erweiterung: Themenseiten ("Balancing",
+ * "Spannungsspreizung" für "Zellspannungsmessung") und Glossarbegriffe
+ * (ihre Schreibweisen — auch falsch transkribierte, wie "erko-control" für
+ * "Erka-Control"). Steht ein solches Wort in der Anfrage, wird zusätzlich
+ * nach den übrigen Wörtern derselben Gruppe gesucht. Wer "Balancing" sucht,
+ * findet damit die Stelle, an der "Zellspannung" gesagt wurde — ohne ein
+ * Modell im Browser des Kollegen und ohne einen zweiten Index.
  *
- * Der Preis ist Ehrlichkeit: die Erweiterung ist nur so gut wie die
- * Themenseiten. Deshalb wird jeder erweiterte Treffer als solcher
- * gekennzeichnet, und die Trefferliste sagt, wonach zusätzlich gesucht
- * wurde. Eine stille Erweiterung wäre schlimmer als keine — man würde die
+ * Der Preis ist Ehrlichkeit: die Erweiterung ist nur so gut wie die Quelle.
+ * Deshalb wird jeder erweiterte Treffer als solcher gekennzeichnet, und die
+ * Trefferliste sagt, wonach zusätzlich gesucht wurde UND woher (Thema oder
+ * Glossar). Eine stille Erweiterung wäre schlimmer als keine — man würde die
  * Fremdtreffer für eigene halten.
  *
  * Ohne "server-only": rein und damit direkt testbar.
  */
 
+export type SynonymSourceKind = "thema" | "glossar";
+
 export type SynonymSource = {
+  kind: SynonymSourceKind;
   slug: string;
   title: string;
   synonyms: readonly string[];
@@ -27,7 +31,7 @@ export type SynonymSource = {
 
 /** Eine Wortgruppe: alle Schreibweisen, die dasselbe meinen. */
 export type SynonymGroup = {
-  topic: { slug: string; title: string };
+  source: { kind: SynonymSourceKind; slug: string; title: string };
   /** Wie geschrieben — für die Anzeige. */
   forms: string[];
   /** Gefaltet und in Token zerlegt — für den Vergleich. */
@@ -36,30 +40,30 @@ export type SynonymGroup = {
 
 /** Wonach zusätzlich gesucht wird, und woher das kommt. */
 export type Expansion = {
-  /** Das zusätzliche Wort, wie es auf der Themenseite steht. */
+  /** Das zusätzliche Wort, wie es auf der Quellseite steht. */
   term: string;
   /** Gefaltete Form — der Suchbegriff für den wörtlichen Durchgang. */
   folded: string;
-  topic: { slug: string; title: string };
+  source: { kind: SynonymSourceKind; slug: string; title: string };
 };
 
 /** Mehr als das wäre keine Präzisierung mehr, sondern Rauschen. */
 const MAX_EXPANSIONS = 8;
 
 export function buildSynonymGroups(
-  topics: readonly SynonymSource[],
+  sources: readonly SynonymSource[],
 ): SynonymGroup[] {
   const groups: SynonymGroup[] = [];
 
-  for (const topic of topics) {
+  for (const source of sources) {
     /*
-     * Der Titel gehört dazu: wer nach einem Synonym sucht, will auch die
-     * Stellen finden, an denen das Thema mit seinem Namen benannt ist — und
-     * umgekehrt.
+     * Der Titel/Begriff gehört dazu: wer nach einem Synonym sucht, will auch
+     * die Stellen finden, an denen die Quelle mit ihrem Namen benannt ist —
+     * und umgekehrt.
      */
     const seen = new Set<string>();
     const forms: string[] = [];
-    for (const form of [topic.title, ...topic.synonyms]) {
+    for (const form of [source.title, ...source.synonyms]) {
       const text = form.trim().replace(/\s+/g, " ");
       if (text.length < 3) continue;
       const key = foldTerm(text);
@@ -72,7 +76,7 @@ export function buildSynonymGroups(
     if (forms.length < 2) continue;
 
     groups.push({
-      topic: { slug: topic.slug, title: topic.title },
+      source: { kind: source.kind, slug: source.slug, title: source.title },
       forms,
       tokens: forms.map((form) => tokenize(form).map(foldTerm)),
     });
@@ -131,7 +135,7 @@ export function expandQuery(
       const folded = foldTerm(group.forms[i]);
       if (!folded || used.has(folded)) continue;
       used.add(folded);
-      expansions.push({ term: group.forms[i], folded, topic: group.topic });
+      expansions.push({ term: group.forms[i], folded, source: group.source });
       if (expansions.length >= MAX_EXPANSIONS) return expansions;
     }
   }

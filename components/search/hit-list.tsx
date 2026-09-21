@@ -72,7 +72,10 @@ export function HitRow({ hit }: { hit: SearchHit }) {
       {hit.via ? (
         <p className="mt-1.5 flex items-center gap-1 text-xs text-schrift-3">
           <Sparkles aria-hidden className="size-3 shrink-0" />
-          gefunden über „{hit.via.term}“ aus dem Thema {hit.via.topic.title}
+          gefunden über „{hit.via.term}“ aus{" "}
+          {hit.via.source.kind === "glossar"
+            ? `dem Glossar ${hit.via.source.title}`
+            : `dem Thema ${hit.via.source.title}`}
         </p>
       ) : null}
     </Link>

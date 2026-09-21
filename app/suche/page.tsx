@@ -8,6 +8,7 @@ import { SearchBox } from "@/components/search/search-box";
 import { Leer } from "@/components/ui/basis";
 import { getFeatures } from "@/lib/features";
 import { search } from "@/lib/search";
+import type { Expansion } from "@/lib/search";
 import type { MediaKind } from "@/lib/library/types";
 import { plural } from "@/lib/utils";
 
@@ -16,6 +17,20 @@ export const metadata: Metadata = { title: "Suche" };
 function toKinds(art: string | undefined): MediaKind[] | undefined {
   if (art === "video" || art === "audio" || art === "text") return [art];
   return undefined;
+}
+
+/**
+ * Woher die Erweiterung kommt — für "Auch gesucht nach …" unterhalb der
+ * Trefferliste. Eine Anfrage kann beide Quellen zugleich treffen (ein Wort
+ * aus einem Themen-Synonym, ein anderes aus einer Glossar-Schreibweise),
+ * deshalb wird gezählt statt nur die erste Quelle zu nennen.
+ */
+function expansionSourceLabel(expansions: readonly Expansion[]): string {
+  const kinds = new Set(expansions.map((expansion) => expansion.source.kind));
+  if (kinds.size > 1) return "den Synonymen der Themenseiten und dem Glossar";
+  return kinds.has("glossar")
+    ? "den Schreibweisen des Glossars"
+    : "den Synonymen der Themenseiten";
 }
 
 export default async function SuchePage({
@@ -70,8 +85,8 @@ export default async function SuchePage({
 
           {/*
            * Wonach zusätzlich gesucht wurde. Das steht hier offen, weil die
-           * Erweiterung nur so gut ist wie die Synonyme auf den Themenseiten
-           * — und weil sie sich damit korrigieren lässt.
+           * Erweiterung nur so gut ist wie ihre Quelle — Themen-Synonyme oder
+           * Glossar-Schreibweisen — und weil sie sich damit korrigieren lässt.
            */}
           {result.expansions.length > 0 ? (
             <p className="flex flex-wrap items-baseline gap-x-1.5 gap-y-1 rounded-lg border border-rand bg-grund-2 px-3 py-2 text-sm text-schrift-2">
@@ -92,7 +107,7 @@ export default async function SuchePage({
                 </span>
               ))}
               <span className="text-schrift-3">
-                — aus den Synonymen der Themenseiten.
+                — aus {expansionSourceLabel(result.expansions)}.
               </span>
             </p>
           ) : null}

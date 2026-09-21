@@ -25,6 +25,7 @@ import { setLibraryRoot } from "@/lib/paths";
 const ROOT = path.join(process.cwd(), "bibliothek-dev");
 const ITEMS = path.join(ROOT, "medien");
 const TOPICS = path.join(ROOT, "themen");
+const GLOSSARY = path.join(ROOT, "glossar");
 const COLLECTIONS = path.join(ROOT, "sammlungen");
 const QUESTIONS = path.join(ROOT, "fragen");
 
@@ -681,13 +682,39 @@ Spalte [[messprotokoll-lesen#akku-und-spannung]].
    */
   await installInstructions();
 
+  // ------------------------------------------------------------- Glossar
+  /*
+   * glossar.txt ist generiert (siehe scanGlossary in lib/library/scan.ts) —
+   * hier werden nur die Begriffsdateien angelegt, die Datei selbst entsteht
+   * beim ersten Scan von selbst.
+   */
+  await ensureDir(GLOSSARY);
   await writeFile(
-    path.join(ROOT, "glossar.txt"),
-    `Elios 3
-Zellspannung
-Rotorschutz
-Vorflugkontrolle
-Messprotokoll
+    path.join(GLOSSARY, "elios-3.md"),
+    `---
+begriff: Elios 3
+---
+
+Die Inspektionsdrohne, mit der die Vorflugkontrolle in dieser Bibliothek
+durchgespielt wird.
+
+<!-- fundstellen:start -->
+- [[vorflugkontrolle-elios-3#00:00]] Vorgestellt zu Beginn der Vorflugkontrolle
+<!-- fundstellen:ende -->
+`,
+  );
+  await writeFile(
+    path.join(GLOSSARY, "rotorschutz.md"),
+    `---
+begriff: Rotorschutz
+schreibweisen: [Käfig]
+---
+
+Der Käfig um die Rotoren, der den Kanal vor den Blättern schützt — und
+umgekehrt.
+
+<!-- fundstellen:start -->
+<!-- fundstellen:ende -->
 `,
   );
 
@@ -708,6 +735,9 @@ Messprotokoll
   console.log(
     "  Themen:      drohnen-grundlagen (geordnet), " +
       "zellspannungsmessung (Synonyme + Fundstellen)",
+  );
+  console.log(
+    "  Glossar:     elios-3, rotorschutz (schreibweisen: Käfig)",
   );
   console.log(
     "  Sammlungen:  alles-zum-akku (Ausschnitte), " +

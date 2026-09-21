@@ -101,8 +101,16 @@ export const paths = {
   get questions(): string {
     return path.join(libraryRoot(), "fragen");
   },
+  /**
+   * Generiert aus glossar/*.md (der Begriff jedes Eintrags) — nie von Hand
+   * gepflegt. Whisper bekommt sie als hotwords.
+   */
   get glossary(): string {
     return path.join(libraryRoot(), "glossar.txt");
+  },
+  /** Ein Begriff je Datei: die Wahrheit hinter glossar.txt. */
+  get glossaryDir(): string {
+    return path.join(libraryRoot(), "glossar");
   },
   /** Generierte Berichte, allen voran die Lücken-Analyse. Kein Marker-Block. */
   get analysen(): string {

@@ -5,17 +5,19 @@ import { buildSynonymGroups, expandQuery } from "./synonyms";
 
 const THEMEN = [
   {
+    kind: "thema" as const,
     slug: "zellspannungsmessung",
     title: "Zellspannungsmessung",
     synonyms: ["Balancing", "Spannungsspreizung", "Zellprüfer"],
   },
   {
+    kind: "thema" as const,
     slug: "rotorschutz",
     title: "Rotorschutz",
     synonyms: ["Käfig", "Schutzkorb"],
   },
   // Ein Thema ohne Synonyme kann nichts erweitern.
-  { slug: "vorflug", title: "Vorflugkontrolle", synonyms: [] },
+  { kind: "thema" as const, slug: "vorflug", title: "Vorflugkontrolle", synonyms: [] },
 ];
 
 const gruppen = buildSynonymGroups(THEMEN);
@@ -25,8 +27,8 @@ function erweitere(anfrage: string) {
 }
 
 describe("buildSynonymGroups", () => {
-  it("nimmt nur Themen mit mindestens zwei Formen", () => {
-    expect(gruppen.map((group) => group.topic.slug)).toEqual([
+  it("nimmt nur Quellen mit mindestens zwei Formen", () => {
+    expect(gruppen.map((group) => group.source.slug)).toEqual([
       "zellspannungsmessung",
       "rotorschutz",
     ]);
@@ -38,9 +40,30 @@ describe("buildSynonymGroups", () => {
 
   it("entdoppelt Formen, die sich nur in der Faltung unterscheiden", () => {
     const [group] = buildSynonymGroups([
-      { slug: "x", title: "Aufblähung", synonyms: ["aufblaehung", "Blähen"] },
+      {
+        kind: "thema",
+        slug: "x",
+        title: "Aufblähung",
+        synonyms: ["aufblaehung", "Blähen"],
+      },
     ]);
     expect(group.forms).toEqual(["Aufblähung", "Blähen"]);
+  });
+
+  it("nimmt auch Glossarbegriffe mit ihren Schreibweisen", () => {
+    const [group] = buildSynonymGroups([
+      {
+        kind: "glossar",
+        slug: "erka-control",
+        title: "Erka-Control",
+        synonyms: ["Erko-Control", "erko control"],
+      },
+    ]);
+    expect(group.source).toEqual({
+      kind: "glossar",
+      slug: "erka-control",
+      title: "Erka-Control",
+    });
   });
 });
 
@@ -63,9 +86,27 @@ describe("expandQuery", () => {
     ]);
   });
 
-  it("nennt das Thema, aus dem die Erweiterung kommt", () => {
+  it("nennt die Quelle, aus der die Erweiterung kommt", () => {
     const [first] = erweitere("käfig");
-    expect(first.topic).toEqual({ slug: "rotorschutz", title: "Rotorschutz" });
+    expect(first.source).toEqual({
+      kind: "thema",
+      slug: "rotorschutz",
+      title: "Rotorschutz",
+    });
+  });
+
+  it("findet eine falsch transkribierte Glossar-Schreibweise", () => {
+    const groups = buildSynonymGroups([
+      {
+        kind: "glossar",
+        slug: "erka-control",
+        title: "Erka-Control",
+        synonyms: ["Erko-Control"],
+      },
+    ]);
+    const expansions = expandQuery(parseQuery("erka-control"), groups);
+    expect(expansions.map((entry) => entry.term)).toEqual(["Erko-Control"]);
+    expect(expansions[0].source.kind).toBe("glossar");
   });
 
   it("ist gegenüber Umlauten gleichgültig", () => {
@@ -94,6 +135,7 @@ describe("expandQuery", () => {
   it("erkennt eine mehrwortige Form als Folge", () => {
     const groups = buildSynonymGroups([
       {
+        kind: "thema",
         slug: "x",
         title: "Zellspannung messen",
         synonyms: ["Spannungsprüfung"],
@@ -122,6 +164,7 @@ describe("expandQuery", () => {
   it("erweitert höchstens achtmal", () => {
     const groups = buildSynonymGroups([
       {
+        kind: "thema",
         slug: "viel",
         title: "Viel",
         synonyms: Array.from({ length: 20 }, (_, i) => `Wort${i}xyz`),

@@ -7,9 +7,11 @@ import { parseItemMarkdown } from "./beitrag-md";
 import { emptyCache, sameFingerprint } from "./cache";
 import type { LibraryCache } from "./cache";
 import { parseCollectionMarkdown } from "./collections";
+import { parseGlossaryMarkdown } from "./glossary";
 import { parseQuestionMarkdown } from "./questions";
 import { parseTopicMarkdown } from "./topics";
 import { isSlug } from "./slug";
+import { markOwnWrite } from "./store";
 import {
   attachmentMime,
   attachmentPreview,
@@ -20,6 +22,7 @@ import {
 import type {
   Attachment,
   Collection,
+  GlossaryEntry,
   Question,
   Topic,
   TopicSpot,
@@ -464,6 +467,126 @@ async function scanTopics(
 }
 
 /**
+ * Begriffe lesen — dieselbe Zwischenspeicherung wie bei den Themen, nur ohne
+ * geordnete Beiträge: alles außerhalb der Marker ist die Definition.
+ */
+async function scanGlossary(
+  cache: LibraryCache,
+  force: boolean,
+): Promise<{
+  entries: GlossaryEntry[];
+  cacheEntries: LibraryCache["glossary"];
+  problems: ScanProblem[];
+}> {
+  const problems: ScanProblem[] = [];
+  const cacheEntries: LibraryCache["glossary"] = {};
+  const entries: GlossaryEntry[] = [];
+
+  let names: string[];
+  try {
+    names = (await fs.readdir(paths.glossaryDir, { withFileTypes: true }))
+      .filter((entry) => entry.isFile() && /\.md$/i.test(entry.name))
+      .map((entry) => entry.name);
+  } catch {
+    // Kein glossar/-Ordner ist völlig in Ordnung.
+    return { entries, cacheEntries, problems };
+  }
+
+  for (const name of names) {
+    const slug = path.parse(name).name.toLowerCase();
+    if (!isSlug(slug)) {
+      problems.push({
+        path: path.join(paths.glossaryDir, name),
+        message:
+          "Der Dateiname taugt nicht als Kennung eines Begriffs " +
+          "(erlaubt: Kleinbuchstaben, Ziffern, Bindestriche).",
+      });
+      continue;
+    }
+
+    const file = path.join(paths.glossaryDir, name);
+    const info = await stamp(file);
+    if (!info) continue;
+
+    const cached = cache.glossary[slug];
+    if (
+      !force &&
+      cached &&
+      cached.size === info.size &&
+      cached.mtimeMs === info.mtimeMs
+    ) {
+      entries.push(cached.entry);
+      cacheEntries[slug] = cached;
+      continue;
+    }
+
+    let raw = "";
+    try {
+      raw = await fs.readFile(file, "utf8");
+    } catch (error) {
+      problems.push({
+        path: file,
+        message: `Nicht lesbar: ${
+          error instanceof Error ? error.message : String(error)
+        }`,
+      });
+      continue;
+    }
+
+    const parsed = parseGlossaryMarkdown(raw, slug);
+    const entry: GlossaryEntry = {
+      slug,
+      begriff: parsed.begriff,
+      description: parsed.description,
+      schreibweisen: parsed.schreibweisen,
+      spots: parsed.spots,
+      changedAtMs: info.mtimeMs,
+      problems: parsed.problems,
+    };
+    entries.push(entry);
+    cacheEntries[slug] = { size: info.size, mtimeMs: info.mtimeMs, entry };
+  }
+
+  entries.sort((a, b) => a.begriff.localeCompare(b.begriff, "de"));
+  return { entries, cacheEntries, problems };
+}
+
+/**
+ * Schreibt glossar.txt aus den Begriffsdateien — nur der kanonische Begriff,
+ * NIE die Schreibweisen: die sind zum Finden falscher Transkriptionen da,
+ * nicht dazu, Whisper künftig erst recht auf sie zu gewichten.
+ *
+ * Wird nur bei echter Änderung geschrieben, damit ein Scan ohne
+ * Glossaränderung keine mtime-Unruhe erzeugt.
+ */
+async function writeGeneratedGlossaryTxt(
+  entries: readonly GlossaryEntry[],
+): Promise<void> {
+  const content = `${entries.map((entry) => entry.begriff).join("\n")}\n`;
+  const file = paths.glossary;
+
+  let current: string | null = null;
+  try {
+    current = await fs.readFile(file, "utf8");
+  } catch {
+    // Gibt es noch nicht — wird gleich angelegt.
+  }
+  if (current === content) return;
+
+  markOwnWrite(file);
+  const temporary = `${file}.tmp`;
+  markOwnWrite(temporary);
+  try {
+    await fs.writeFile(temporary, content, "utf8");
+    await fs.rename(temporary, file);
+  } catch {
+    await fs.rm(temporary, { force: true }).catch(() => {});
+    // Eine schreibgeschützte Bibliothek ist kein Scan-Fehler — glossar.txt
+    // bleibt dann einfach auf dem letzten Stand.
+  }
+}
+
+/**
  * Sammlungen lesen. Fast dasselbe wie bei den Themen, nur ohne
  * Marker-Block — und mit `suche:` statt einer Liste als zweiter Möglichkeit.
  */
@@ -797,6 +920,23 @@ export async function scanLibrary(options: {
     spots.sort((a, b) => spotOrder(a.spot) - spotOrder(b.spot));
   }
 
+  const glossaryResult = await scanGlossary(cache, force);
+  problems.push(...glossaryResult.problems);
+  for (const entry of glossaryResult.entries) {
+    for (const spot of entry.spots) {
+      if (bySlug.has(spot.slug)) continue;
+      entry.problems.push({
+        kind: "bezug",
+        message: `Die Fundstelle "${spot.slug}" findet kein Ziel.`,
+        line: spot.sourceLine,
+      });
+    }
+  }
+  const glossaryBySlug = new Map(
+    glossaryResult.entries.map((entry) => [entry.slug, entry]),
+  );
+  await writeGeneratedGlossaryTxt(glossaryResult.entries);
+
   const collectionResult = await scanCollections(cache, force);
   problems.push(...collectionResult.problems);
   for (const collection of collectionResult.collections) {
@@ -870,6 +1010,8 @@ export async function scanLibrary(options: {
     topicsBySlug,
     topicsByItem,
     topicSpotsByItem,
+    glossary: glossaryResult.entries,
+    glossaryBySlug,
     collections: collectionResult.collections,
     collectionsBySlug,
     questions: questionResult.questions,
@@ -898,6 +1040,7 @@ export async function scanLibrary(options: {
       libraryPath: paths.library,
       items: nextCacheItems,
       topics: topicResult.cacheEntries,
+      glossary: glossaryResult.cacheEntries,
       collections: collectionResult.cacheEntries,
       questions: questionResult.cacheEntries,
     },

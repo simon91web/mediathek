@@ -38,7 +38,8 @@ Bibliotheksordner, den der Nutzer weitergibt:
   themen/<slug>.md                  ← Wissensgebiete: Synonyme + Fundstellen
   sammlungen/<slug>.md              ← geordnete Wege durch Ausschnitte
   fragen/<slug>.md                  ← beantwortete Fragen mit Belegen
-  glossar.txt                       ← Fachbegriffe; speist Whispers hotwords
+  glossar/<slug>.md                 ← Begriffe: Schreibweisen + Definition
+  glossar.txt                       ← GENERIERT aus glossar/; speist Whispers hotwords
   anleitungen/                      ← die Regeln, nach denen ein KI-Werkzeug schreibt
   AGENTS.md                         ← Einstieg dorthin, für jedes Werkzeug
   .claude/                          ← Abkürzungen (/kapitel …) nur für Claude Code
@@ -208,6 +209,62 @@ Netz:" und trägt seine Adresse; was aus der Bibliothek stammt, trägt seinen
 Wikilink. Dieselbe Festlegung wie bei der über Synonyme erweiterten Suche:
 eine stille Vermischung wäre schlimmer als keine Erweiterung, weil man den
 Fremdtreffer für eigenes Material hielte.
+
+## Glossar — kein Begriffsglossar, sondern ein kleines Wiki
+
+`glossar.txt` war ursprünglich eine flache Zeilenliste, rein internes
+Whisper-hotwords-Futter, für den Nutzer unsichtbar. **Diese Datei ist jetzt
+GENERIERT** (aus `glossar/<slug>.md`, in `lib/library/scan.ts`) — sie wird
+nie von Hand oder von Claude Code direkt geschrieben, auch nicht per Aufgabe.
+
+Ein Begriff ist eine eigene Datei, ähnlich einer Themenseite, aber ohne
+geordnete Beitragsliste:
+
+```markdown
+---
+begriff: Erka-Control
+schreibweisen: [Erko-Control, erko control]
+---
+
+Die Software, mit der die Rotorschutz-Käfige geprüft werden.
+
+<!-- fundstellen:start -->
+- [[akku-grundlagen#00:15]] Erwähnt im Zusammenhang mit der Zellprüfung
+<!-- fundstellen:ende -->
+```
+
+Drei Zwecke, ein Ort:
+
+1. **`begriff`** speist `glossar.txt` — NUR der kanonische Begriff, nie die
+   Schreibweisen. Würden falsche Schreibweisen mit hineingehen, würde Whisper
+   künftig erst recht auf sie gewichtet, statt auf die richtige Form.
+2. **`schreibweisen`** erweitert die Suche wie ein Themen-Synonym
+   (`lib/search/synonyms.ts`, `SynonymSource` mit `kind: "glossar"`) — auch
+   mit **falsch transkribierten** Formen. Wer "Erka-Control" sucht, findet
+   damit die Stelle, an der Whisper "erko-control" geschrieben hat, ohne dass
+   `transcript.json` angefasst wird. Die Trefferliste kennzeichnet das
+   ehrlich: „gefunden über ‚erko-control' aus dem Glossar Erka-Control"
+   (`components/search/hit-list.tsx`).
+3. **Die Definition** (Fließtext außerhalb der Marker) macht daraus ein
+   Nachschlagewerk — anders als bei einer Themenseite wird hier NICHTS
+   herausgefiltert, denn es gibt keine geordnete Beitragsliste, die mit den
+   Wikilinks verwechselt werden könnte. Sie darf `[[wikilinks]]` enthalten,
+   und zwar auf Beiträge UND auf andere Begriffe: `DefinitionText`
+   (`components/glossar/definition-text.tsx`) löst dieselbe Klammer zuerst
+   gegen einen anderen Begriff auf, erst danach gegen einen Beitrag — genau
+   der Wiki-Charakter, den eine reine Fundstellenliste nicht hätte.
+
+**Bearbeitbar im Autorenmodus**, anders als eine Themenseite (die hat gar
+keinen Editor): `/glossar/<slug>/bearbeiten` ist ein strukturiertes
+Formular (Begriff, Schreibweisen, Definition), kein Rohtext-Editor — eine
+Begriffsdatei hat keine Kapitel und keine Marker, die man sehen müsste. Der
+Fundstellen-Block bleibt dabei unter der Haube unangetastet:
+`buildGlossaryMarkdown` (`lib/library/glossary-write.ts`) übernimmt ihn aus
+der zuletzt gelesenen Rohfassung, dieselbe Konfliktprüfung über `mtimeMs`
+wie bei `beitrag.md`. Ein neuer Begriff entsteht über den Knopf auf
+`/glossar` (leere Definition, sofort zum Bearbeiten) oder über die Aufgabe
+„Glossar sammeln" (`anleitungen/glossar.md`) — die migriert nebenbei alte
+Einträge aus einer noch vorhandenen `glossar.txt` in eigene Dateien.
 
 ## Der Vertrag mit dem KI-Assistenten
 
@@ -543,18 +600,20 @@ Drei Kanäle in `lib/search/index.ts`, und das ist keine Umständlichkeit:
 2. **Ein wörtlicher Teilstring-Durchgang** über dieselben Blöcke. Schließt die
    Lücke und ist bei Anfragen in Anführungszeichen der einzige zuständige
    Kanal.
-3. **Die Synonyme der Themenseiten** (`lib/search/synonyms.ts`). Wer
-   „Balancing" sucht, findet die Stelle, an der „Zellspannung" gesagt wurde
-   — bedeutungsnahe Suche ohne Embeddings und ohne eine Zusatzabhängigkeit
-   beim Kollegen.
+3. **Die Synonyme der Themenseiten UND die Schreibweisen des Glossars**
+   (`lib/search/synonyms.ts`, `SynonymSource` mit `kind: "thema" | "glossar"`).
+   Wer „Balancing" sucht, findet die Stelle, an der „Zellspannung" gesagt
+   wurde; wer „Erka-Control" sucht, findet auch, wo Whisper „erko-control"
+   verhört hat — bedeutungsnahe Suche und Tippfehler-Toleranz ohne
+   Embeddings und ohne eine Zusatzabhängigkeit beim Kollegen.
 
 Zum dritten Kanal drei Festlegungen, die nicht verhandelbar sind:
 
 - **Ein erweiterter Treffer wird als solcher gekennzeichnet** („gefunden über
-  ‚Zellprüfer' aus dem Thema …"), und die Trefferliste sagt, wonach
-  zusätzlich gesucht wurde. Eine stille Erweiterung wäre schlimmer als
-  keine: man hielte den Fremdtreffer für einen eigenen und wüsste nicht,
-  warum das gesuchte Wort im Auszug fehlt.
+  ‚Zellprüfer' aus dem Thema …" oder „… aus dem Glossar …"), und die
+  Trefferliste sagt, wonach zusätzlich gesucht wurde. Eine stille Erweiterung
+  wäre schlimmer als keine: man hielte den Fremdtreffer für einen eigenen
+  und wüsste nicht, warum das gesuchte Wort im Auszug fehlt.
 - **Direkte Treffer stehen immer über erweiterten**, und zwar durch die
   Reihenfolge der Liste, nicht durch die Punktzahl. Ein MiniSearch-Wert kann
   klein sein; auf die Zahlen zu hoffen wäre falsch.
@@ -860,7 +919,8 @@ laufen der Reihe nach als Aufträge, wahlweise auch nach jedem Import.
 `Mediathek starten.bat`, Automatik nach dem Import (`lib/jobs/auto.ts`),
 werkzeugunabhängiger Assistent, Sammlungen aus der Oberfläche, Kopfzeile mit
 Symbolen statt Navigationspunkten, Chat über den Bestand, Einstellungen in
-vier Seiten.
+vier Seiten, Glossar als eigene, im Autorenmodus bearbeitbare Wiki-Ansicht
+(`glossar/<slug>.md`, `glossar.txt` jetzt generiert statt Quelle).
 
 Noch offen: die Vektorsuche (bewusst zurückgestellt, solange der Chat die
 bedeutungsnahe Suche übernimmt), ein Durchlauf des Pakets auf einer fremden

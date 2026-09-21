@@ -466,13 +466,27 @@ export async function search(
   }
 
   /*
-   * Kanal 3: die Synonyme der Themenseiten. Nur wörtlich — die Formen sind
-   * ganze Wörter, und eine Rangfolge unter Fremdtreffern wäre eine
-   * Genauigkeit, die es hier nicht gibt.
+   * Kanal 3: die Synonyme der Themenseiten UND die Schreibweisen des
+   * Glossars. Nur wörtlich — die Formen sind ganze Wörter, und eine
+   * Rangfolge unter Fremdtreffern wäre eine Genauigkeit, die es hier nicht
+   * gibt.
    */
   const expansions = expandQuery(
     { terms, phrases },
-    buildSynonymGroups(library.topics),
+    buildSynonymGroups([
+      ...library.topics.map((topic) => ({
+        kind: "thema" as const,
+        slug: topic.slug,
+        title: topic.title,
+        synonyms: topic.synonyms,
+      })),
+      ...library.glossary.map((entry) => ({
+        kind: "glossar" as const,
+        slug: entry.slug,
+        title: entry.begriff,
+        synonyms: entry.schreibweisen,
+      })),
+    ]),
   );
   const expanded = new Map<string, Expansion>();
   for (const expansion of expansions) {
