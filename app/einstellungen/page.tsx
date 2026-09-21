@@ -3,6 +3,7 @@ import { AlertTriangle } from "lucide-react";
 
 import { LibraryDirForm } from "@/components/library/library-dir-form";
 import {
+  AuthorModeControl,
   ReloadControl,
   SettingsSection,
 } from "@/components/library/settings-controls";
@@ -10,6 +11,7 @@ import { Row } from "@/components/library/settings-rows";
 import { Card } from "@/components/ui/basis";
 import { getFeatures } from "@/lib/features";
 import { getLibrary } from "@/lib/library";
+import { defaultLibraryParent } from "@/lib/library/first-run";
 import { formatBytes } from "@/lib/library/media-kind";
 import { LIBRARY_DIR_FIXED } from "@/lib/paths";
 import { searchIndexStatus } from "@/lib/search";
@@ -25,7 +27,10 @@ const WATCH_LABEL = {
 } as const;
 
 export default async function BibliothekPage() {
-  const [library, features] = await Promise.all([getLibrary(), getFeatures()]);
+  const [library, features] = await Promise.all([
+    getLibrary(),
+    getFeatures(),
+  ]);
   // Nur ablesen, nicht anstoßen: der Index baut sich beim ersten Suchen.
   const searchStatus = searchIndexStatus();
 
@@ -38,12 +43,28 @@ export default async function BibliothekPage() {
 
   return (
     <div className="space-y-8">
-      <SettingsSection title="Ordner" hint="hierhin wird importiert">
-        {features.authorMode ? (
-          <LibraryDirForm current={library.root} fixed={LIBRARY_DIR_FIXED} />
-        ) : (
-          <code className="text-xs break-all">{library.root}</code>
-        )}
+      <SettingsSection title="Bedienung">
+        <AuthorModeControl
+          authorMode={features.authorMode}
+          readonly={features.readonly}
+        />
+      </SettingsSection>
+
+      <SettingsSection
+        title="Ordner"
+        hint="jederzeit wechseln oder neu anlegen"
+      >
+        <LibraryDirForm
+          current={library.root}
+          fixed={LIBRARY_DIR_FIXED}
+          pathExample={
+            process.platform === "darwin"
+              ? "/Volumes/…/Mediathek"
+              : String.raw`S:\Mediathek`
+          }
+          suggestedParent={defaultLibraryParent()}
+          suggestedName="Mediathek"
+        />
       </SettingsSection>
 
       <SettingsSection title="Inhalt">

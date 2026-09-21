@@ -205,4 +205,10 @@ export function resetJobs(): void {
   resetQueue();
 }
 
+/** Geordnetes Ende: laufenden Auftrag abbrechen, Zustand sichern. */
+export async function shutdownJobs(): Promise<void> {
+  const queue = await ensureReady();
+  await queue.shutdown();
+}
+
 export type { Job, JobKind, JobSnapshot };

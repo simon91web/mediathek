@@ -55,9 +55,9 @@ const PLATFORM_STEPS: TourStep[] = [
     text: "Läuft gerade eine Transkription oder die Kette, siehst du das hier – mit Zähler, solange etwas offen ist.",
   },
   {
-    target: "werkzeuge",
+    target: "anlegen",
     title: "Neue Aufnahmen importieren",
-    text: "Unter den Werkzeugen: Hochladen oder aus einem Ordner übernehmen – von hier aus kommt alles Neue in die Bibliothek.",
+    text: "Hinter dem Plus: Hochladen oder aus einem Ordner übernehmen – von hier aus kommt alles Neue in die Bibliothek.",
   },
   {
     target: "werkzeuge",
@@ -80,9 +80,9 @@ const WORKFLOW_STEPS: TourStep[] = [
     secondary: "Überspringen",
   },
   {
-    target: "werkzeuge",
+    target: "anlegen",
     title: "Import",
-    text: "Unter den Werkzeugen: Datei hochladen oder Ordner angeben – Video, Audio oder gleich ein Textbeitrag.",
+    text: "Hinter dem Plus: Datei hochladen oder Ordner angeben – Video, Audio oder gleich ein Textbeitrag.",
   },
   {
     target: "kette",

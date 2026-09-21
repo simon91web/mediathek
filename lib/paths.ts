@@ -11,8 +11,8 @@ import path from "node:path";
  *      gesetzt, gewinnt sie und der Ordner ist NICHT umstellbar. Genau das
  *      soll sie leisten: der Kollege bekommt den Ordner vorgegeben.
  *   2. Der unter Einstellungen gewählte Ordner (maschinenlokal in
- *      settings.json). Angewandt beim Serverstart, siehe
- *      ./library/library-dir.
+ *      settings.json). Lässt sich jederzeit umstellen, solange (1) nicht
+ *      gesetzt ist. Angewandt beim Serverstart, siehe ./library/library-dir.
  *   3. ./bibliothek-dev — der Standard in der Entwicklung.
  *
  * Gemappte Laufwerksbuchstaben sind an die Windows-Sitzung gebunden. Für

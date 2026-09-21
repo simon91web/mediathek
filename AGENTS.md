@@ -68,7 +68,10 @@ Drei Quellen, in dieser Reihenfolge (`lib/paths.ts`):
 
 1. **`MEDIATHEK_LIBRARY_DIR`** — setzt der Launcher des Viewer-Pakets. Ist
    sie gesetzt, gewinnt sie, und die Oberfläche kann den Ordner NICHT
-   umstellen (`LIBRARY_DIR_FIXED`). Genau das soll sie leisten.
+   umstellen (`LIBRARY_DIR_FIXED`). Genau das soll sie leisten. Ohne sie
+   lässt sich der Ordner jederzeit wechseln oder neu anlegen (Einstellungen
+   oder Werkzeuge → Bibliothek wechseln) — auch ohne Autorenmodus, denn das
+   ist die Wahl der Bibliothek, kein Schreiben in sie.
 2. **Der unter Einstellungen gewählte Ordner**, maschinenlokal in
    `settings.json` als `lastLibraryDir`. Übernommen in `instrumentation.ts`
    per `applyStoredLibraryDir()` — **vor** dem ersten Scan, sonst liest der
@@ -660,15 +663,16 @@ Vier Dinge, die dabei nicht kaputtgehen dürfen:
   ersten Mal per Rechtsklick → Öffnen, oder entfernt die Quarantäne mit
   `xattr -cr Mediathek.app`. Das Paket trägt eine ad-hoc-Signatur für die
   Build-Maschine; eine Developer-ID-Notarisierung ist nicht Teil des Baus.
-- **Ein eigenes Fenster, kein Browser-Tab.** Der Starter ruft Chrome (unter
-  Windows: Edge, sonst Chrome) mit `--app=` und einem eigenen
-  `--user-data-dir`. Das zweite ist nicht Kosmetik: nur mit eigenem Profil
-  klinkt sich der Aufruf nicht in eine laufende Browser-Sitzung ein, wartet
-  also bis zum Schließen des Fensters — und erst dadurch kann der Starter
-  den Server danach beenden. Unter Windows schreibt `app/start.js` die
-  Prozesskennung in eine Datei; aus einer cmd-Datei ist die PID eines mit
-  `start /b` gestarteten Prozesses sonst nicht zu bekommen. Unter macOS
-  liefert `$!` die PID direkt.
+- **Ein eigenes Fenster, kein Browser-Tab.** Der Starter ruft einen Browser
+  der Chromium-Familie mit `--app=` und einem eigenen `--user-data-dir`.
+  Windows: Edge, sonst Chrome. macOS: Chrome, sonst Edge, Brave, Chromium.
+  Chrome ist nicht Pflicht. Fehlt die ganze Familie, öffnet sich der
+  Standardbrowser (Safari). `--user-data-dir` hält die Sitzung getrennt.
+  Das rote x beendet sauber: `app/warten-ende.js` merkt am Renderer, dass das
+  Fenster weg ist (sonst bleibt Edge/Chrome ohne Mediathek-Fenster stehen),
+  und räumt Profil plus Server. Dasselbe auf Windows und macOS. Zusätzlich
+  der Knopf „Mediathek beenden" (`POST /api/beenden`) und unter macOS Dock /
+  cmd+Q.
 
 ### Python im Paket
 
@@ -704,7 +708,12 @@ gibt.
 - **Der Pfad muss sichtbar sein, bevor geklickt wird.** „Verzeichnis" plus
   „Name" ergibt `<Verzeichnis>/<Name>`, und genau das steht als vollständiger
   Pfad auf dem Schirm. Ein Knopf, nach dem irgendwo ein Ordner entstanden
-  ist, den man nicht wiederfindet, ist schlimmer als eine Frage mehr.
+  ist, den man nicht wiederfindet, ist schlimmer als eine Frage mehr. Der
+  Reiter „Bestehende öffnen" ist voreingestellt (weitergegebene Bibliothek)
+  und hat dasselbe: Textfeld plus Dialog, der Pfad steht da, bevor geöffnet
+  wird. Der Dialog reicht bei WebDAV oft nur bis zum Mount-Punkt — dann
+  den vollständigen Pfad einfügen (`/Volumes/…` auf dem Mac, UNC unter
+  Windows).
 - **Der Nicht-Verschachteln-Vorschlag.** Wer `D:\Mediathek` im Explorer
   anlegt, auswählt und „Mediathek" tippt, meint diesen Ordner — nicht
   `D:\Mediathek\Mediathek`. Heißt der gewählte Ordner schon so (ohne

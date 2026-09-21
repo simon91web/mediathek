@@ -6,6 +6,7 @@ import {
 } from "@/components/library/settings-controls";
 import { Row, ToolRow } from "@/components/library/settings-rows";
 import { ShortcutButton } from "@/components/library/shortcut-button";
+import { QuitButton } from "@/components/quit-button";
 import { TourSettingsButtons } from "@/components/tour/tour-settings-buttons";
 import { getFeatures } from "@/lib/features";
 import { findLauncher } from "@/lib/shell/shortcut";
@@ -28,6 +29,9 @@ export default async function ProgrammPage() {
           authorMode={features.authorMode}
           readonly={features.readonly}
         />
+        <div className="border-t border-rand pt-4">
+          <QuitButton />
+        </div>
       </SettingsSection>
 
       <SettingsSection title="Einführung">
