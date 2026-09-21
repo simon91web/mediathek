@@ -18,10 +18,10 @@ import { cn } from "@/lib/utils";
  * ein Blick, der erst ein Menü öffnen müsste, würde das verstecken.
  */
 
-export function HeaderActions({ authorMode }: { authorMode: boolean }) {
+export function HeaderActions({ readonly }: { readonly: boolean }) {
   const pathname = usePathname();
 
-  if (!authorMode) return null;
+  if (readonly) return null;
   return <JobsIcon active={pathname.startsWith("/auftraege")} />;
 }
 

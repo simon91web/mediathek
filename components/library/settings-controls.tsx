@@ -1,6 +1,7 @@
 "use client";
 
 import { useState, useTransition } from "react";
+import { useRouter } from "next/navigation";
 import { RefreshCw } from "lucide-react";
 
 import {
@@ -110,6 +111,31 @@ export function AuthorModeControl({
           </span>
         </span>
       </label>
+      {meldung}
+    </div>
+  );
+}
+
+/** Einmal-Knopf, etwa auf /aufnehmen, wenn der Autorenmodus noch aus ist. */
+export function EnableAuthorModeButton() {
+  const router = useRouter();
+  const { pending, run, meldung } = useAction();
+
+  return (
+    <div className="space-y-2">
+      <Button
+        variant="primaer"
+        disabled={pending}
+        onClick={() => {
+          run(async () => {
+            const result = await setAuthorModeAction(true);
+            if (result.ok) router.refresh();
+            return result;
+          });
+        }}
+      >
+        Autorenmodus einschalten
+      </Button>
       {meldung}
     </div>
   );

@@ -285,18 +285,11 @@ export async function pickLibraryFolderAction(): Promise<PickResult> {
  * in die lokale Bibliothek.
  */
 export async function setLibraryDirAction(dir: string): Promise<ActionResult> {
-  try {
-    await assertAuthorMode();
-  } catch (error) {
-    return {
-      ok: false,
-      error:
-        error instanceof NotAllowedError
-          ? error.message
-          : "Das ist hier nicht möglich.",
-    };
-  }
-
+  /*
+   * Kein Autorenmodus: den Ordner zu wechseln ist keine Änderung IN der
+   * Bibliothek, sondern die Wahl, welche Bibliothek gezeigt wird. Der
+   * einzige Riegel bleibt MEDIATHEK_LIBRARY_DIR (switchLibrary).
+   */
   const result = await switchLibrary(dir);
   if (!result.ok) return { ok: false, error: result.error };
 
@@ -324,18 +317,6 @@ export async function setLibraryDirAction(dir: string): Promise<ActionResult> {
  * außen wäre hier ein "öffne mir irgendetwas auf dem Rechner".
  */
 export async function openLibraryFolderAction(): Promise<ActionResult> {
-  try {
-    await assertAuthorMode();
-  } catch (error) {
-    return {
-      ok: false,
-      error:
-        error instanceof NotAllowedError
-          ? error.message
-          : "Das ist hier nicht möglich.",
-    };
-  }
-
   const dir = libraryRoot();
   const result = await openInFileManager(dir);
   if (!result.ok) return { ok: false, error: result.error };

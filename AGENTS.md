@@ -68,7 +68,10 @@ Drei Quellen, in dieser Reihenfolge (`lib/paths.ts`):
 
 1. **`MEDIATHEK_LIBRARY_DIR`** — setzt der Launcher des Viewer-Pakets. Ist
    sie gesetzt, gewinnt sie, und die Oberfläche kann den Ordner NICHT
-   umstellen (`LIBRARY_DIR_FIXED`). Genau das soll sie leisten.
+   umstellen (`LIBRARY_DIR_FIXED`). Genau das soll sie leisten. Ohne sie
+   lässt sich der Ordner jederzeit wechseln oder neu anlegen (Einstellungen
+   oder Werkzeuge → Bibliothek wechseln) — auch ohne Autorenmodus, denn das
+   ist die Wahl der Bibliothek, kein Schreiben in sie.
 2. **Der unter Einstellungen gewählte Ordner**, maschinenlokal in
    `settings.json` als `lastLibraryDir`. Übernommen in `instrumentation.ts`
    per `applyStoredLibraryDir()` — **vor** dem ersten Scan, sonst liest der
@@ -704,7 +707,12 @@ gibt.
 - **Der Pfad muss sichtbar sein, bevor geklickt wird.** „Verzeichnis" plus
   „Name" ergibt `<Verzeichnis>/<Name>`, und genau das steht als vollständiger
   Pfad auf dem Schirm. Ein Knopf, nach dem irgendwo ein Ordner entstanden
-  ist, den man nicht wiederfindet, ist schlimmer als eine Frage mehr.
+  ist, den man nicht wiederfindet, ist schlimmer als eine Frage mehr. Der
+  Reiter „Bestehende öffnen" ist voreingestellt (weitergegebene Bibliothek)
+  und hat dasselbe: Textfeld plus Dialog, der Pfad steht da, bevor geöffnet
+  wird. Der Dialog reicht bei WebDAV oft nur bis zum Mount-Punkt — dann
+  den vollständigen Pfad einfügen (`/Volumes/…` auf dem Mac, UNC unter
+  Windows).
 - **Der Nicht-Verschachteln-Vorschlag.** Wer `D:\Mediathek` im Explorer
   anlegt, auswählt und „Mediathek" tippt, meint diesen Ordner — nicht
   `D:\Mediathek\Mediathek`. Heißt der gewählte Ordner schon so (ohne

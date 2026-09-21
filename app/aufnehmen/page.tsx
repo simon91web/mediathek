@@ -2,6 +2,7 @@ import type { Metadata } from "next";
 import Link from "next/link";
 
 import { Recorder } from "@/components/aufnahme/recorder";
+import { EnableAuthorModeButton } from "@/components/library/settings-controls";
 import { ButtonLink, Leer } from "@/components/ui/basis";
 import { getFeatures } from "@/lib/features";
 
@@ -24,7 +25,10 @@ export default async function AufnehmenPage() {
             Zur Mediathek
           </ButtonLink>
           {features.readonly ? null : (
-            <ButtonLink href="/einstellungen">Einstellungen</ButtonLink>
+            <div className="flex flex-col items-center gap-3">
+              <EnableAuthorModeButton />
+              <ButtonLink href="/einstellungen">Einstellungen</ButtonLink>
+            </div>
           )}
         </div>
       </div>

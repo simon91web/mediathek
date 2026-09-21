@@ -53,6 +53,11 @@ export default async function RootLayout({
             lostDir={ersterStart.lostDir}
             suggestedParent={ersterStart.suggestedParent}
             suggestedName={ersterStart.suggestedName}
+            pathExample={
+              process.platform === "darwin"
+                ? "/Volumes/…/Mediathek"
+                : String.raw`S:\Mediathek`
+            }
           />
         </body>
       </html>
@@ -87,11 +92,11 @@ export default async function RootLayout({
              * schwebender Knopf unten rechts, nicht mehr hier.
              */}
             <div className="ml-auto flex items-center gap-1">
-              <HeaderActions authorMode={features.authorMode} />
+              <HeaderActions readonly={features.readonly} />
               <div className="mx-1">
                 <SearchBox compact />
               </div>
-              <WerkzeugeMenu authorMode={features.authorMode} />
+              <WerkzeugeMenu readonly={features.readonly} />
             </div>
           </div>
         </header>

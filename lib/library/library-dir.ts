@@ -87,8 +87,10 @@ export async function checkLibraryDir(input: string): Promise<LibraryDirCheck> {
     return {
       ok: false,
       error:
-        "Bitte den vollständigen Pfad angeben, etwa S:\\Mediathek oder " +
-        "\\\\10.0.4.200\\Geteilt\\Mediathek.",
+        process.platform === "darwin"
+          ? "Bitte den vollständigen Pfad angeben, etwa /Volumes/Freigabe/Mediathek."
+          : "Bitte den vollständigen Pfad angeben, etwa S:\\Mediathek oder " +
+            "\\\\10.0.4.200\\Geteilt\\Mediathek.",
     };
   }
 

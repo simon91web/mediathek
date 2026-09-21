@@ -5,6 +5,7 @@ import Link from "next/link";
 import { DropdownMenu } from "radix-ui";
 import {
   FilePlus2,
+  FolderTree,
   LayoutGrid,
   Mic,
   Settings,
@@ -29,7 +30,7 @@ const ITEM_CLASS =
   "flex items-center gap-2.5 rounded-lg px-2.5 py-2 text-sm text-schrift " +
   "outline-none data-[highlighted]:bg-grund-2 cursor-pointer select-none";
 
-export function WerkzeugeMenu({ authorMode }: { authorMode: boolean }) {
+export function WerkzeugeMenu({ readonly }: { readonly: boolean }) {
   const [dialog, setDialog] = useState<"import" | "sichten" | null>(null);
 
   return (
@@ -58,11 +59,17 @@ export function WerkzeugeMenu({ authorMode }: { authorMode: boolean }) {
           >
             <DropdownMenu.Item asChild>
               <Link href="/einstellungen" className={ITEM_CLASS}>
+                <FolderTree aria-hidden className="size-4 shrink-0 text-schrift-2" />
+                Bibliothek wechseln
+              </Link>
+            </DropdownMenu.Item>
+            <DropdownMenu.Item asChild>
+              <Link href="/einstellungen" className={ITEM_CLASS}>
                 <Settings aria-hidden className="size-4 shrink-0 text-schrift-2" />
                 Einstellungen
               </Link>
             </DropdownMenu.Item>
-            {authorMode ? (
+            {readonly ? null : (
               <>
                 <DropdownMenu.Item asChild>
                   <Link href="/aufnehmen" className={ITEM_CLASS}>
@@ -91,7 +98,7 @@ export function WerkzeugeMenu({ authorMode }: { authorMode: boolean }) {
                   Sichten
                 </DropdownMenu.Item>
               </>
-            ) : null}
+            )}
           </DropdownMenu.Content>
         </DropdownMenu.Portal>
       </DropdownMenu.Root>

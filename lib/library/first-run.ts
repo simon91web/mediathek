@@ -16,7 +16,8 @@ import { switchLibrary } from "./switch";
  * Ein frisch ausgepacktes Programm weiß nicht, wo die Bibliothek liegen soll
  * — und darf es auch nicht raten. Statt stillschweigend irgendwo einen Ordner
  * anzulegen, fragt es einmal. Danach steht der Pfad maschinenlokal in
- * `settings.json` und die Frage kommt nie wieder.
+ * `settings.json`. Umstellen geht danach jederzeit unter Einstellungen —
+ * der Begrüßungsschirm kommt nur wieder, wenn der gemerkte Ordner weg ist.
  *
  * WORAN „erster Start" ERKANNT WIRD, in dieser Reihenfolge:
  *
@@ -44,7 +45,7 @@ export type FirstRunState =
     };
 
 /** Wo eine neue Bibliothek am ehesten hingehört. */
-function defaultParent(): string {
+export function defaultLibraryParent(): string {
   const home = process.env.USERPROFILE ?? process.env.HOME ?? "";
   return home ? path.join(home, "Documents") : "";
 }
@@ -61,7 +62,7 @@ export async function firstRunState(): Promise<FirstRunState> {
     return {
       needed: true,
       lostDir: stored,
-      suggestedParent: defaultParent(),
+      suggestedParent: defaultLibraryParent(),
       suggestedName: "Mediathek",
     };
   }
@@ -86,7 +87,7 @@ export async function firstRunState(): Promise<FirstRunState> {
   return {
     needed: true,
     lostDir: null,
-    suggestedParent: defaultParent(),
+    suggestedParent: defaultLibraryParent(),
     suggestedName: "Mediathek",
   };
 }

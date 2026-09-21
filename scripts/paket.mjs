@@ -862,6 +862,12 @@ fi
 FENSTER="\$HOME/Library/Application Support/Mediathek/fenster"
 mkdir -p "\$FENSTER"
 
+# Ein hängengebliebenes Chrome mit DIESEM Profil zeigt sonst den toten Port
+# vom letzten Start. Nur dieses Profil, nicht das normale Chrome.
+pkill -f "--user-data-dir=\${FENSTER}" >/dev/null 2>&1 || true
+sleep 0.4
+rm -f "\$FENSTER/SingletonLock" "\$FENSTER/SingletonSocket" "\$FENSTER/SingletonCookie"
+
 if [ -n "\$KONSOLE" ]; then
   open -a Console "\$LOG" || true
 fi
@@ -881,17 +887,37 @@ do
 done
 
 if [ -n "\$BROWSER" ]; then
+  set +e
   "\$BROWSER" \\
     --app="http://127.0.0.1:\$PORT" \\
     --user-data-dir="\$FENSTER" \\
     --window-size=1400,900 \\
     --no-first-run \\
     --no-default-browser-check
+  chrome_status=\$?
+  set -e
+  if [ "\$chrome_status" -ne 0 ]; then
+    echo "Chrome/Edge endete mit \$chrome_status — öffne den Standardbrowser." >>"\$LOG"
+    open "http://127.0.0.1:\$PORT"
+    wait "\$SERVER_PID" || true
+  fi
 else
   open "http://127.0.0.1:\$PORT"
   osascript -e 'display notification "Die Mediathek läuft im Standardbrowser. Das Mediathek-Symbol im Dock beendet den Server." with title "Mediathek"'
   wait "\$SERVER_PID" || true
 fi
+`;
+
+const PAKET_COMMAND = `#!/bin/bash
+# Sichtbarer Start: dieselben Schritte wie Mediathek.app, mit Terminal.
+set -euo pipefail
+cd "$(dirname "$0")"
+if [ ! -x "Mediathek.app/Contents/MacOS/mediathek" ]; then
+  echo "Mediathek.app fehlt neben dieser Datei."
+  read -r _
+  exit 1
+fi
+exec "Mediathek.app/Contents/MacOS/mediathek" "$@"
 `;
 
 const INFO_PLIST = `<?xml version="1.0" encoding="UTF-8"?>
@@ -935,6 +961,9 @@ Starten
 -------
 Doppelklick auf „Mediathek.app“. Die Mediathek öffnet sich in einem eigenen
 Fenster — ohne Terminal. Beenden: das Fenster schließen. Der Server geht mit.
+
+Falls die App stumm bleibt: „Mediathek starten.command“ daneben — dann sieht
+man die Meldungen im Terminal.
 
 Beim ersten Start wird gefragt, wo die Bibliothek liegen soll — also der
 Ordner mit den Aufnahmen. Man kann einen bestehenden wählen (etwa auf dem
@@ -1037,6 +1066,9 @@ async function starterSchreiben() {
       "utf8",
     );
     await fs.writeFile(path.join(DIST, "LIESMICH.txt"), LIESMICH_MAC, "utf8");
+    const commandDatei = path.join(DIST, "Mediathek starten.command");
+    await fs.writeFile(commandDatei, PAKET_COMMAND, "utf8");
+    await fs.chmod(commandDatei, 0o755);
     const signatur = spawnSync(
       "codesign",
       ["--force", "--deep", "--sign", "-", BUNDLE],
@@ -1090,6 +1122,18 @@ async function pruefen() {
   }
   await durchgehen(DIST);
 
+  const quellen = [
+    "Mediathek starten.bat",
+    "Mediathek starten.command",
+    "scripts/assistent-starten.ps1",
+    "scripts/assistent-starten.sh",
+  ];
+  for (const quelle of quellen) {
+    if (!fsSync.existsSync(path.join(ROOT, quelle))) {
+      funde.push(`QUELLE FEHLT: ${quelle}`);
+    }
+  }
+
   const muss = DARWIN
     ? [
         "Mediathek.app/Contents/MacOS/mediathek",
@@ -1103,6 +1147,7 @@ async function pruefen() {
         "Mediathek.app/Contents/Resources/app/scripts/setup-python.mjs",
         "Mediathek.app/Contents/Resources/app/tools/requirements.txt",
         "LIESMICH.txt",
+        "Mediathek starten.command",
       ]
     : [
         "app/server.js",
