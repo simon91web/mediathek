@@ -52,12 +52,17 @@ export function ItemCard({
         {poster ? (
           // Kein next/image: die Bilder kommen aus der Bibliothek über eine
           // eigene Route, und der Optimizer würde sie nur durchkopieren.
+          //
+          // object-top statt der Mitte: bei einem hochformatigen Kachelbild
+          // (Hochkant-Video) schneidet die 16:9-Kachel sonst die vertikale
+          // Mitte heraus — bei App-Aufnahmen mit Kopfzeile oben und leerem
+          // Rest darunter landet das fast immer im Leeren.
           // eslint-disable-next-line @next/next/no-img-element
           <img
             src={poster}
             alt=""
             loading="lazy"
-            className="size-full object-cover transition-transform duration-200 group-hover:scale-[1.02]"
+            className="size-full object-cover object-top transition-transform duration-200 group-hover:scale-[1.02]"
           />
         ) : (
           <PlaceholderArt item={item} />

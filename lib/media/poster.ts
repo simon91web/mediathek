@@ -77,6 +77,38 @@ async function brightness(
   return Number.isFinite(value) ? value : null;
 }
 
+/**
+ * Die tatsächlich sichtbaren Maße — nach der Drehung, die ffmpeg beim
+ * Filtern ohnehin automatisch anwendet (siehe `parseRotationDeg` in
+ * `lib/media/probe.ts`). Ohne das hielte ein per Rotations-Tag gedrehtes
+ * Hochkant-Video sich für Landschaft, weil `width`/`height` aus ffprobe die
+ * rohen, ungedrehten Maße sind.
+ */
+export function displaySize(
+  width: number,
+  height: number,
+  rotationDeg: number,
+): { width: number; height: number } {
+  const swapped = rotationDeg === 90 || rotationDeg === 270;
+  return swapped ? { width: height, height: width } : { width, height };
+}
+
+/**
+ * Skaliert auf die LANGE Seite, nicht immer auf die Breite — sonst wird aus
+ * einer Hochkant-Aufnahme ein absurd hohes Bild (nachgemessen: 360×640 wurde
+ * mit dem alten, festen `scale=1280:-2` zu 1280×2276).
+ */
+export function posterScaleFilter(
+  width: number,
+  height: number,
+  rotationDeg: number,
+): string {
+  const { width: dw, height: dh } = displaySize(width, height, rotationDeg);
+  return dh > dw
+    ? "scale=-2:1280:flags=lanczos"
+    : "scale=1280:-2:flags=lanczos";
+}
+
 async function moveIntoPlace(from: string, to: string): Promise<void> {
   markOwnWrite(to);
   await fs.mkdir(path.dirname(to), { recursive: true });
@@ -108,11 +140,15 @@ export async function makeVideoPoster(
   media: string,
   targetDir: string,
   durationSec: number | null,
+  video: { width: number; height: number; rotationDeg: number } | null,
   tools: FfmpegTools,
   atSec?: number | null,
 ): Promise<PosterResult> {
   const target = path.join(targetDir, ITEM_FILES.poster);
   const work = await fs.mkdtemp(path.join(os.tmpdir(), "mediathek-poster-"));
+  const scaleFilter = video
+    ? posterScaleFilter(video.width, video.height, video.rotationDeg)
+    : "scale=1280:-2:flags=lanczos";
 
   // Bei bekannter Dauer 5 %, dann 25 %, dann 50 %. Ohne Dauer bei 3 Sekunden.
   const offsets: number[] =
@@ -142,7 +178,7 @@ export async function makeVideoPoster(
         "-i",
         media,
         "-vf",
-        "thumbnail=100,scale=1280:-2:flags=lanczos",
+        `thumbnail=100,${scaleFilter}`,
         "-frames:v",
         "1",
         "-q:v",

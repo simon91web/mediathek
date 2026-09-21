@@ -149,6 +149,14 @@ export function MediaView({
   const lastPublished = useRef(0);
   const lastSaved = useRef(0);
   const [failed, setFailed] = useState<string | null>(null);
+  /*
+   * vidstack legt den Player fest auf 16:9 an (Theme-CSS, `:where()` also
+   * mit niedrigster Spezifität — genau deshalb reicht ein Inline-Style zum
+   * Überschreiben). Für ein Hochkant-Video bliebe sonst ein schmaler
+   * Streifen zwischen zwei schwarzen Balken übrig, egal wie das Kachelbild
+   * aussieht — das Kachelbild ändert an dieser Box nichts.
+   */
+  const [aspectRatio, setAspectRatio] = useState<number | null>(null);
   const playerType = toPlayerType(mimeType);
 
   /*
@@ -215,6 +223,7 @@ export function MediaView({
       <MediaPlayer
         ref={player}
         className="w-full"
+        style={aspectRatio ? { aspectRatio } : undefined}
         title={title}
         src={playerType ? { src, type: playerType } : src}
         viewType={kind === "audio" ? "audio" : "video"}
@@ -248,6 +257,12 @@ export function MediaView({
             duration: instance.state.duration,
             ready: true,
           });
+          // Erst ab hier bekannt (und schon um eine per Rotations-Tag
+          // gedrehte Aufnahme bereinigt — das übernimmt der Browser selbst).
+          const { mediaWidth, mediaHeight } = instance.state;
+          if (mediaWidth > 0 && mediaHeight > 0) {
+            setAspectRatio(mediaWidth / mediaHeight);
+          }
         }}
         onTimeUpdate={({ currentTime }) => {
           // Ungedrosselt: ein Ausschnitt soll auf die Zehntelsekunde enden.

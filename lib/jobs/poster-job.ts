@@ -59,6 +59,7 @@ export async function runPosterJob(context: JobContext): Promise<void> {
           item.assets.mediaFile,
           item.assets.dir,
           info.durationSec,
+          info.video,
           tools,
         );
 

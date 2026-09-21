@@ -25,6 +25,10 @@ export type MediaInfo = {
     profile: string | null;
     width: number;
     height: number;
+    /** 0, 90, 180 oder 270 — wie das Bild laut Container-Metadaten beim
+     * Abspielen gedreht wird. `width`/`height` bleiben die rohen, noch
+     * ungedrehten Maße aus dem Videostrom. */
+    rotationDeg: number;
     fps: number | null;
     pixFmt: string | null;
   } | null;
@@ -49,6 +53,7 @@ type Stream = {
   sample_rate?: string;
   duration?: string;
   tags?: Record<string, string>;
+  side_data_list?: Array<{ side_data_type?: string; rotation?: number }>;
 };
 
 function runJson(
@@ -83,6 +88,27 @@ function runJson(
     }, timeoutMs);
     timer.unref?.();
   });
+}
+
+/**
+ * Handys und Actioncams speichern eine Hochkant-Aufnahme oft als querliegende
+ * Pixel mit einem Rotations-Vermerk, statt Breite und Höhe zu tauschen — ffmpeg
+ * selbst dreht beim Filtern automatisch danach (`-autorotate`, seit 4.4
+ * Standard). Für Kachelbilder zählt also diese Drehung, nicht `width`/`height`
+ * allein. Neuere Container tragen sie als `side_data_list`-Eintrag
+ * ("Display Matrix"), ältere als Zeichenkette im Tag `rotate`.
+ */
+export function parseRotationDeg(stream: Stream | undefined): number {
+  if (!stream) return 0;
+  const matrix = stream.side_data_list?.find(
+    (entry) =>
+      entry.side_data_type === "Display Matrix" &&
+      typeof entry.rotation === "number" &&
+      Number.isFinite(entry.rotation),
+  );
+  const raw = matrix ? matrix.rotation! : Number(stream.tags?.rotate ?? 0);
+  if (!Number.isFinite(raw)) return 0;
+  return ((Math.round(raw) % 360) + 360) % 360;
 }
 
 function parseFps(raw: string | undefined): number | null {
@@ -223,6 +249,7 @@ export async function probeMedia(
         profile: videoStream.profile ?? null,
         width: videoStream.width ?? 0,
         height: videoStream.height ?? 0,
+        rotationDeg: parseRotationDeg(videoStream),
         fps: parseFps(videoStream.r_frame_rate),
         pixFmt: videoStream.pix_fmt ?? null,
       }

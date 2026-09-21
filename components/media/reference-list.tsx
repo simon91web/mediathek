@@ -106,7 +106,7 @@ export function ReferenceList({
                       src={poster}
                       alt=""
                       loading="lazy"
-                      className="size-full object-cover"
+                      className="size-full object-cover object-top"
                     />
                   ) : null}
                 </span>
