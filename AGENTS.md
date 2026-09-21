@@ -663,15 +663,16 @@ Vier Dinge, die dabei nicht kaputtgehen dürfen:
   ersten Mal per Rechtsklick → Öffnen, oder entfernt die Quarantäne mit
   `xattr -cr Mediathek.app`. Das Paket trägt eine ad-hoc-Signatur für die
   Build-Maschine; eine Developer-ID-Notarisierung ist nicht Teil des Baus.
-- **Ein eigenes Fenster, kein Browser-Tab.** Der Starter ruft Chrome (unter
-  Windows: Edge, sonst Chrome) mit `--app=` und einem eigenen
-  `--user-data-dir`. Das zweite ist nicht Kosmetik: nur mit eigenem Profil
-  klinkt sich der Aufruf nicht in eine laufende Browser-Sitzung ein, wartet
-  also bis zum Schließen des Fensters — und erst dadurch kann der Starter
-  den Server danach beenden. Unter Windows schreibt `app/start.js` die
-  Prozesskennung in eine Datei; aus einer cmd-Datei ist die PID eines mit
-  `start /b` gestarteten Prozesses sonst nicht zu bekommen. Unter macOS
-  liefert `$!` die PID direkt.
+- **Ein eigenes Fenster, kein Browser-Tab.** Der Starter ruft einen Browser
+  der Chromium-Familie mit `--app=` und einem eigenen `--user-data-dir`.
+  Windows: Edge, sonst Chrome. macOS: Chrome, sonst Edge, Brave, Chromium.
+  Chrome ist nicht Pflicht. Fehlt die ganze Familie, öffnet sich der
+  Standardbrowser (Safari). `--user-data-dir` hält die Sitzung getrennt.
+  Das rote x beendet sauber: `app/warten-ende.js` merkt am Renderer, dass das
+  Fenster weg ist (sonst bleibt Edge/Chrome ohne Mediathek-Fenster stehen),
+  und räumt Profil plus Server. Dasselbe auf Windows und macOS. Zusätzlich
+  der Knopf „Mediathek beenden" (`POST /api/beenden`) und unter macOS Dock /
+  cmd+Q.
 
 ### Python im Paket
 

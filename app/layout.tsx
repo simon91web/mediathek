@@ -8,6 +8,7 @@ import { NavLinks } from "@/components/nav-links";
 import { SearchBox } from "@/components/search/search-box";
 import { Willkommen } from "@/components/start/willkommen";
 import { TourOverlay } from "@/components/tour/tour-overlay";
+import { AnlegenMenu } from "@/components/anlegen-menu";
 import { WerkzeugeMenu } from "@/components/werkzeuge/werkzeuge-menu";
 import { getFeatures } from "@/lib/features";
 import { firstRunState } from "@/lib/library/first-run";
@@ -86,17 +87,17 @@ export default async function RootLayout({
             <NavLinks />
 
             {/*
-             * Werkzeuge statt Orte: Verlauf, Suche, dann alles andere
-             * gebündelt (Einstellungen, Aufnehmen, Neuer Beitrag,
-             * Importieren, Sichten) ganz rechts. Chat lebt jetzt als
-             * schwebender Knopf unten rechts, nicht mehr hier.
+             * Rechts: Verlauf und Plus nur im Autorenmodus, dann Suche,
+             * dann Werkzeuge (Einstellungen, Beenden). Chat ist der
+             * schwebende Knopf unten rechts.
              */}
             <div className="ml-auto flex items-center gap-1">
-              <HeaderActions readonly={features.readonly} />
+              <HeaderActions authorMode={features.authorMode} />
+              <AnlegenMenu authorMode={features.authorMode} />
               <div className="mx-1">
                 <SearchBox compact />
               </div>
-              <WerkzeugeMenu readonly={features.readonly} />
+              <WerkzeugeMenu />
             </div>
           </div>
         </header>

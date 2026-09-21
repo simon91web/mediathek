@@ -577,6 +577,146 @@ versuch();
 `,
     "utf8",
   );
+
+  await fs.writeFile(
+    path.join(APP, "warten-ende.js"),
+    `/*
+ * Wartet, bis die Mediathek zu beenden ist — Windows und macOS.
+ *
+ * Zwei Ausloeser:
+ *   1. Das Fenster ist zu (kein Renderer mehr mit unserem --user-data-dir).
+ *      Chrome/Edge lassen den Prozess sonst im Dock/SysTray stehen.
+ *   2. Der Server antwortet nicht mehr (Knopf "Mediathek beenden").
+ *
+ * Danach werden die Browser-Prozesse mit diesem Profil beendet.
+ */
+const { spawnSync } = require("node:child_process");
+const net = require("node:net");
+
+const port = Number(process.argv[2]);
+const marker = process.argv[3] || "";
+if (!port || !marker || marker.length < 8) process.exit(1);
+
+function schlafen(ms) {
+  return new Promise((resolve) => setTimeout(resolve, ms));
+}
+
+function portOffen() {
+  return new Promise((resolve) => {
+    const socket = net.connect(port, "127.0.0.1");
+    socket.on("connect", () => {
+      socket.destroy();
+      resolve(true);
+    });
+    socket.on("error", () => {
+      socket.destroy();
+      resolve(false);
+    });
+  });
+}
+
+function zeilenMitMarker() {
+  if (process.platform === "win32") {
+    const escaped = marker.replace(/'/g, "''");
+    const cmd =
+      "Get-CimInstance Win32_Process | Where-Object { $_.CommandLine -and " +
+      "$_.CommandLine.Contains('" +
+      escaped +
+      "') } | ForEach-Object { " +
+      "$_.ProcessId.ToString() + '|' + $_.CommandLine }";
+    const lauf = spawnSync(
+      "powershell.exe",
+      ["-NoProfile", "-NonInteractive", "-Command", cmd],
+      { encoding: "utf8", windowsHide: true, timeout: 8000 },
+    );
+    return (lauf.stdout || "")
+      .split(/\\r?\\n/)
+      .map((z) => z.trim())
+      .filter(Boolean);
+  }
+  const lauf = spawnSync("ps", ["-ax", "-o", "pid=,command="], {
+    encoding: "utf8",
+  });
+  return (lauf.stdout || "")
+    .split("\\n")
+    .map((z) => z.trim())
+    .filter((z) => z.includes(marker));
+}
+
+function hatFenster() {
+  return zeilenMitMarker().some((z) => z.includes("--type=renderer"));
+}
+
+function hatProfil() {
+  return zeilenMitMarker().length > 0;
+}
+
+function profilBeenden() {
+  for (const zeile of zeilenMitMarker()) {
+    const pid = Number(zeile.split(/[|\\s]/)[0]);
+    if (!pid) continue;
+    try {
+      process.kill(pid);
+    } catch {
+      // schon weg
+    }
+  }
+  if (process.platform === "win32") {
+    spawnSync(
+      "powershell.exe",
+      [
+        "-NoProfile",
+        "-NonInteractive",
+        "-Command",
+        "Get-CimInstance Win32_Process | Where-Object { $_.CommandLine -and " +
+          "$_.CommandLine.Contains('" +
+          marker.replace(/'/g, "''") +
+          "') } | ForEach-Object { Stop-Process -Id $_.ProcessId -Force -ErrorAction SilentlyContinue }",
+      ],
+      { windowsHide: true, timeout: 8000 },
+    );
+  }
+}
+
+async function main() {
+  const anfang = Date.now();
+  let gesehen = false;
+  while (Date.now() - anfang < 16_000) {
+    if (!(await portOffen())) {
+      profilBeenden();
+      process.exit(0);
+    }
+    if (hatFenster()) {
+      gesehen = true;
+      break;
+    }
+    await schlafen(200);
+  }
+
+  let weg = 0;
+  for (;;) {
+    if (!(await portOffen())) break;
+    if (hatFenster()) {
+      weg = 0;
+    } else if (!gesehen) {
+      await schlafen(400);
+      continue;
+    } else {
+      weg += 1;
+      if (weg >= 4) break;
+    }
+    if (!hatProfil() && gesehen) break;
+    await schlafen(250);
+  }
+
+  profilBeenden();
+  process.exit(0);
+}
+
+main();
+`,
+    "utf8",
+  );
 }
 
 // ──────────────────────────────────────────────────────────────── Starter
@@ -662,22 +802,23 @@ if errorlevel 1 (
   goto :aufraeumen
 )
 
-rem Ein eigenes Fenster statt eines Browser-Tabs: --app blendet Adresszeile
-rem und Lesezeichen aus, --user-data-dir haelt es von einer offenen
-rem Browser-Sitzung getrennt UND sorgt dafuer, dass dieser Aufruf wartet,
-rem bis das Fenster zugeht. Nur so kann der Server danach beendet werden.
+rem Eigenes Fenster: --app, eigenes Profil. Edge, sonst Chrome, sonst Brave.
+rem x am Fenster ODER Knopf "Mediathek beenden": warten-ende.js kehrt zurueck.
 set "FENSTER=%LOCALAPPDATA%\\Mediathek\\fenster"
 set "BROWSER="
 if exist "%ProgramFiles(x86)%\\Microsoft\\Edge\\Application\\msedge.exe" set "BROWSER=%ProgramFiles(x86)%\\Microsoft\\Edge\\Application\\msedge.exe"
 if not defined BROWSER if exist "%ProgramFiles%\\Microsoft\\Edge\\Application\\msedge.exe" set "BROWSER=%ProgramFiles%\\Microsoft\\Edge\\Application\\msedge.exe"
 if not defined BROWSER if exist "%ProgramFiles%\\Google\\Chrome\\Application\\chrome.exe" set "BROWSER=%ProgramFiles%\\Google\\Chrome\\Application\\chrome.exe"
 if not defined BROWSER if exist "%ProgramFiles(x86)%\\Google\\Chrome\\Application\\chrome.exe" set "BROWSER=%ProgramFiles(x86)%\\Google\\Chrome\\Application\\chrome.exe"
+if not defined BROWSER if exist "%ProgramFiles%\\BraveSoftware\\Brave-Browser\\Application\\brave.exe" set "BROWSER=%ProgramFiles%\\BraveSoftware\\Brave-Browser\\Application\\brave.exe"
+if not defined BROWSER if exist "%LOCALAPPDATA%\\BraveSoftware\\Brave-Browser\\Application\\brave.exe" set "BROWSER=%LOCALAPPDATA%\\BraveSoftware\\Brave-Browser\\Application\\brave.exe"
 
 if defined BROWSER (
-  "%BROWSER%" --app=http://127.0.0.1:%PORT% --user-data-dir="%FENSTER%" --window-size=1400,900 --no-first-run --no-default-browser-check
+  start "" "%BROWSER%" --app=http://127.0.0.1:%PORT% --user-data-dir="%FENSTER%" --window-size=1400,900 --no-first-run --no-default-browser-check
+  "%NODE%" "%APP%\\warten-ende.js" %PORT% "%FENSTER%"
 ) else (
-  echo Weder Edge noch Chrome gefunden - die Mediathek oeffnet im Standardbrowser.
-  echo Zum Beenden dieses Fenster schliessen.
+  echo Weder Edge noch Chrome noch Brave gefunden - Standardbrowser.
+  echo Zum Beenden den Knopf in der App oder dieses Fenster schliessen.
   start "" http://127.0.0.1:%PORT%
   pause
 )
@@ -735,7 +876,11 @@ Beim ersten Start wird gefragt, wo die Bibliothek liegen soll - also der
 Ordner mit den Aufnahmen. Man kann einen bestehenden waehlen (etwa auf dem
 Netzlaufwerk) oder einen neuen anlegen. Die Antwort wird gemerkt.
 
-Beenden: das Fenster schliessen. Der Server geht mit.
+Beenden: das Fenster schliessen (x), den Knopf "Mediathek beenden"
+(Werkzeuge-Menue oder Einstellungen), oder die Konsole. Der Server geht mit.
+
+Edge ist nicht Pflicht, sonst Chrome oder Brave. Fehlt alles, oeffnet der
+Standardbrowser; dann die Konsole schliessen zum Beenden.
 
 Ganz ohne Aufblitzen, mit Symbol
 --------------------------------
@@ -843,11 +988,15 @@ killtree() {
   kill -TERM "\$_pid" 2>/dev/null || true
 }
 
+FENSTER="\$HOME/Library/Application Support/Mediathek/fenster"
+mkdir -p "\$FENSTER"
+
 cleanup() {
   if [ -n "\${SERVER_PID:-}" ]; then
     killtree "\$SERVER_PID"
     wait "\$SERVER_PID" 2>/dev/null || true
   fi
+  pkill -f "--user-data-dir=\${FENSTER}" >/dev/null 2>&1 || true
 }
 trap cleanup EXIT INT TERM
 
@@ -859,11 +1008,7 @@ if ! "\$NODE" "\$APP_DIR/warten.js" "\$PORT"; then
   exit 1
 fi
 
-FENSTER="\$HOME/Library/Application Support/Mediathek/fenster"
-mkdir -p "\$FENSTER"
-
-# Ein hängengebliebenes Chrome mit DIESEM Profil zeigt sonst den toten Port
-# vom letzten Start. Nur dieses Profil, nicht das normale Chrome.
+# Altes Profil-Fenster weg, sonst klebt Chrome am toten Port.
 pkill -f "--user-data-dir=\${FENSTER}" >/dev/null 2>&1 || true
 sleep 0.4
 rm -f "\$FENSTER/SingletonLock" "\$FENSTER/SingletonSocket" "\$FENSTER/SingletonCookie"
@@ -872,13 +1017,21 @@ if [ -n "\$KONSOLE" ]; then
   open -a Console "\$LOG" || true
 fi
 
+# Chrome ist NICHT Pflicht. Chromium-Familie kann ein eigenes Fenster
+# (--app). Sonst der Standardbrowser (oft Safari).
+#
+# Das rote x soll sauber beenden: Chrome lässt den Prozess oft im Dock
+# stehen, ohne das --app-Fenster. Wir merken das am Renderer-Prozess
+# (das Fenster) und räumen dann Server plus Chrome-Profil weg.
 BROWSER=""
 for kandidat in \\
   "/Applications/Google Chrome.app/Contents/MacOS/Google Chrome" \\
   "\$HOME/Applications/Google Chrome.app/Contents/MacOS/Google Chrome" \\
   "/Applications/Microsoft Edge.app/Contents/MacOS/Microsoft Edge" \\
-  "/Applications/Chromium.app/Contents/MacOS/Chromium" \\
-  "/Applications/Brave Browser.app/Contents/MacOS/Brave Browser"
+  "\$HOME/Applications/Microsoft Edge.app/Contents/MacOS/Microsoft Edge" \\
+  "/Applications/Brave Browser.app/Contents/MacOS/Brave Browser" \\
+  "\$HOME/Applications/Brave Browser.app/Contents/MacOS/Brave Browser" \\
+  "/Applications/Chromium.app/Contents/MacOS/Chromium"
 do
   if [ -x "\$kandidat" ]; then
     BROWSER="\$kandidat"
@@ -887,23 +1040,19 @@ do
 done
 
 if [ -n "\$BROWSER" ]; then
-  set +e
   "\$BROWSER" \\
     --app="http://127.0.0.1:\$PORT" \\
     --user-data-dir="\$FENSTER" \\
     --window-size=1400,900 \\
     --no-first-run \\
-    --no-default-browser-check
-  chrome_status=\$?
-  set -e
-  if [ "\$chrome_status" -ne 0 ]; then
-    echo "Chrome/Edge endete mit \$chrome_status — öffne den Standardbrowser." >>"\$LOG"
-    open "http://127.0.0.1:\$PORT"
-    wait "\$SERVER_PID" || true
-  fi
+    --no-default-browser-check \\
+    --disable-background-mode \\
+    >/dev/null 2>&1 &
+  "\$NODE" "\$APP_DIR/warten-ende.js" "\$PORT" "\$FENSTER"
 else
+  echo "Kein Chrome/Edge/Brave — Standardbrowser." >>"\$LOG"
   open "http://127.0.0.1:\$PORT"
-  osascript -e 'display notification "Die Mediathek läuft im Standardbrowser. Das Mediathek-Symbol im Dock beendet den Server." with title "Mediathek"'
+  osascript -e 'display notification "Kein Chrome/Edge/Brave gefunden. Beenden: Knopf in der App oder Mediathek im Dock." with title "Mediathek"'
   wait "\$SERVER_PID" || true
 fi
 `;
@@ -960,7 +1109,15 @@ const LIESMICH_MAC = `Mediathek
 Starten
 -------
 Doppelklick auf „Mediathek.app“. Die Mediathek öffnet sich in einem eigenen
-Fenster — ohne Terminal. Beenden: das Fenster schließen. Der Server geht mit.
+Fenster — ohne Terminal.
+
+Beenden: das rote x am Fenster, den Knopf „Mediathek beenden" in der App,
+oder Mediathek im Dock (cmd+Q). In allen Fällen geht der Server mit — es
+bleibt kein leeres Chrome-Symbol im Dock.
+
+Chrome ist nicht nötig. Vorhanden werden der Reihe nach genutzt: Chrome,
+Edge, Brave, Chromium — die können ein eigenes Fenster ohne Tab-Leiste.
+Fehlt alles davon, öffnet sich der Standardbrowser (oft Safari).
 
 Falls die App stumm bleibt: „Mediathek starten.command“ daneben — dann sieht
 man die Meldungen im Terminal.
@@ -1140,6 +1297,7 @@ async function pruefen() {
         "Mediathek.app/Contents/Info.plist",
         "Mediathek.app/Contents/Resources/mediathek.icns",
         "Mediathek.app/Contents/Resources/app/server.js",
+        "Mediathek.app/Contents/Resources/app/warten-ende.js",
         "Mediathek.app/Contents/Resources/app/node",
         "Mediathek.app/Contents/Resources/app/.next/static",
         "Mediathek.app/Contents/Resources/app/vorlagen/bibliothek/anleitungen/kapitel.md",
@@ -1151,6 +1309,7 @@ async function pruefen() {
       ]
     : [
         "app/server.js",
+        "app/warten-ende.js",
         "app/node.exe",
         "app/.next/static",
         "app/vorlagen/bibliothek/anleitungen/kapitel.md",
