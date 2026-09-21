@@ -9,7 +9,16 @@ import {
 } from "react";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
-import { AlertTriangle, BookOpen, Clock, PenLine, Save } from "lucide-react";
+import {
+  AlertTriangle,
+  BookOpen,
+  Check,
+  Clock,
+  Pencil,
+  PenLine,
+  Save,
+  X,
+} from "lucide-react";
 
 import { saveItemAction } from "@/app/medien/[slug]/bearbeiten/actions";
 import type { SaveResult } from "@/app/medien/[slug]/bearbeiten/actions";
@@ -23,6 +32,7 @@ import { PlayerProvider } from "@/components/player/player-provider";
 import { usePlayerStore } from "@/components/player/player-store";
 import { Button, ButtonLink } from "@/components/ui/basis";
 import { insertChapterLine } from "@/lib/editor/chapter-line";
+import { setTitleLine } from "@/lib/editor/title-line";
 import { formatTimecode, parseChapterLines } from "@/lib/library/chapters";
 import type { Chapter, MediaKind } from "@/lib/library/types";
 import { cn } from "@/lib/utils";
@@ -76,6 +86,9 @@ export function BeitragEditor({
   const editor = useRef<LivePreviewEditorHandle>(null);
   const [content, setContent] = useState(initialContent);
   const [mode, setMode] = useState<LivePreviewMode>(initialMode);
+  const [titleEditing, setTitleEditing] = useState(false);
+  const [titleDraft, setTitleDraft] = useState(title);
+  const titleInput = useRef<HTMLInputElement>(null);
   const [mtimeMs, setMtimeMs] = useState(initialMtimeMs);
   const [saving, setSaving] = useState(false);
   const [note, setNote] = useState<string | null>(null);
@@ -126,30 +139,40 @@ export function BeitragEditor({
     return () => window.removeEventListener("beforeunload", handler);
   }, [dirty]);
 
-  const save = useCallback(async () => {
-    setSaving(true);
-    setNote(null);
-    const result: SaveResult = await saveItemAction(slug, content, mtimeMs);
-    setSaving(false);
+  /*
+   * `overrideContent` ist für den Titel-Stift: der ruft speichern direkt
+   * nach dem Bestätigen auf, und `content` wäre zu diesem Zeitpunkt noch der
+   * alte Stand aus dem Render-Zeitpunkt (React-State ist nicht synchron).
+   */
+  const save = useCallback(
+    async (overrideContent?: string) => {
+      const body = overrideContent ?? content;
+      if (overrideContent !== undefined) setContent(overrideContent);
+      setSaving(true);
+      setNote(null);
+      const result: SaveResult = await saveItemAction(slug, body, mtimeMs);
+      setSaving(false);
 
-    if (result.ok) {
-      setMtimeMs(result.mtimeMs);
-      setConflict(null);
-      setNote(result.message);
-      try {
-        window.localStorage.removeItem(draftKey);
-      } catch {
-        // Unwichtig.
+      if (result.ok) {
+        setMtimeMs(result.mtimeMs);
+        setConflict(null);
+        setNote(result.message);
+        try {
+          window.localStorage.removeItem(draftKey);
+        } catch {
+          // Unwichtig.
+        }
+        router.refresh();
+        return;
       }
-      router.refresh();
-      return;
-    }
-    if (result.kind === "konflikt") {
-      setConflict({ current: result.current, mtimeMs: result.mtimeMs });
-      return;
-    }
-    setNote(result.error);
-  }, [slug, content, mtimeMs, draftKey, router]);
+      if (result.kind === "konflikt") {
+        setConflict({ current: result.current, mtimeMs: result.mtimeMs });
+        return;
+      }
+      setNote(result.error);
+    },
+    [slug, content, mtimeMs, draftKey, router],
+  );
 
   // Strg+S ist die Taste, die jeder ohnehin drückt.
   useEffect(() => {
@@ -178,6 +201,41 @@ export function BeitragEditor({
     });
   };
 
+  const startTitleEdit = () => {
+    setTitleDraft(title);
+    setTitleEditing(true);
+  };
+
+  const cancelTitleEdit = () => {
+    setTitleDraft(title);
+    setTitleEditing(false);
+  };
+
+  /*
+   * Der Titel lebt in derselben Datei wie der Rest — es gibt kein separates
+   * "nur den Titel speichern". Bestätigt wird deshalb sofort gespeichert,
+   * nicht bloß im Entwurf vorgemerkt: das Häkchen verspricht "fertig", nicht
+   * "auf den großen Speichern-Knopf warten".
+   */
+  const confirmTitleEdit = () => {
+    const next = titleDraft.trim();
+    setTitleEditing(false);
+    if (!next || next === title) return;
+    const result = setTitleLine(content, next);
+    if (!result.ok) {
+      setNote(result.reason);
+      return;
+    }
+    void save(result.content);
+  };
+
+  useEffect(() => {
+    if (titleEditing) {
+      titleInput.current?.focus();
+      titleInput.current?.select();
+    }
+  }, [titleEditing]);
+
   const chapterCount = parseChapterLines(content).length;
 
   return (
@@ -188,9 +246,59 @@ export function BeitragEditor({
             <p className="text-xs tracking-wide text-schrift-3 uppercase">
               Bearbeiten
             </p>
-            <h1 className="truncate text-xl font-semibold tracking-tight">
-              {title}
-            </h1>
+            {titleEditing ? (
+              <div className="flex items-center gap-1">
+                <input
+                  ref={titleInput}
+                  value={titleDraft}
+                  onChange={(event) => setTitleDraft(event.target.value)}
+                  onKeyDown={(event) => {
+                    if (event.key === "Enter") {
+                      event.preventDefault();
+                      confirmTitleEdit();
+                    } else if (event.key === "Escape") {
+                      event.preventDefault();
+                      cancelTitleEdit();
+                    }
+                  }}
+                  aria-label="Titel"
+                  className="min-w-0 grow border-b border-akzent bg-transparent text-xl font-semibold tracking-tight outline-none"
+                />
+                <button
+                  type="button"
+                  onClick={confirmTitleEdit}
+                  aria-label="Titel übernehmen"
+                  title="Übernehmen"
+                  className="flex size-6 shrink-0 items-center justify-center rounded-md text-akzent hover:bg-grund-3"
+                >
+                  <Check aria-hidden className="size-4" />
+                </button>
+                <button
+                  type="button"
+                  onClick={cancelTitleEdit}
+                  aria-label="Umbenennen abbrechen"
+                  title="Abbrechen"
+                  className="flex size-6 shrink-0 items-center justify-center rounded-md text-schrift-3 hover:bg-grund-3 hover:text-schrift"
+                >
+                  <X aria-hidden className="size-4" />
+                </button>
+              </div>
+            ) : (
+              <div className="flex items-baseline gap-1.5">
+                <h1 className="truncate text-xl font-semibold tracking-tight">
+                  {title}
+                </h1>
+                <button
+                  type="button"
+                  onClick={startTitleEdit}
+                  aria-label="Titel bearbeiten"
+                  title="Titel bearbeiten"
+                  className="flex size-[22px] shrink-0 items-center justify-center rounded-md text-schrift-3 hover:bg-grund-3 hover:text-schrift"
+                >
+                  <Pencil aria-hidden className="size-3.5" />
+                </button>
+              </div>
+            )}
             <p className="mt-0.5 text-xs text-schrift-3">
               beitrag.md · {chapterCount}{" "}
               {kind === "text" ? "Kapitelzeilen" : "Kapitel"}

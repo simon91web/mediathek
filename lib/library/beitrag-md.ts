@@ -231,7 +231,7 @@ export function renderItemMarkdown(input: {
 }
 
 /** Nur zitieren, wenn YAML es braucht — von Hand gelesene Dateien bleiben lesbar. */
-function yamlString(value: string): string {
+export function yamlString(value: string): string {
   const needsQuotes =
     /^[\s>|&*!%@`'"[{]/.test(value) ||
     /:\s/.test(value) ||
