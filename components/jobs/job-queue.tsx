@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, useTransition } from "react";
+import { useEffect, useState, useTransition } from "react";
 import { useRouter } from "next/navigation";
 import Link from "next/link";
 import {
@@ -33,7 +33,7 @@ import {
 import { useJobs } from "@/components/jobs/use-jobs";
 import { Button, Leer } from "@/components/ui/basis";
 import type { Job, JobKind, JobState } from "@/lib/jobs/types";
-import { isFinished, KIND_LABEL } from "@/lib/jobs/types";
+import { isAssistantKind, isFinished, KIND_LABEL } from "@/lib/jobs/types";
 import { cn } from "@/lib/utils";
 
 /*
@@ -74,6 +74,48 @@ function formatEta(seconds: number | null): string | null {
   return `noch etwa ${minutes} ${minutes === 1 ? "Minute" : "Minuten"}`;
 }
 
+/** mm:ss, ab einer Stunde h:mm:ss. */
+function formatDauer(seconds: number): string {
+  const gesamt = Math.max(0, Math.floor(seconds));
+  const stunden = Math.floor(gesamt / 3600);
+  const minuten = Math.floor(gesamt / 60) % 60;
+  const sekunden = gesamt % 60;
+  const rest = `${String(minuten).padStart(stunden > 0 ? 2 : 1, "0")}:${String(sekunden).padStart(2, "0")}`;
+  return stunden > 0 ? `${stunden}:${rest}` : rest;
+}
+
+/**
+ * Der laufende oder nächste Schritt eines Stapels ("Alles erschließen") —
+ * für die Sammel-Anzeige oben in der Liste. `index`/`total` kommen direkt
+ * aus dem Auftrag, keine eigene Zählung: sonst könnten beide Zahlen
+ * widersprechen.
+ */
+function aktiverStapel(
+  jobs: Job[],
+): { index: number; total: number; title: string; laeuft: boolean } | null {
+  const laufend = jobs.find((job) => job.state === "laeuft" && job.batch);
+  if (laufend?.batch) {
+    return {
+      index: laufend.batch.index,
+      total: laufend.batch.total,
+      title: laufend.title,
+      laeuft: true,
+    };
+  }
+  const wartend = [...jobs]
+    .filter((job) => job.state === "wartet" && job.batch)
+    .sort((a, b) => a.batch!.index - b.batch!.index)[0];
+  if (wartend?.batch) {
+    return {
+      index: wartend.batch.index,
+      total: wartend.batch.total,
+      title: wartend.title,
+      laeuft: false,
+    };
+  }
+  return null;
+}
+
 export function JobQueue() {
   const router = useRouter();
   const { jobs, runningId } = useJobs();
@@ -90,6 +132,7 @@ export function JobQueue() {
   // Neueste zuerst, aber Laufende und Wartende immer oben.
   const open = sichtbar.filter((job) => !isFinished(job.state));
   const done = [...sichtbar].reverse().filter((job) => isFinished(job.state));
+  const stapel = aktiverStapel(open);
 
   const lauf = (
     aktion: () => Promise<{ ok: boolean; message?: string; error?: string }>,
@@ -139,6 +182,30 @@ export function JobQueue() {
           </p>
         </div>
       </div>
+      {stapel ? (
+        <div className="rounded-xl border border-rand bg-grund-2 p-4">
+          <div className="flex flex-wrap items-baseline gap-2">
+            <Wand2 aria-hidden className="size-3.5 text-akzent" />
+            <span className="font-medium">Alles erschließen läuft</span>
+            <span className="ml-auto text-xs text-schrift-2 tabular-nums">
+              Beitrag {stapel.index} von {stapel.total}
+            </span>
+          </div>
+          <div className="mt-2.5 h-1.5 overflow-hidden rounded-full bg-grund-3">
+            <div
+              className="h-full rounded-full bg-akzent transition-[width] duration-500"
+              style={{
+                width: `${Math.round(((stapel.index - 1) / stapel.total) * 100)}%`,
+              }}
+            />
+          </div>
+          <p className="mt-1.5 text-xs text-schrift-2">
+            {stapel.index - 1} von {stapel.total} Beiträgen fertig
+            {stapel.laeuft ? ` · ${stapel.title} läuft` : ""}
+          </p>
+        </div>
+      ) : null}
+
       {note ? <p className="text-sm text-akzent">{note}</p> : null}
 
       {open.length === 0 && done.length === 0 ? (
@@ -197,6 +264,23 @@ function JobRow({ job, running }: { job: Job; running: boolean }) {
   const eta = formatEta(job.etaSec);
   const percent = Math.round(Math.min(1, Math.max(0, job.progress)) * 100);
 
+  /*
+   * Ein KI-Schritt (Kapitel, Bezüge, …) meldet keinen Fortschritt — der
+   * Prozentsatz stünde die ganze Laufzeit bei den 5 % des Starts. Eine
+   * tickende Laufzeit ist dagegen ein echter, zählbarer Wert.
+   */
+  const ohneFortschritt = job.state === "laeuft" && isAssistantKind(job.kind);
+  const [jetzt, setJetzt] = useState(() => Date.now());
+  useEffect(() => {
+    if (!ohneFortschritt || !job.startedAt) return;
+    const id = setInterval(() => setJetzt(Date.now()), 1000);
+    return () => clearInterval(id);
+  }, [ohneFortschritt, job.startedAt]);
+  const laufzeit =
+    ohneFortschritt && job.startedAt
+      ? formatDauer((jetzt - new Date(job.startedAt).getTime()) / 1000)
+      : null;
+
   return (
     <div
       className={cn(
@@ -240,23 +324,31 @@ function JobRow({ job, running }: { job: Job; running: boolean }) {
             <X aria-hidden className="size-3" />
           )}
           {STATE_LABEL[job.state]}
-          {job.state === "laeuft" ? ` · ${percent} %` : ""}
+          {laufzeit
+            ? ` · seit ${laufzeit}`
+            : job.state === "laeuft"
+              ? ` · ${percent} %`
+              : ""}
         </span>
       </div>
 
       {job.state === "laeuft" ? (
         <div
-          className="mt-2 h-1.5 overflow-hidden rounded-full bg-grund-3"
+          className="relative mt-2 h-1.5 overflow-hidden rounded-full bg-grund-3"
           role="progressbar"
-          aria-valuenow={percent}
+          aria-valuenow={ohneFortschritt ? undefined : percent}
           aria-valuemin={0}
           aria-valuemax={100}
           aria-label={`${KIND_LABEL[job.kind]}${job.slug ? ` von ${job.title}` : ""}`}
         >
-          <div
-            className="h-full rounded-full bg-akzent transition-[width] duration-500"
-            style={{ width: `${Math.max(2, percent)}%` }}
-          />
+          {ohneFortschritt ? (
+            <div className="balken-unbestimmt h-full w-[35%] rounded-full bg-akzent" />
+          ) : (
+            <div
+              className="h-full rounded-full bg-akzent transition-[width] duration-500"
+              style={{ width: `${Math.max(2, percent)}%` }}
+            />
+          )}
         </div>
       ) : null}
 

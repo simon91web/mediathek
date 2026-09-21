@@ -42,12 +42,16 @@ function JobsIcon({ active }: { active: boolean }) {
     ? Math.round(Math.min(1, Math.max(0, laeuft.progress)) * 100)
     : null;
 
+  const batchHinweis = laeuft?.batch
+    ? ` · Beitrag ${laeuft.batch.index} von ${laeuft.batch.total}`
+    : "";
+
   const titel =
     offen.length > 0
       ? laeuft
         ? `${laeuft.title}: ${laeuft.message || "läuft"}${
             prozent !== null ? ` (${prozent} %)` : ""
-          }`
+          }${batchHinweis}`
         : `${offen.length} ${offen.length === 1 ? "Auftrag wartet" : "Aufträge warten"}`
       : fehlerhaft.length > 0
         ? `${fehlerhaft.length} ${fehlerhaft.length === 1 ? "Auftrag mit Fehler" : "Aufträge mit Fehler"}`

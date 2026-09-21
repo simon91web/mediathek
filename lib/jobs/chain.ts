@@ -102,7 +102,11 @@ function needed(item: Item, kind: JobKind, erneut: boolean): boolean {
  */
 export async function startChain(
   slug: Slug,
-  options: { erneut?: boolean } = {},
+  options: {
+    erneut?: boolean;
+    /** Gehört dieser Lauf zu "Alles erschließen"? Siehe startChainForAll. */
+    batch?: { id: string; index: number; total: number };
+  } = {},
 ): Promise<ChainResult> {
   const [library, features, settings] = await Promise.all([
     getLibrary(),
@@ -197,6 +201,7 @@ export async function startChain(
       slug,
       title: item.title,
       chain: { id: chainId, step, total: CHAIN_ORDER.length },
+      batch: options.batch,
     });
     steps.push({ kind, state: "angestellt" });
     queued += 1;
@@ -225,8 +230,24 @@ export async function startChainForAll(): Promise<ChainAllResult> {
   let items = 0;
   let queued = 0;
 
-  for (const item of library.items) {
-    const result = await startChain(item.slug);
+  /*
+   * Vorab gezählt, damit die Anzeige eine echte Bruchzahl hat ("Beitrag 3
+   * von 11") statt eines Laufs ohne erkennbares Ende. Dieselbe Prüfung wie
+   * unten in startChain — ob ein Werkzeug fehlt, entscheidet sich erst dort,
+   * die Zählung hier ist deshalb eine ehrliche Schätzung, keine Zusage.
+   */
+  const kandidaten = library.items.filter((item) =>
+    CHAIN_ORDER.some((kind) => needed(item, kind, false)),
+  );
+  const batchId =
+    kandidaten.length > 1 ? `stapel-${Date.now().toString(36)}` : undefined;
+
+  for (const [index, item] of kandidaten.entries()) {
+    const result = await startChain(item.slug, {
+      batch: batchId
+        ? { id: batchId, index: index + 1, total: kandidaten.length }
+        : undefined,
+    });
     if (!result.ok) continue;
     for (const step of result.steps) {
       if (step.state === "fehlt-werkzeug" && step.note) skipped.add(step.note);

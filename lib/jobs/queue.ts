@@ -182,8 +182,13 @@ class JobQueue {
       if (parsed.version !== 1 || !Array.isArray(parsed.jobs)) return;
 
       for (const stored of parsed.jobs) {
-        // `chain` kam später dazu: ältere Zustandsdateien haben es nicht.
-        const job: Job = { ...stored, chain: stored.chain ?? null, pid: null };
+        // `chain`/`batch` kamen später dazu: ältere Zustandsdateien haben sie nicht.
+        const job: Job = {
+          ...stored,
+          chain: stored.chain ?? null,
+          batch: stored.batch ?? null,
+          pid: null,
+        };
         if (!isFinished(job.state)) {
           job.state = "fehler";
           job.finishedAt = new Date().toISOString();
@@ -247,6 +252,8 @@ class JobQueue {
     payload?: Record<string, unknown>;
     /** Glied einer Kette: siehe #kettenLaeuftNochRichtig. */
     chain?: { id: string; step: number; total: number };
+    /** Gehört zu einem Stapel ("Alles erschließen"): siehe types.ts. */
+    batch?: { id: string; index: number; total: number };
   }): Job {
     const id = `${Date.now().toString(36)}${Math.random()
       .toString(36)
@@ -272,6 +279,7 @@ class JobQueue {
       error: null,
       logFile: path.join(this.#stateDir, "logs", `${id}.log`),
       chain: input.chain ?? null,
+      batch: input.batch ?? null,
     };
     // Der Runner bekommt seine Angaben über eine Nebenkarte, damit `Job`
     // nur enthält, was die Anzeige braucht.

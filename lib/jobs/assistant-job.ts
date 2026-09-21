@@ -41,12 +41,23 @@ export async function runAssistantJob(context: JobContext): Promise<void> {
     message: "Das Werkzeug wird gestartet …",
   });
 
+  /*
+   * Ein Sprachmodell meldet oft erst ganz am Schluss etwas — bis dahin
+   * stünde "wird gestartet" fälschlich für Minuten. Nach 10 s ohne Zeile
+   * wird die Meldung ehrlicher, ohne einen Fortschritt vorzutäuschen.
+   */
+  let gemeldet = false;
+  const herzschlag = setTimeout(() => {
+    if (!gemeldet) update({ message: "Arbeitet — noch keine Zwischenmeldung." });
+  }, 10_000);
+
   const result = await runAssistantTask({
     task,
     slug: job.slug || null,
     onPid: setPid,
     isCanceled: context.isCanceled,
     onLine: (line) => {
+      gemeldet = true;
       log(line);
       /*
        * Die letzte Zeile als Meldung. Gekürzt, weil manche Werkzeuge ganze
@@ -59,6 +70,7 @@ export async function runAssistantJob(context: JobContext): Promise<void> {
     },
   });
 
+  clearTimeout(herzschlag);
   setPid(null);
 
   if (!result.ok) {

@@ -156,6 +156,29 @@
 }
 
 /*
+ * Der Balken eines KI-Schritts (Kapitel, Bezüge, …): ein Sprachmodell meldet
+ * keinen Fortschritt, also täuscht der Balken keinen vor — er läuft
+ * durchgehend, statt bei einem erfundenen Prozentsatz stehenzubleiben.
+ */
+@keyframes mediathek-balken-unbestimmt {
+  0% {
+    transform: translateX(-100%);
+  }
+  50% {
+    transform: translateX(140%);
+  }
+  100% {
+    transform: translateX(340%);
+  }
+}
+.balken-unbestimmt {
+  position: absolute;
+  top: 0;
+  left: 0;
+  animation: mediathek-balken-unbestimmt 1.6s ease-in-out infinite;
+}
+
+/*
  * Vidstack bringt eigene Stile mit; hier nur die Anpassungen, die den Player
  * in die Oberfläche einpassen.
  */

@@ -69,6 +69,13 @@ export type Job = {
    * Transkript wären erfunden.
    */
   chain: { id: string; step: number; total: number } | null;
+  /**
+   * Gehört dieser Auftrag zu einem Stapel ("Alles erschließen")? `index`/
+   * `total` zählen Beiträge, nicht Schritte — jeder Schritt derselben Kette
+   * trägt denselben Wert. Nur so lässt sich "Beitrag 3 von 11" ehrlich
+   * zeigen, statt eines erfundenen Prozentsatzes.
+   */
+  batch: { id: string; index: number; total: number } | null;
 };
 
 export type JobSnapshot = {
