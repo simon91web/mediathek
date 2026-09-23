@@ -33,6 +33,7 @@ in Anleitungen sind Platzhalter und stehen nie im Dateinamen.
 | `anleitungen/glossar.md` | Begriffe sammeln |
 | `anleitungen/fragen.md` | gleichartige Fragen zusammenfassen |
 | `anleitungen/vollstaendigkeit.md` | Lücken mit Beleg |
+| `anleitungen/bestand.md` | eine Frage beantworten und unter `Fragen/` ablegen |
 
 Die Anleitungen nennen kein Programm. Ein CLI liest `toolset.yaml` und übergibt
 einen Satz der Form: „Befolge die Anweisungen in anleitungen/kapitel.md. Es

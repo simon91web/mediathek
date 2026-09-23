@@ -1,0 +1,23 @@
+version: 1
+inbox: Inbox
+ordner:
+  medien: Medien
+  karten: "$_"
+  glossar: Glossar
+  fragen: Fragen
+  sammlungen: Sammlungen
+  analysen: Analysen
+anleitungen: anleitungen
+bereiche: [Kapitel, Zusammenfassung, Bezüge, Transkript]
+kette: [transkription, kapitel, bezuege]
+aufgaben:
+  kapitel: anleitungen/kapitel.md
+  kapitel-alle: anleitungen/kapitel-alle.md
+  bezuege: anleitungen/bezuege.md
+  themen: anleitungen/themen.md
+  glossar: anleitungen/glossar.md
+  fragen: anleitungen/fragen.md
+  vollstaendigkeit: anleitungen/vollstaendigkeit.md
+  sichtung: anleitungen/sichtung.md
+  inbox: anleitungen/inbox.md
+  bestand: anleitungen/bestand.md

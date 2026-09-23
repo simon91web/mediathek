@@ -1,0 +1,10 @@
+{
+  "id": "medienwerkbank",
+  "name": "Medienwerkbank",
+  "version": "0.1.0",
+  "minAppVersion": "1.5.0",
+  "description": "Erschließt einen Mediathek-Vault: Anleitungen, CLI-Aufträge, Sprung im eingebetteten Film.",
+  "author": "Simon Lukaschewsky",
+  "authorUrl": "https://github.com/simon91web",
+  "isDesktopOnly": true
+}
