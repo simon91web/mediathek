@@ -1,0 +1,22 @@
+filters:
+  and:
+    - file.inFolder("Medien")
+    - 'typ == "Medium"'
+properties:
+  art:
+    displayName: Art
+  status:
+    displayName: Status
+  aufgenommen:
+    displayName: Aufgenommen
+  dauer:
+    displayName: Dauer
+views:
+  - type: table
+    name: Medien
+    order:
+      - file.name
+      - art
+      - status
+      - aufgenommen
+      - dauer

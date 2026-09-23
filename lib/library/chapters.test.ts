@@ -10,6 +10,7 @@ import {
   linkifyTimeMentions,
   parseChapterLines,
   parseSectionLines,
+  parseTimeHeadings,
   parseTimecode,
 } from "./chapters";
 
@@ -117,6 +118,23 @@ describe("parseChapterLines — was ein Kapitel ist", () => {
   ];
   it.each(rejected)("verwirft %j", (line) => {
     expect(parseChapterLines(line)).toHaveLength(0);
+  });
+
+  it("liest eine Vault-Überschrift als Kapitel", () => {
+    const found = parseTimeHeadings(
+      ["## Kapitel", "### 00:30 Akku prüfen", "### 1:02:03 Nachbereitung"].join(
+        "\n",
+      ),
+    );
+    expect(found.map((entry) => [entry.start, entry.title])).toEqual([
+      [30, "Akku prüfen"],
+      [3723, "Nachbereitung"],
+    ]);
+  });
+
+  it("lässt die alte Zeilenform in parseChapterLines und ignoriert sie in den Überschriften", () => {
+    expect(parseTimeHeadings("01:24 Akku prüfen")).toHaveLength(0);
+    expect(parseChapterLines("### 00:30 Akku prüfen")).toHaveLength(0);
   });
 
   it("überspringt umzäunte Codeblöcke", () => {

@@ -1,0 +1,9 @@
+filters:
+  and:
+    - 'typ == "Thema"'
+views:
+  - type: table
+    name: Karten
+    order:
+      - file.name
+      - status

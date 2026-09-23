@@ -1,0 +1,9 @@
+filters:
+  and:
+    - file.inFolder("Fragen")
+views:
+  - type: table
+    name: Fragen
+    order:
+      - file.name
+      - status

@@ -1,0 +1,9 @@
+filters:
+  and:
+    - file.inFolder("Glossar")
+views:
+  - type: table
+    name: Glossar
+    order:
+      - file.name
+      - begriff

@@ -1,0 +1,11 @@
+filters:
+  and:
+    - 'typ == "Medium"'
+    - 'status != "erschlossen"'
+views:
+  - type: table
+    name: Offen
+    order:
+      - file.name
+      - status
+      - art

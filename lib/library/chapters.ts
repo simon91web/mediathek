@@ -183,6 +183,36 @@ export function parseChapterLines(body: string): ParsedChapterLine[] {
 }
 
 /**
+ * Kapitel im Vault: `### 00:30 Akku prüfen`.
+ *
+ * Bewusst getrennt von parseChapterLines. Dort bleibt eine Überschrift
+ * kein Kapitel, die alte Bibliothek und ihre Tests hängen daran. Im Vault
+ * ist die Überschrift die Kapitelliste, weil Obsidian daraus die Gliederung
+ * baut. `## Kapitel` ohne Zeit ist keine Kapitelzeile.
+ */
+const TIME_HEADING =
+  /^ {0,3}#{2,3}\s+(\d{1,3}:\d{2}(?::\d{2})?)\s+(.+?)\s*#*\s*$/;
+
+export function parseTimeHeadings(body: string): ParsedChapterLine[] {
+  const lines = body.split("\n");
+  const inCode = markCodeLines(lines);
+  const found: ParsedChapterLine[] = [];
+
+  for (let i = 0; i < lines.length; i += 1) {
+    if (inCode[i]) continue;
+    const match = TIME_HEADING.exec(lines[i]);
+    if (!match) continue;
+    const start = parseTimecode(match[1]);
+    if (start === null) continue;
+    const title = match[2].trim();
+    if (!title) continue;
+    found.push({ start, title, line: i + 1, raw: lines[i] });
+  }
+
+  return found;
+}
+
+/**
  * Baut aus den gefundenen Zeilen die Kapitelliste.
  *
  * `durationSeconds` darf null sein — die echte Dauer kennt erst der Player.
