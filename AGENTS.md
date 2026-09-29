@@ -890,6 +890,23 @@ Der echte Produktionsstarter gehört ins Viewer-Paket (Etappe 4) — dort mit
 fertigem Bau, eigener node-Binärdatei und einem absichtlich festen
 Bibliotheksordner.
 
+## Der Obsidian-Vault
+
+Neben der Bibliothek gibt es einen zweiten Bestand: ein Obsidian-Vault aus
+Notizen, Filmen und Bases. Lesen und Abspielen macht Obsidian. Erschließen
+macht `scripts/vault.mjs`, mit dem Vault als Arbeitsverzeichnis des Werkzeugs.
+Die Anleitungen liegen in `vorlagen/anleitungen/` und gehen als Text in den
+Auftrag. Die Ordnernamen stehen in `vorlagen/toolset.yaml` und in denselben
+Anleitungen.
+
+```bash
+node scripts/vault.mjs --vault D:\Wissen kapitel "Vorflugkontrolle Elios 3"
+node scripts/vault.mjs --vault D:\Wissen transkribieren "Vorflugkontrolle Elios 3"
+```
+
+Whisper ist `tools/transcribe.py` mit der Umgebung aus `npm run setup:python`.
+Das Protokoll liegt maschinenlokal im Ordner Mediathek (`vault-laeufe.log`).
+
 ## Stand
 
 **Etappe 1:** Bibliothek, drei Medienarten, Player mit Kapiteln, Textansicht

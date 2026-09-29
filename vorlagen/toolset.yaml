@@ -1,0 +1,15 @@
+version: 1
+inbox: 00_Inbox
+ordner:
+  notizen: 10_Notizen
+  anhaenge: 20_Attachments
+  karten: 30_Themen
+  glossar: 40_Glossar
+  fragen: 50_Fragen
+  sammlungen: 60_Sammlungen
+  analysen: 70_Analysen
+  sichten: 80_Sichten
+praefix:
+  karten: "$_"
+bereiche: [Kapitel, Zusammenfassung, Bezüge, Transkript]
+kette: [transkription, kapitel, bezuege]

@@ -1,14 +1,17 @@
-Lege Maps of Content an oder pflege eine genannte.
+Lege ein Thema an oder pflege eines.
 
 Eine Karte ist der Einstieg in ein Wissensgebiet. Sie sammelt, was in
 verschiedenen Notizen über dieselbe Sache gesagt wird. Sie ist kein Kurs.
 Niemand arbeitet sie durch.
 
-Der Dateiname ist `$_<Name>.md` im Vault-Wurzel. `$_Zellspannung.md`, nicht
-`Themen/Zellspannung.md`. Die Aliase im Kopf sind die anderen Wörter für
-dieselbe Sache. Wer „Balancing“ sucht, soll die Karte finden. Die
-Obsidian-Suche springt davon nicht in eine Transkriptstelle, die das Wort
-nicht enthält. Dafür ist die Karte da, und dafür sind die Verweise darin da.
+Die Datei liegt in `30_Themen/` und heißt `$_<Name>.md`, zum Beispiel
+`30_Themen/$_Zellspannung.md`. `aliases` ist der lesbare Name ohne `$_` und ohne
+Bindestriche: aus `$_Flyability-Workspace-Struktur` wird `Flyability Workspace
+Struktur`. Ein einzelnes weiteres Wort steht bei `tags`. Mehrere Wörter
+gehören nach `synonyme`, weil ein Obsidian-Tag kein Leerzeichen enthalten
+darf. Wer „Balancing“ sucht, findet die Karte über den Tag. Die Obsidian-Suche springt
+davon nicht in eine Transkriptstelle, die das Wort nicht enthält. Dafür ist
+die Karte da, und dafür sind die Verweise darin da.
 
 ## Eine Karte ist es wert, wenn
 
@@ -21,16 +24,16 @@ Zehn bis dreißig Karten sind für einen Bestand dieser Art richtig.
 ## Erst lesen
 
 1. Die Zusammenfassungen und Kapiteltitel, dann gezielt die Transkripte.
-2. Die vorhandenen `$_*.md`.
-3. `Glossar/` für die Schreibweisen.
+2. Die vorhandenen Dateien in `30_Themen/`.
+3. `40_Glossar/` für die Schreibweisen.
 
 ## Die Datei
 
 ```markdown
 ---
 typ: Thema
-tags: []
-aliases: [Balancing, Zellprüfer]
+tags: [akku, Balancing, Zellprüfer]
+aliases: [Zellspannung]
 status: erschlossen
 ---
 

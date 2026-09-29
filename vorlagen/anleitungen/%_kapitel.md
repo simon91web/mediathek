@@ -2,10 +2,10 @@ Erschließe die genannte Notiz.
 
 ## Erst lesen
 
-1. Die Notiz unter `Medien/`. Was steht über `## Kapitel` schon da?
+1. Die Notiz unter `10_Notizen/`. Was steht über `## Kapitel` schon da?
 2. Die gleichnamige `transcript.json`. Ein Feld `segments`, jedes mit
    `start`, `end`, `text`.
-3. `Glossar/` für die Schreibweise der Fachbegriffe. Maßgeblich ist das Feld
+3. `40_Glossar/` für die Schreibweise der Fachbegriffe. Maßgeblich ist das Feld
    `begriff`, nicht die Aliase.
 
 Gibt es keine `transcript.json`, ist es entweder eine Textnotiz (dann ist

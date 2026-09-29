@@ -7,7 +7,7 @@ Finde für die genannte Notiz, was im übrigen Vault damit zu tun hat.
 2. Die Transkripte der anderen Notizen, bei Textnotizen deren Text. Bei
    vielen Notizen erst nach den Fachbegriffen suchen, dann die Fundstelle
    im Zusammenhang lesen.
-3. Die Dateien `$_*.md`. Ihre Aliase sagen, welche Wörter dieselbe Sache
+3. Die Dateien in `30_Themen/`. Ihre Aliase sagen, welche Wörter dieselbe Sache
    meinen.
 
 ## Was ein guter Bezug ist

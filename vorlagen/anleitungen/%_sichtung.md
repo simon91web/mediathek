@@ -1,10 +1,10 @@
-Beurteile eine Datei, die noch in `Inbox/` liegt. Verschiebe nichts. Schreibe
-keine Notiz unter `Medien/`.
+Beurteile eine Datei, die noch in `00_Inbox/` liegt. Verschiebe nichts. Schreibe
+keine Notiz unter `10_Notizen/`.
 
 ## Erst lesen
 
 Die Datei, und wenn ein Kurztranskript mitgegeben wurde, dieses. Dann die
-Karten `$_*.md` und die Notizen, die der Name oder das Transkript nahelegen.
+die Karten in `30_Themen/` und die Notizen, die der Name oder das Transkript nahelegen.
 
 ## Das Urteil
 

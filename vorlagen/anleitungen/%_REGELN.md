@@ -7,15 +7,15 @@ pflegen, Lücken benennen.
 Es gibt keine Datenbank. Alles sind Dateien:
 
 ```
-Medien/<Titel>.md                 die Notiz
-Medien/<Titel>.mp4|m4a            der Film oder die Sprachmemo
-Medien/<Titel>.transcript.json    Segmente mit start, end, text
-$_<Name>.md                       Map of Content
-Glossar/<Begriff>.md
-Fragen/<Frage>.md
-Sammlungen/<Name>.md              nur von Hand
-Analysen/Vollständigkeit.md
-Inbox/                            Rohdateien, noch keine Notiz
+10_Notizen/<Titel>.md                die Notiz
+20_Attachments/<Titel>.mp4|mp3       der Film oder die Sprachmemo
+10_Notizen/<Titel>.transcript.json   Segmente mit start, end, text
+30_Themen/$_<Name>.md                Thema, Map of Content
+40_Glossar/<Begriff>.md
+50_Fragen/<Frage>.md
+60_Sammlungen/<Name>.md              nur von Hand
+70_Analysen/Vollständigkeit.md
+00_Inbox/                            Rohdateien, noch keine Notiz
 ```
 
 ## Die drei Regeln
@@ -41,7 +41,7 @@ Falschinformation. Bist du unsicher, schreibst du weniger.
 **3. Deutsch, wie ein Kollege spricht.**
 
 Kapiteltitel, Zusammenfassungen, Begründungen. Kein Werbeton. Fachbegriffe
-in der Schreibweise aus `Glossar/`.
+in der Schreibweise aus `40_Glossar/`.
 
 ## Kapitel
 
@@ -91,14 +91,6 @@ Erwähnung. Steht derselbe Bezug in beiden Notizen, steht er doppelt.
 
 ## Die Aufgaben
 
-| Anleitung | Was sie beschreibt |
-|---|---|
-| `anleitungen/inbox.md` | Rohdateien sichten und, wenn bestätigt, einsortieren |
-| `anleitungen/sichtung.md` | neu, ähnlich oder vorhanden |
-| `anleitungen/kapitel.md` | Kapitel und Zusammenfassung einer Notiz |
-| `anleitungen/kapitel-alle.md` | alle Notizen ohne Kapitel |
-| `anleitungen/bezuege.md` | verwandte Stellen |
-| `anleitungen/themen.md` | Maps of Content |
-| `anleitungen/glossar.md` | Begriffe |
-| `anleitungen/fragen.md` | Fragen zusammenfassen |
-| `anleitungen/vollstaendigkeit.md` | Lücken mit Beleg |
+Der Auftrag enthält den Text der Aufgabe. Ein Verweis wie `%_kapitel.md` meint
+den gleichnamigen Abschnitt in demselben Auftrag. Die Dateien selbst liegen im
+Mediathek-Repo unter `vorlagen/anleitungen/`.

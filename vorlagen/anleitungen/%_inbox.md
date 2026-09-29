@@ -1,12 +1,12 @@
-Sortiere ein, was in `Inbox/` liegt und dessen Urteil schon feststeht.
+Sortiere ein, was in `00_Inbox/` liegt und dessen Urteil schon feststeht.
 
-Lies zuerst `sichtung.md`. Ohne Urteil wird nichts verschoben.
+Lies zuerst `%_sichtung.md`. Ohne Urteil wird nichts verschoben.
 
 ## Neu, und der Name ist frei
 
-1. Lege `Medien/<Titel>.md` an. Der Titel kommt aus dem Dateinamen oder aus
+1. Lege `10_Notizen/<Titel>.md` an. Der Titel kommt aus dem Dateinamen oder aus
    dem Urteil, nicht aus einer Vermutung über den Inhalt.
-2. Die Mediendatei liegt daneben und heißt wie die Notiz, mit ihrer Endung.
+2. Die Mediendatei liegt in `20_Attachments/` und heißt wie die Notiz, mit ihrer Endung.
 3. Die Notiz bekommt die Eigenschaften `typ: Medium`, `art`, `status: gesichtet`
    und einen kurzen handgeschriebenen Satz nur, wenn die Rohdatei schon Text
    mitbringt. Sonst bleibt der Kopf leer bis auf die Eigenschaften und den
@@ -17,7 +17,7 @@ Lies zuerst `sichtung.md`. Ohne Urteil wird nichts verschoben.
 
 ## Ähnlich oder vorhanden
 
-Bleibt in der Inbox. Schreibe eine Zeile in `Inbox/_sichtung.md` mit dem
+Bleibt in der Inbox. Schreibe eine Zeile in `00_Inbox/_sichtung.md` mit dem
 Wikilink auf die bestehende Notiz und dem vorgeschlagenen Namen. Ein Mensch
 bestätigt, ob es eine neue Notiz wird oder ein Anhang.
 

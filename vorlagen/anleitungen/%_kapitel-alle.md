@@ -1,7 +1,7 @@
-Dieselbe Arbeit wie in `kapitel.md`, für jede Notiz unter `Medien/`, deren
+Dieselbe Arbeit wie in `%_kapitel.md`, für jede Notiz unter `10_Notizen/`, deren
 `## Kapitel` leer ist oder fehlt.
 
-Lies zuerst diese Anleitung und dann `kapitel.md` vollständig.
+Lies zuerst diese Anleitung und dann `%_kapitel.md` vollständig.
 
 Reihenfolge: die Notizen ohne `transcript.json` überspringen und am Ende
 nennen. Eine Textnotiz ohne Mediendatei erschließt du aus ihrem eigenen Text.

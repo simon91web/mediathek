@@ -16,7 +16,7 @@ Sie beginnt nach der Zeile `Frage:`.
 
 ## Die Datei
 
-Neue Datei unter `Fragen/<kurzer Titel>.md`. Den Titel aus der Frage, nicht
+Neue Datei unter `50_Fragen/<kurzer Titel>.md`. Den Titel aus der Frage, nicht
 aus der Antwort. Überschreibe keine vorhandene Datei. Gibt es den Namen
 schon, hänge ` 2` an.
 

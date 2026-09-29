@@ -1,19 +1,21 @@
-Fasse gleichartige Fragen in `Fragen/` zu einem Eintrag zusammen.
+Fasse gleichartige Fragen in `50_Fragen/` zu einem Eintrag zusammen.
 
 Jede beantwortete Frage liegt als eigene Notiz da, auch die halbgare. Diese
 Aufgabe macht aus dem Haufen einen Bestand. Gleichartige Fragen werden eine
-Notiz. Die anderen Formulierungen wandern nach `aliases`, damit die zweite
-Formulierung die Antwort noch findet.
+Notiz. Eine andere Formulierung aus einem Wort wandert nach `tags`. Eine
+Formulierung aus mehreren Wörtern wandert nach `synonyme`, damit sie in der
+Suche noch auftaucht.
 
-`aliases` nicht am Komma in der Anleitung zerlegen. Dort stehen ganze Sätze.
+`aliases` ist nur der lesbare Dateiname, wenn der Dateiname Bindestriche oder
+das Präfix `$_` enthält. Einen ganzen Fragesatz nicht am Komma zerlegen.
 
 ## Die Datei
 
 ```markdown
 ---
 typ: Frage
-aliases:
-  - Wie messe ich die Zellspannung
+synonyme: [Wie messe ich die Zellspannung]
+aliases: []
 status: erschlossen
 ---
 

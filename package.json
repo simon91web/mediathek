@@ -12,6 +12,7 @@
     "test:watch": "vitest",
     "e2e": "tsx --tsconfig tsconfig.scripts.json e2e/prepare.ts && playwright test",
     "e2e:ui": "tsx --tsconfig tsconfig.scripts.json e2e/prepare.ts && playwright test --ui",
+    "vault": "node scripts/vault.mjs",
     "doktor": "tsx --tsconfig tsconfig.scripts.json scripts/doktor.ts",
     "fixtures": "tsx --tsconfig tsconfig.scripts.json scripts/fixtures.ts",
     "setup:python": "node scripts/setup-python.mjs",

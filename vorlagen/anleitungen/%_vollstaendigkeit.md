@@ -12,10 +12,10 @@ innerhalb des Vaults belegen lässt.
 
 ## Erst lesen
 
-1. `$_*.md`
+1. die Dateien in `30_Themen/`
 2. Für jede Karte die Transkripte der verlinkten Notizen. Die
    Kapitelzusammenfassungen sind der Überblick, das Transkript die Quelle.
-3. `Fragen/`
+3. `50_Fragen/`
 
 ## Die vier Kategorien
 
@@ -34,31 +34,19 @@ Befund ohne Beleg wird verworfen.
 Zusätzlich: Begriffe oder Vorgänge, die in mehreren Notizen auftauchen und
 auf keiner Karte stehen. Das sind Kandidaten für eine neue `$_`-Datei.
 
-## Die Datei
+## Die Notiz
 
-Schreibe `Analysen/Vollständigkeit.md` bei jedem Lauf neu. Sie ist ein
-Bericht, kein handgeschriebener Text.
+Es gibt keine eigene Berichtnotiz. Stand und Hinweis stehen an der
+betroffenen Notiz oder dem Thema, in den Eigenschaften.
 
-```markdown
----
-typ: Analyse
-status: erschlossen
----
+`status` und `hinweis` für fehlendes Transkript, fehlende Kapitel und
+fehlende Fundstellen setzt das Werkzeug aus den Dateien. Die fasst du nicht
+an.
 
-Zuletzt geprüft: 2026-09-18T14:32:00Z
+Findest du einen inhaltlichen Befund, schreibst du an genau diese Notiz
+einen Satz in `hinweis`, mit Wikilink auf die Stelle. Sonst nichts an der
+Notiz ändern. Mehrere Befunde zur selben Notiz: ein Satz, der beide nennt.
 
-## [[$_Zellspannung]]
-
-### Unbelegte Zahl
-
-- „Unter 3,7 Volt je Zelle“ wird genannt und nirgends hergeleitet.
-  [[Vorflugkontrolle Elios 3#00:30 Akku prüfen]]
-
-## Unverortete Fäden
-
-- Kompass-Kalibrierung, in mehreren Notizen, auf keiner Karte.
+```yaml
+hinweis: Unter 3,7 Volt je Zelle wird genannt und nirgends hergeleitet. [[Vorflugkontrolle Elios 3#00:30 Akku prüfen]]
 ```
-
-Setze an der betroffenen Notiz keinen Kommentar. Der Befund lebt hier. Die
-Eigenschaft `luecken` an der Notiz setzt das Werkzeug aus diesem Bericht,
-nicht du von Hand in jeder Datei.
