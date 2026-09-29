@@ -11,5 +11,5 @@ ordner:
   sichten: 80_Sichten
 praefix:
   karten: "$_"
-bereiche: [Kapitel, Zusammenfassung, Bezüge, Transkript]
+bereiche: [Notizen, Bezüge, "Quelle und Transkript"]
 kette: [transkription, kapitel, bezuege]

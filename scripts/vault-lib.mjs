@@ -34,7 +34,7 @@ const BEFORE = { inbox: ["sichtung"] };
 const AFTER = { "kapitel-alle": ["kapitel"] };
 
 export const TASK_LABEL = {
-  inbox: "Inbox sichten",
+  inbox: "Inbox einarbeiten",
   sichtung: "Eine Datei beurteilen",
   kapitel: "Diese Notiz erschließen",
   "kapitel-alle": "Notizen ohne Kapitel erschließen",

@@ -15,7 +15,8 @@ statt Grok. Die Ordnernamen des Vaults stehen in `vorlagen/toolset.yaml`.
 Dieselben Namen stehen in den Anleitungen.
 
 Das Kommando setzt `%_REGELN.md` und die jeweilige Anleitung in den Auftrag.
-`%_inbox.md` bekommt `%_sichtung.md` davor, `%_kapitel-alle.md` bekommt
+`inbox` arbeitet die Notiz in einem Durchgang ein und bekommt `%_sichtung.md`
+davor. `sichtung` allein urteilt nur. `%_kapitel-alle.md` bekommt
 `%_kapitel.md` dahinter. Ein Verweis wie `%_kapitel.md` meint diesen Abschnitt,
 nicht eine Datei im Vault.
 

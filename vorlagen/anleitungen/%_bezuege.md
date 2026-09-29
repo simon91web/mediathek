@@ -25,24 +25,47 @@ Höchstens fünf. Lieber drei.
 
 ## Dann schreiben
 
-Nur unter `## Bezüge` der genannten Notiz:
+Nur unter `## Bezüge` der genannten Notiz. Ein Bezug ist ein zugeklappter
+Callout. Die sichtbare Beschriftung nennt den Notiznamen und die
+Kapitelüberschrift, der Embed spielt die Stelle.
 
 ```markdown
 ## Bezüge
 
-- [[Messprotokoll lesen#03:15 Protokoll]] Dasselbe Fehlerbild aus anderer Richtung
-- [[Akku-Grundlagen#00:15 Zellspannung]] Dort wird die Messung erklärt
+> [!info]- [[Studio#00:00 Drei Wege für Kunden- und Pilotendaten|Studio, 00:00 Drei Wege für Kunden- und Pilotendaten]]
+> Dieselbe Trennung von der anderen Seite: Kundendaten laufen über das HiDrive, die Bearbeitung liegt im Studio.
+>
+> ![[Studio.mp4#t=108,176|01:48]]
 ```
 
-- Die Zeit gehört zum Ziel, nicht zu dieser Notiz. Sie ist der Anfang eines
-  echten Kapitels dort, und der Link nennt die Überschrift so, wie sie in
-  der Zieldatei steht.
-- Bei einer Textnotiz als Ziel nimm die Abschnittsüberschrift:
-  `[[Messprotokoll lesen#Akku und Spannung]]`.
-- Eine Zeile Begründung in der Sache. „Verwandtes Thema“ ist keine.
+- `[!info]-` bleibt zugeklappt. Zwischen zwei Bezügen steht eine Leerzeile.
+- Der Link nennt die Kapitelüberschrift so, wie sie in der Zieldatei steht,
+  inklusive ihrer Zeit. Die Zeit gehört zum Ziel, nicht zu dieser Notiz.
+- Darunter ein Satz, warum diese Stelle hier weiterhilft. „Verwandtes Thema“
+  ist keiner.
+- Der Embed nennt die Mediendatei, die die Zielnotiz selbst einbettet. Fehlt
+  die, nimm `<Titel>.mp4` oder `<Titel>.mp3` aus `20_Attachments`.
+- `#t=` nimmt zwei ganze Sekunden, Anfang und Ende, durch Komma. Kein
+  Minutenformat darin. `108,176` ist 01:48 bis 02:56, denn 1×60+48 = 108 und
+  2×60+56 = 176. Hinter `|` steht nur der Anfang, als `mm:ss` oder `h:mm:ss`,
+  Sekunden zweistellig.
+- Der Bereich ist das Kapitel, soweit die Aussage darin liegt. Der Anfang ist
+  der `start` des ersten Segments, das dazu gehört, auf die ganze Sekunde
+  abgerundet. Das kann später sein als die Überschrift: `00:00` öffnet das
+  Kapitel, die Aussage beginnt bei 01:48. Das Ende ist die Zeit der nächsten
+  Kapitelüberschrift. Gibt es keine, nimm die `dauer` der Notiz.
+- Bei einer Textnotiz gibt es keinen Embed. Der Callout verlinkt die
+  Abschnittsüberschrift und enthält nur den Satz:
+
+  ```markdown
+  > [!info]- [[Messprotokoll lesen#Akku und Spannung|Messprotokoll lesen, Akku und Spannung]]
+  > Dort wird die Zellspannungsmessung erklärt
+  ```
 - Den Bezug nur hier eintragen. Die Gegenrichtung zeigt Obsidian als
   verlinkte Erwähnung.
-- Vorhandene Bezüge bleiben stehen, wenn ihr Ziel noch existiert.
+- Ein vorhandener Bezug bleibt, wenn sein Ziel noch existiert. Steht er noch
+  als Aufzählung mit nur einem Zeitpunkt, schreib ihn in diesen Callout um.
+  Die Aussage bleibt.
 
 Prüfe die Dateinamen. Ein Verweis ins Leere hilft niemandem.
 

@@ -20,12 +20,13 @@ Es gibt keine Datenbank. Alles sind Dateien:
 
 ## Die drei Regeln
 
-**1. Du schreibst nur unter den Werkzeug-Überschriften.**
+**1. Du schreibst nur unter den Werkzeugteilen.**
 
-`## Kapitel`, `## Zusammenfassung`, `## Bezüge`, `## Transkript`. Alles
-darüber ist handgeschrieben und bleibt unberührt, auch wenn es dir
-verbesserungswürdig erscheint. Fehlt eine dieser Überschriften, fügst du sie
-am Ende an. Bearbeite die Datei. Schreibe sie nicht neu, sonst ist der
+Zusammenfassung, `## Notizen`, `## Bezüge`, `# Quelle und Transkript`.
+Die Form der Aufnahme steht in der Anleitung dieses Auftrags. Alles darüber
+ist handgeschrieben und bleibt unberührt, auch wenn es dir
+verbesserungswürdig erscheint. Fehlt ein Werkzeugteil, fügst du ihn am Ende
+an. Bearbeite die Datei. Schreibe sie nicht neu, sonst ist der
 handgeschriebene Teil weg.
 
 Keine HTML-Kommentare als Schreibfenster. Muss eine Stelle im Fließtext
@@ -45,23 +46,18 @@ in der Schreibweise aus `40_Glossar/`.
 
 ## Kapitel
 
-```markdown
-## Kapitel
-
-### 00:00 Einleitung und Ziel
-### 01:24 Akku prüfen
-### 1:02:03 Nachbereitung
-```
+Callouts unter `## Notizen`, das erste aufgeklappt, darin `### mm:ss Titel`,
+darunter der Clip der Aufnahme. Die Muster stehen in `%_kapitel.md` und
+`%_inbox.md`.
 
 - `mm:ss` oder `h:mm:ss`, die Sekunden immer zweistellig.
-- Die Zeit ist der Anfang der Überschrift, Ebene 3, unter `## Kapitel`.
-- Ohne Titel ist es kein Kapitel.
+- Die Zeit ist der Anfang der Überschrift. Ohne Titel ist es kein Kapitel.
 - Aufsteigend, keine zwei Kapitel zur selben Zeit.
 - Der Text unter der Überschrift ist die Kapitelzusammenfassung, ein bis
   drei Sätze. Fehlt etwas Merkfähiges, bleibt der Abschnitt leer.
 
-Bei einer Textnotiz gibt es keine Zeit. Dort sind `##` und `###` die
-Abschnitte. `## Kapitel` bleibt dann weg.
+Bei einer Textnotiz ohne Aufnahme gibt es keine Kapitel. Der mitgebrachte
+Text bleibt, darunter `## Bezüge`.
 
 ## Verweise
 
@@ -77,17 +73,22 @@ trägt das Präfix mit: `[[$_Zellspannung]]`.
 **Die Gegenrichtung schreibst du nicht.** Obsidian zeigt sie als verlinkte
 Erwähnung. Steht derselbe Bezug in beiden Notizen, steht er doppelt.
 
+Ein Bezug unter `## Bezüge` ist kein Aufzählungspunkt. Er ist der zugeklappte
+Callout aus `%_bezuege.md`. Die sichtbare Beschriftung nennt den Notiznamen.
+Kapitel und Bezüge tragen den Bereich als `![[Datei.mp4#t=<Start>,<Ende>]]`,
+zwei ganze Sekunden. Die ganze Aufnahme steht einmal im Callout Quelle, ohne
+Zeit.
+
 ## Was du nie tust
 
 - Mediendateien, `transcript.json` oder Anhänge verändern, verschieben oder
   löschen.
 - Eine Notiz umbenennen, deren Name schon in Verweisen steht, es sei denn,
   du ziehst die Verweise mit.
-- Text über der ersten Werkzeug-Überschrift umformulieren.
+- Text über dem ersten Werkzeugteil umformulieren.
 - Eine bestehende Notiz neu schreiben, statt sie zu bearbeiten.
-- `![[Datei.mp4#t=…]]` einfügen. Obsidian springt damit bei lokalen Dateien
-  nicht. Die Zeit steht in der Überschrift. Der Embed oben in der Notiz ist
-  `![[<Titel>.mp4]]`, einmal, ohne Fragment.
+- Den Embed der Quelle mit einer Zeit versehen oder die Datei ein zweites Mal
+  ganz einbetten. Ein Bereichs-Embed gehört in ein Kapitel oder einen Bezug.
 
 ## Die Aufgaben
 

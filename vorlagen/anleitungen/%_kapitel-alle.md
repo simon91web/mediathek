@@ -1,5 +1,5 @@
 Dieselbe Arbeit wie in `%_kapitel.md`, für jede Notiz unter `10_Notizen/`, deren
-`## Kapitel` leer ist oder fehlt.
+`## Notizen` leer ist oder fehlt.
 
 Lies zuerst diese Anleitung und dann `%_kapitel.md` vollständig.
 

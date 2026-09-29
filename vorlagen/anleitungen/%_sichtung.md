@@ -1,23 +1,20 @@
-Beurteile eine Datei, die noch in `00_Inbox/` liegt. Verschiebe nichts. Schreibe
-keine Notiz unter `10_Notizen/`.
+Das Urteil ist der erste Schritt. Es hält einen Inbox-Auftrag nicht an.
 
-## Erst lesen
+Steht dieser Abschnitt vor `%_inbox.md`, urteilst du und arbeitest im
+folgenden Abschnitt weiter: Form, Verschieben, Transkript, Kapitel, Bezüge.
 
-Die Datei, und wenn ein Kurztranskript mitgegeben wurde, dieses. Dann die
-die Karten in `30_Themen/` und die Notizen, die der Name oder das Transkript nahelegen.
+Ist dieser Abschnitt der ganze Auftrag, verschiebst du nichts und legst
+keine Notiz unter `10_Notizen/` an. Die erste Zeile ist dann genau eine von
+`EINSCHÄTZUNG: neu`, `EINSCHÄTZUNG: aehnlich`, `EINSCHÄTZUNG: vorhanden`,
+danach zwei bis vier Sätze. Eine bestehende Notiz als Wikilink mitten im
+Satz, nur Namen, die es gibt.
 
-## Das Urteil
+Lies die Datei, und wenn ein Kurztranskript mitgegeben wurde, dieses. Dann
+die Karten in `30_Themen/` und die Notizen, die der Name oder der Inhalt
+nahelegen.
 
-Die erste Zeile deiner Antwort ist genau eine von:
-
-- `EINSCHÄTZUNG: neu` — kein bestehender Beitrag deckt das ab.
-- `EINSCHÄTZUNG: aehnlich` — es gibt Überlappung und etwas Neues.
-- `EINSCHÄTZUNG: vorhanden` — eine bestehende Notiz deckt das im Wesentlichen ab.
-
-Danach zwei bis vier Sätze. Sobald du eine bestehende Notiz nennst, als
-Wikilink mitten im Satz, nie nur als Titel in Anführungszeichen. Nur Namen,
-die es gibt.
-
-Ähnlich und vorhanden werden nicht automatisch einsortiert. Neu darf das
-Werkzeug übernehmen, wenn der Name frei ist. Deine Aufgabe ist das Urteil,
-nicht das Verschieben.
+- `neu` — kein bestehender Beitrag deckt das ab.
+- `aehnlich` — es gibt Überlappung und etwas Neues. Das wird eine eigene
+  Notiz, sobald der Inbox-Abschnitt folgt.
+- `vorhanden` — eine bestehende Notiz deckt das im Wesentlichen ab. Nicht
+  ein zweites Mal anlegen.
