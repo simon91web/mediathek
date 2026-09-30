@@ -1,6 +1,6 @@
 filters:
   and:
-    - file.inFolder("Fragen")
+    - file.inFolder("50_Fragen")
 views:
   - type: table
     name: Fragen

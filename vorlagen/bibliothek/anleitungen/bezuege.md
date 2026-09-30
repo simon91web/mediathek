@@ -46,14 +46,18 @@ Nur in `medien/<slug>/beitrag.md`, im Block `bezuege`, mit `Edit`:
 
 ```markdown
 <!-- bezuege:start -->
-- [[messprotokoll-lesen#03:15]] Dasselbe Fehlerbild aus anderer Richtung
-- [[akku-grundlagen#12:40]] Dort wird die Zellspannungsmessung erklärt
+- [[vorflugkontrolle-elios-3#00:30-01:20]] Dasselbe Fehlerbild aus anderer Richtung
+- [[akku-grundlagen#00:08-00:18]] Dort wird die Zellspannungsmessung erklärt
 <!-- bezuege:ende -->
 ```
 
-- **Die Zeit gehört zum Ziel**, nicht zu diesem Beitrag: `#03:15` ist die
-  Stelle in `messprotokoll-lesen`. Sie muss der `start` eines echten
-  Segments dort sein.
+- **Die Zeit gehört zum Ziel**, nicht zu diesem Beitrag. Bei Video und
+  Sprachmemo ist sie ein Bereich: `#00:30-01:20` liegt im
+  Zielbeitrag. Der Anfang ist der `start` des ersten Segments, das
+  dazugehört, abgerundet. Das Ende ist das `end` des letzten Segments, das
+  noch dazugehört, aufgerundet. Es muss nach dem Anfang liegen. Liegen beide
+  in derselben Sekunde, nimm die nächste Sekunde als Ende. Ein einzelner Satz
+  ist der Bereich seines Segments.
 - Bei einem Textbeitrag als Ziel nimm den Abschnittsanker:
   `[[messprotokoll-lesen#akku-und-spannung]]`. Der Anker ist die
   kleingeschriebene Überschrift mit Bindestrichen (`ä`→`ae`, `ö`→`oe`,

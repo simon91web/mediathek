@@ -4,6 +4,7 @@ import { notFound } from "next/navigation";
 import { ChevronLeft, ChevronRight, Pencil } from "lucide-react";
 
 import { ItemAssistantButtons } from "@/components/assistant/item-assistant-buttons";
+import { LocalGraph } from "@/components/graph/local-graph";
 import { ChainButton } from "@/components/jobs/chain-button";
 import { JobButtons } from "@/components/jobs/job-buttons";
 import { MarkdownText, MarkdownWithAnchors } from "@/components/markdown";
@@ -27,6 +28,7 @@ import {
   getItem,
   getLibrary,
 } from "@/lib/library";
+import { buildGraph, neighborhoodOf } from "@/lib/library/graph";
 import { isSlug } from "@/lib/library/slug";
 import {
   collectionHref,
@@ -145,6 +147,12 @@ export default async function BeitragPage({
       <MarkdownText>{item.summary}</MarkdownText>
     </div>
   ) : null;
+
+  const graph = buildGraph(library);
+  const { node: graphNode, neighbors } = neighborhoodOf(
+    graph,
+    `item:${item.slug}`,
+  );
 
   return (
     <PlayerProvider>
@@ -303,15 +311,24 @@ export default async function BeitragPage({
             ) : null}
           </div>
 
-          <SidePanel
-            slug={item.slug}
-            chapters={item.chapters}
-            hasTranscript={item.hasTranscript}
-            attachmentCount={item.attachments.length}
-            attachments={attachments}
-            summary={summary}
-            chaptersLabel={item.kind === "text" ? "Inhalt" : "Kapitel"}
-          />
+          <div className="space-y-4">
+            {graphNode ? (
+              <LocalGraph
+                node={graphNode}
+                neighbors={neighbors}
+                graphHref={`/graph?fokus=${encodeURIComponent(graphNode.id)}`}
+              />
+            ) : null}
+            <SidePanel
+              slug={item.slug}
+              chapters={item.chapters}
+              hasTranscript={item.hasTranscript}
+              attachmentCount={item.attachments.length}
+              attachments={attachments}
+              summary={summary}
+              chaptersLabel={item.kind === "text" ? "Inhalt" : "Kapitel"}
+            />
+          </div>
         </div>
 
         <ReferenceList

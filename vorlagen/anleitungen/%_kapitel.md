@@ -17,16 +17,17 @@ ihr eigener Text die Quelle, und es gibt keine Kapitel.
 
 Bearbeiten, nicht neu schreiben, damit der handgeschriebene Teil bleibt.
 Zusammenfassung als Callout oben, Kapitel als Callouts unter `## Notizen`.
-Das erste ist aufgeklappt, der Rest zugeklappt. Darin `### mm:ss Titel` und
-der Clip.
+Das erste ist aufgeklappt, der Rest zugeklappt. `### mm:ss Titel` steht
+direkt darüber, nicht im Callout.
 
 ```markdown
 > [!abstract]+ Zusammenfassung
 > Drei bis sechs Sätze über die ganze Notiz.
 
 ## Notizen
+
+### 00:00 Akku prüfen
 > [!note]+ Kapitel 1: Akku prüfen
-> ### 00:00 Akku prüfen
 > Zellspannung messen. Ein Akku unter 3,7 Volt je Zelle geht nicht mit ins Feld.
 >
 > ![[Vorflugkontrolle Elios 3.mp4#t=0,84|Kapitel 1: Akku prüfen]]

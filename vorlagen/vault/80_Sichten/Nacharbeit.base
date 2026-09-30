@@ -1,0 +1,26 @@
+filters:
+  or:
+    - file.inFolder("10_Notizen")
+    - file.inFolder("30_Themen")
+properties:
+  status:
+    displayName: Status
+  hinweis:
+    displayName: Hinweis
+  art:
+    displayName: Art
+views:
+  - type: table
+    name: Nacharbeit
+    groupBy:
+      property: status
+      direction: ASC
+    sort:
+      - property: hinweis
+        direction: ASC
+    order:
+      - file.name
+      - file.folder
+      - art
+      - status
+      - hinweis

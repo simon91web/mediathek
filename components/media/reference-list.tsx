@@ -126,7 +126,9 @@ export function ReferenceList({
                         ? `verweist auf ${where} hier`
                         : "verweist auf diesen Beitrag"
                       : where
-                        ? `hier genannt · ab ${where}`
+                        ? entry.target.kind === "zeit" && entry.target.end !== null
+                          ? `hier genannt · ${where}`
+                          : `hier genannt · ab ${where}`
                         : "hier genannt"}
                   </span>
                   {entry.note ? (

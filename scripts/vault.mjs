@@ -26,6 +26,9 @@ import {
   focusFrom,
   formatTranscript,
   glossaryTerms,
+  hearingRules,
+  replaceHearings,
+  replaceHearingsInNote,
   upsertTranscript,
   knownBinary,
   mediaBeside,
@@ -49,6 +52,7 @@ ${TASKS.map((task) => `  ${task.padEnd(18)} ${TASK_LABEL[task]}`).join("\n")}
 
   sichtung, kapitel, bezuege und transkribieren nehmen einen Namen.
   bestand nimmt die Frage, auch in mehreren Wörtern.
+  wortlaut liest hoerfehler aus dem Glossar. --anwenden schreibt die Ersetzungen.
 
 Optionen:
   --werkzeug grok|claude|custom    Standard grok
@@ -56,6 +60,7 @@ Optionen:
   --args "<argumente>"             zusätzliche Argumente des Werkzeugs
   --timeout <sekunden>             Standard 900
   --was                            Auftrag zeigen, nichts starten
+  --anwenden                       bei wortlaut die Treffer ersetzen
 `;
 
 function dataDir() {
@@ -490,6 +495,73 @@ function refreshHinweise(vault, folders) {
   if (changed > 0) console.log(`${changed} Dateien mit Status nach dem Bestand.`);
 }
 
+function markdownFiles(dir) {
+  if (!fs.existsSync(dir)) return [];
+  return fs
+    .readdirSync(dir)
+    .filter((name) => name.endsWith(".md"))
+    .map((name) => path.join(dir, name));
+}
+
+function runWortlaut(vault, folders, write) {
+  const glossarDir = path.join(vault, folders.ordner.glossar);
+  const rules = hearingRules(markdownFiles(glossarDir).map((file) => fs.readFileSync(file, "utf8")));
+  if (rules.length === 0) {
+    console.log("Im Glossar steht kein hoerfehler. Die falsche Form gehört an den Begriff.");
+    return;
+  }
+  const jobs = [];
+  const noteDir = path.join(vault, folders.ordner.notizen);
+  for (const file of markdownFiles(noteDir)) jobs.push({ file, kind: "prosa" });
+  if (fs.existsSync(noteDir)) {
+    for (const name of fs.readdirSync(noteDir)) {
+      if (name.endsWith(".transcript.json")) jobs.push({ file: path.join(noteDir, name), kind: "transkript" });
+    }
+  }
+  for (const key of ["karten", "glossar", "fragen"]) {
+    for (const file of markdownFiles(path.join(vault, folders.ordner[key]))) jobs.push({ file, kind: "prosa" });
+  }
+  for (const file of markdownFiles(path.join(vault, folders.ordner.analysen))) jobs.push({ file, kind: "befund" });
+
+  const lines = [];
+  let written = 0;
+  for (const job of jobs) {
+    const original = fs.readFileSync(job.file, "utf8");
+    const result = job.file.endsWith(".md")
+      ? replaceHearingsInNote(original, rules)
+      : replaceHearings(original, rules, { json: true });
+    if (result.hits.length === 0) continue;
+    const rel = path.relative(vault, job.file);
+    for (const hit of result.hits) {
+      const action = job.kind === "befund" ? "nur anzeigen" : write ? "ersetzt" : "offen";
+      lines.push(`${hit.begriff}\t${hit.wrong}\t${action}\t${rel}\t${hit.snippet}`);
+    }
+    if (write && job.kind !== "befund" && result.text !== original) {
+      fs.writeFileSync(job.file, result.text);
+      written += 1;
+    }
+  }
+  if (lines.length === 0) {
+    console.log("Keine Hörfehler im Bestand.");
+    return;
+  }
+  let current = "";
+  for (const line of lines) {
+    const [begriff, wrong, action, rel, snippet] = line.split("\t");
+    const head = `${begriff}  statt  ${wrong}`;
+    if (head !== current) {
+      console.log(head);
+      current = head;
+    }
+    console.log(`  ${rel}  (${action})  ${snippet}`);
+  }
+  console.log(
+    write
+      ? `${written} Dateien geschrieben. Befunde unter Analysen bleiben stehen.`
+      : "Nichts geschrieben. --anwenden ersetzt Transkript und Prosa. Befunde bleiben stehen.",
+  );
+}
+
 async function main() {
   let parsed;
   try {
@@ -512,6 +584,10 @@ async function main() {
     if (parsed.task === "transkribieren") {
       const code = await runWhisper(parsed, vault, folders);
       process.exit(code);
+    }
+    if (parsed.task === "wortlaut") {
+      runWortlaut(vault, folders, parsed.anwenden && !parsed.dryRun);
+      process.exit(0);
     }
     const { note, question } = focusFrom(parsed.task, parsed.rest);
     if (note) requireVaultFile(vault, folders, parsed.task, note);

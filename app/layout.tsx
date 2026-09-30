@@ -2,6 +2,7 @@ import type { Metadata } from "next";
 import Link from "next/link";
 
 import { FloatingChat } from "@/components/chat/floating-chat";
+import { GraphLink } from "@/components/graph/graph-link";
 import { HeaderActions } from "@/components/header-actions";
 import { LibraryWatcher } from "@/components/library/library-watcher";
 import { NavLinks } from "@/components/nav-links";
@@ -87,12 +88,14 @@ export default async function RootLayout({
             <NavLinks />
 
             {/*
-             * Rechts: Verlauf und Plus nur im Autorenmodus, dann Suche,
-             * dann Werkzeuge (Einstellungen, Beenden). Chat ist der
-             * schwebende Knopf unten rechts.
+             * Rechts: Verlauf nur im Autorenmodus, dann Graph, dann Plus
+             * nur im Autorenmodus, dann Suche, dann Werkzeuge
+             * (Einstellungen, Beenden). Chat ist der schwebende Knopf
+             * unten rechts.
              */}
             <div className="ml-auto flex items-center gap-1">
               <HeaderActions authorMode={features.authorMode} />
+              <GraphLink />
               <AnlegenMenu authorMode={features.authorMode} />
               <div className="mx-1">
                 <SearchBox compact />

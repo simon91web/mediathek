@@ -4,10 +4,12 @@ import { notFound } from "next/navigation";
 import { AlertTriangle, ArrowLeft, Pencil } from "lucide-react";
 
 import { DefinitionText } from "@/components/glossar/definition-text";
+import { LocalGraph } from "@/components/graph/local-graph";
 import { SpotList } from "@/components/media/spot-list";
 import { ButtonLink } from "@/components/ui/basis";
 import { getFeatures } from "@/lib/features";
 import { getGlossaryEntry, getLibrary } from "@/lib/library";
+import { buildGraph, neighborhoodOf } from "@/lib/library/graph";
 import { isSlug } from "@/lib/library/slug";
 import { plural } from "@/lib/utils";
 
@@ -45,75 +47,90 @@ export default async function BegriffPage({
   );
   const beitraege = new Set(entry.spots.map((spot) => spot.slug)).size;
 
-  return (
-    <div className="mx-auto max-w-3xl space-y-6">
-      <Link
-        href="/glossar"
-        className="inline-flex items-center gap-1.5 text-sm text-schrift-2 hover:text-schrift"
-      >
-        <ArrowLeft aria-hidden className="size-4" />
-        Glossar
-      </Link>
+  const graph = buildGraph(library);
+  const { node: graphNode, neighbors } = neighborhoodOf(graph, `glossar:${entry.slug}`);
 
-      <div>
-        <div className="flex flex-wrap items-start justify-between gap-3">
-          <div>
-            <p className="text-xs tracking-wide text-schrift-3 uppercase">
-              Glossar
-            </p>
-            <h1 className="mt-1 text-2xl font-semibold tracking-tight">
-              {entry.begriff}
-            </h1>
+  return (
+    <div className="flex gap-8">
+      <div className="mx-auto max-w-3xl flex-1 space-y-6">
+        <Link
+          href="/glossar"
+          className="inline-flex items-center gap-1.5 text-sm text-schrift-2 hover:text-schrift"
+        >
+          <ArrowLeft aria-hidden className="size-4" />
+          Glossar
+        </Link>
+
+        <div>
+          <div className="flex flex-wrap items-start justify-between gap-3">
+            <div>
+              <p className="text-xs tracking-wide text-schrift-3 uppercase">
+                Glossar
+              </p>
+              <h1 className="mt-1 text-2xl font-semibold tracking-tight">
+                {entry.begriff}
+              </h1>
+            </div>
+            {features.authorMode ? (
+              <ButtonLink href={`/glossar/${entry.slug}/bearbeiten`} size="klein">
+                <Pencil aria-hidden className="size-3.5" />
+                Bearbeiten
+              </ButtonLink>
+            ) : null}
           </div>
-          {features.authorMode ? (
-            <ButtonLink href={`/glossar/${entry.slug}/bearbeiten`} size="klein">
-              <Pencil aria-hidden className="size-3.5" />
-              Bearbeiten
-            </ButtonLink>
+          <p className="mt-1 text-sm text-schrift-2">
+            {entry.spots.length > 0
+              ? `${plural(entry.spots.length, "Fundstelle", "Fundstellen")} in ${plural(beitraege, "Beitrag", "Beiträgen")}`
+              : "Noch keine Fundstellen"}
+          </p>
+          {entry.schreibweisen.length > 0 ? (
+            <p className="mt-2 flex flex-wrap items-baseline gap-1.5 text-xs">
+              <span className="text-schrift-3">Auch geschrieben:</span>
+              {entry.schreibweisen.map((form) => (
+                <span
+                  key={form}
+                  className="rounded-md bg-grund-3 px-2 py-0.5 text-schrift-2"
+                >
+                  {form}
+                </span>
+              ))}
+            </p>
           ) : null}
         </div>
-        <p className="mt-1 text-sm text-schrift-2">
-          {entry.spots.length > 0
-            ? `${plural(entry.spots.length, "Fundstelle", "Fundstellen")} in ${plural(beitraege, "Beitrag", "Beiträgen")}`
-            : "Noch keine Fundstellen"}
-        </p>
-        {entry.schreibweisen.length > 0 ? (
-          <p className="mt-2 flex flex-wrap items-baseline gap-1.5 text-xs">
-            <span className="text-schrift-3">Auch geschrieben:</span>
-            {entry.schreibweisen.map((form) => (
-              <span
-                key={form}
-                className="rounded-md bg-grund-3 px-2 py-0.5 text-schrift-2"
+
+        <DefinitionText
+          text={entry.description}
+          itemTitles={itemTitles}
+          glossaryTitles={glossaryTitles}
+        />
+
+        {entry.problems.length > 0 ? (
+          <ul className="space-y-1.5">
+            {entry.problems.map((problem, index) => (
+              <li
+                key={index}
+                className="flex items-start gap-2 rounded-xl border border-warnung/40 bg-warnung-grund px-4 py-3 text-sm text-warnung"
               >
-                {form}
-              </span>
+                <AlertTriangle aria-hidden className="mt-0.5 size-4 shrink-0" />
+                <span>{problem.message}</span>
+              </li>
             ))}
-          </p>
+          </ul>
+        ) : null}
+
+        {entry.spots.length > 0 ? (
+          <SpotList spots={entry.spots} bySlug={library.bySlug} />
         ) : null}
       </div>
 
-      <DefinitionText
-        text={entry.description}
-        itemTitles={itemTitles}
-        glossaryTitles={glossaryTitles}
-      />
-
-      {entry.problems.length > 0 ? (
-        <ul className="space-y-1.5">
-          {entry.problems.map((problem, index) => (
-            <li
-              key={index}
-              className="flex items-start gap-2 rounded-xl border border-warnung/40 bg-warnung-grund px-4 py-3 text-sm text-warnung"
-            >
-              <AlertTriangle aria-hidden className="mt-0.5 size-4 shrink-0" />
-              <span>{problem.message}</span>
-            </li>
-          ))}
-        </ul>
-      ) : null}
-
-      {entry.spots.length > 0 ? (
-        <SpotList spots={entry.spots} bySlug={library.bySlug} />
+      {graphNode ? (
+        <div className="hidden shrink-0 pt-8 lg:block">
+          <LocalGraph
+            node={graphNode}
+            neighbors={neighbors}
+            graphHref={`/graph?fokus=${encodeURIComponent(graphNode.id)}`}
+          />
+        </div>
       ) : null}
     </div>
   );

@@ -31,6 +31,9 @@ Jeder Befund gehört in genau eine:
 Jeder Befund braucht mindestens einen Beleg, ein Widerspruch zwei. Ein
 Befund ohne Beleg wird verworfen.
 
+Eine Form, die im Glossar unter `hoerfehler` eines `begriff` steht, ist
+derselbe Name in falscher Schreibung. Das ist kein Widerspruch.
+
 Zusätzlich: Begriffe oder Vorgänge, die in mehreren Notizen auftauchen und
 auf keiner Karte stehen. Das sind Kandidaten für eine neue `$_`-Datei.
 

@@ -22,7 +22,7 @@ export const MODEL_TASKS = [
   "bestand",
 ];
 
-export const TASKS = [...MODEL_TASKS, "transkribieren"];
+export const TASKS = [...MODEL_TASKS, "transkribieren", "wortlaut"];
 
 const WITH_NOTE = new Set(["kapitel", "bezuege", "transkribieren"]);
 const WITH_FILE = new Set(["sichtung"]);
@@ -45,6 +45,7 @@ export const TASK_LABEL = {
   vollstaendigkeit: "Lücken analysieren",
   bestand: "Bestand fragen",
   transkribieren: "Diese Notiz transkribieren",
+  wortlaut: "Hörfehler gegen das Glossar prüfen",
 };
 
 export function readToolset(text) {
@@ -160,6 +161,7 @@ export function parseVaultArgs(argv) {
     extraArgs: "",
     timeoutSec: 900,
     dryRun: false,
+    anwenden: false,
     help: false,
     task: "",
     rest: [],
@@ -174,6 +176,7 @@ export function parseVaultArgs(argv) {
     else if (token === "--args") out.extraArgs = args.shift() ?? "";
     else if (token === "--timeout") out.timeoutSec = Number(args.shift());
     else if (token === "--was") out.dryRun = true;
+    else if (token === "--anwenden") out.anwenden = true;
     else if (token === "--hilfe" || token === "-h" || token === "--help") out.help = true;
     else if (token.startsWith("-")) throw new Error(`Unbekannte Option ${token}.`);
     else positionals.push(token);
@@ -240,6 +243,97 @@ export function mediaBeside(basename, names) {
     if (found) return found;
   }
   return null;
+}
+
+function escapeRegExp(value) {
+  return value.replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
+}
+
+function jsonStringEscape(value) {
+  return value.replace(/\\/g, "\\\\").replace(/"/g, '\\"').replace(/\r/g, "\\r").replace(/\n/g, "\\n");
+}
+
+/**
+ * `hoerfehler` sind falsch gehörte oder falsch geschriebene Formen von `begriff`.
+ * Sie werden nicht zu Hotwords. `synonyme` bleiben echte andere Namen.
+ */
+export function hearingRules(texts) {
+  const rules = [];
+  for (const text of texts) {
+    const frontmatter = /^---\r?\n([\s\S]*?)\r?\n---/.exec(text);
+    if (!frontmatter) continue;
+    let data;
+    try {
+      data = YAML.parse(frontmatter[1]);
+    } catch {
+      continue;
+    }
+    const begriff = typeof data?.begriff === "string" ? data.begriff.trim() : "";
+    const heard = Array.isArray(data?.hoerfehler) ? data.hoerfehler : [];
+    if (!begriff) continue;
+    for (const entry of heard) {
+      const wrong = typeof entry === "string" ? entry.trim() : "";
+      if (!wrong || wrong === begriff) continue;
+      rules.push({ wrong, begriff });
+    }
+  }
+  rules.sort((a, b) => b.wrong.length - a.wrong.length || a.wrong.localeCompare(b.wrong, "de"));
+  return rules;
+}
+
+/**
+ * Ersetzt Hörfehler im Text. Die schon richtige Schreibweise bleibt stehen.
+ * `json` maskiert die neue Form, weil transcript.json als Text ersetzt wird
+ * und die Einrückung nicht neu geschrieben werden soll.
+ */
+export function replaceHearings(text, rules, options = {}) {
+  const found = [];
+  for (const rule of rules) {
+    const pattern = new RegExp(
+      `(?<![\\p{L}\\p{N}])${escapeRegExp(rule.wrong)}(?![\\p{L}\\p{N}])`,
+      "giu",
+    );
+    for (const match of text.matchAll(pattern)) {
+      if (match[0] === rule.begriff || match.index === undefined) continue;
+      found.push({
+        start: match.index,
+        end: match.index + match[0].length,
+        wrong: match[0],
+        begriff: rule.begriff,
+      });
+    }
+  }
+  found.sort((a, b) => a.start - b.start || b.end - a.end);
+  const kept = [];
+  let cursor = -1;
+  for (const match of found) {
+    if (match.start < cursor) continue;
+    kept.push(match);
+    cursor = match.end;
+  }
+  const hits = kept.map((match) => {
+    const from = Math.max(0, match.start - 42);
+    const to = Math.min(text.length, match.end + 42);
+    return {
+      wrong: match.wrong,
+      begriff: match.begriff,
+      snippet: text.slice(from, to).replace(/\s+/g, " ").trim(),
+    };
+  });
+  let next = text;
+  for (const match of [...kept].reverse()) {
+    const replacement = options.json ? jsonStringEscape(match.begriff) : match.begriff;
+    next = next.slice(0, match.start) + replacement + next.slice(match.end);
+  }
+  return { text: next, hits };
+}
+
+/** Frontmatter bleibt, damit die Liste der Hörfehler nicht sich selbst ersetzt. */
+export function replaceHearingsInNote(text, rules) {
+  const frontmatter = /^(---\r?\n[\s\S]*?\r?\n---\r?\n?)/.exec(text);
+  if (!frontmatter) return replaceHearings(text, rules);
+  const body = replaceHearings(text.slice(frontmatter[1].length), rules);
+  return { text: frontmatter[1] + body.text, hits: body.hits };
 }
 
 export function glossaryTerms(texts) {

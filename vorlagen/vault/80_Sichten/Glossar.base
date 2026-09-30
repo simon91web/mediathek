@@ -1,6 +1,6 @@
 filters:
   and:
-    - file.inFolder("Glossar")
+    - file.inFolder("40_Glossar")
 views:
   - type: table
     name: Glossar

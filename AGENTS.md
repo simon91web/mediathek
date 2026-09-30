@@ -902,7 +902,16 @@ Anleitungen.
 ```bash
 node scripts/vault.mjs --vault D:\Wissen kapitel "Vorflugkontrolle Elios 3"
 node scripts/vault.mjs --vault D:\Wissen transkribieren "Vorflugkontrolle Elios 3"
+node scripts/vault.mjs --vault D:\Wissen wortlaut
+node scripts/vault.mjs --vault D:\Wissen wortlaut --anwenden
 ```
+
+`wortlaut` liest das Glossarfeld `hoerfehler` und sucht diese Formen im
+Bestand. Kein Sprachmodell. Ohne `--anwenden` wird nur gezeigt, wo sie
+stehen. Mit `--anwenden` werden Transkript und Prosa auf `begriff` gesetzt.
+Analysen bleiben unverändert, damit ein Befund, der den Unterschied
+bespricht, nicht mit umgeschrieben wird. `synonyme` bleiben echte andere
+Namen und werden nicht ersetzt.
 
 Whisper ist `tools/transcribe.py` mit der Umgebung aus `npm run setup:python`.
 Das Protokoll liegt maschinenlokal im Ordner Mediathek (`vault-laeufe.log`).

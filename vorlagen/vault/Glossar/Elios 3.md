@@ -1,7 +1,8 @@
 ---
 typ: Begriff
 begriff: Elios 3
-aliases: [Eliös 3]
+synonyme: [Eliös 3]
+aliases: []
 status: erschlossen
 ---
 

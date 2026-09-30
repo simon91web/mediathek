@@ -95,8 +95,14 @@ export function referenceHref(slug: Slug, target: LinkTarget): string {
       return `/medien/${slug}`;
     case "abschnitt":
       return `/medien/${slug}#${target.anchor}`;
-    case "zeit":
-      return `/medien/${slug}?t=${target.start}`;
+    case "zeit": {
+      const params = new URLSearchParams();
+      params.set("t", String(Math.max(0, Math.round(target.start))));
+      if (target.end !== null) {
+        params.set("bis", String(Math.round(target.end)));
+      }
+      return `/medien/${slug}?${params.toString()}`;
+    }
   }
 }
 

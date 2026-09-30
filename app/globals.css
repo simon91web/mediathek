@@ -20,6 +20,13 @@
   --color-warnung: #a8620a;
   --color-warnung-grund: #fdf5ea;
   --color-fehler: #b3261e;
+
+  /* Nur für den Graphen: eine Farbe je Knotenart. Beiträge bleiben Akzent-Grün. */
+  --color-graph-topic: #3f6fa8;
+  --color-graph-glossar: #8460ab;
+  --color-graph-sammlung: #2f8f8a;
+  --color-graph-frage: #b25a86;
+  --color-graph-tag: #b07a2e;
 }
 
 @media (prefers-color-scheme: dark) {
@@ -34,6 +41,12 @@
     --color-warnung: #e0a458;
     --color-warnung-grund: #2a2213;
     --color-fehler: #f2b8b5;
+
+    --color-graph-topic: #7ba3d6;
+    --color-graph-glossar: #b691db;
+    --color-graph-sammlung: #5cbdb6;
+    --color-graph-frage: #d98cb3;
+    --color-graph-tag: #d9a35c;
   }
 }
 

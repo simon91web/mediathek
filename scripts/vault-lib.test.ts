@@ -9,14 +9,18 @@ import {
   focusFrom,
   formatTranscript,
   glossaryTerms,
+  hearingRules,
   mediaBeside,
   nextStatus,
   noteRelatives,
   parseVaultArgs,
   readToolset,
+  replaceHearings,
+  replaceHearingsInNote,
   sendsPromptOnStdin,
   splitArgs,
   structuralHinweis,
+  TASKS,
   upsertTranscript,
 } from "./vault-lib.mjs";
 
@@ -127,6 +131,17 @@ describe("Aufruf", () => {
     expect(noteRelatives(folders, "sichtung", "roh.mp4")).toEqual(["00_Inbox/roh.mp4"]);
     expect(() => noteRelatives(folders, "kapitel", "../geheim")).toThrow(/Verzeichnis/);
   });
+
+  it("kennt wortlaut und schreibt nur mit --anwenden", () => {
+    expect(TASKS).toContain("wortlaut");
+    const parsed = parseVaultArgs(["--vault", "D:\\Wissen", "--anwenden", "wortlaut"]);
+    expect(parsed).toMatchObject({ task: "wortlaut", anwenden: true, dryRun: false });
+    const shown = parseVaultArgs(["--vault", "D:\\Wissen", "--was", "--anwenden", "wortlaut"]);
+    expect(shown.anwenden && !shown.dryRun).toBe(false);
+    expect(() =>
+      assertInvocation({ vault: "D:\\Wissen", werkzeug: "grok", bin: "", timeoutSec: 900, task: "wortlaut" }),
+    ).not.toThrow();
+  });
 });
 
 describe("CLI-Argumente", () => {
@@ -164,7 +179,9 @@ describe("Transkription", () => {
   });
 
   it("nimmt nur das Feld begriff als Fachwort", () => {
-    expect(glossaryTerms(["---\nbegriff: Elios 3\naliases: [Helios 3]\n---\n"])).toEqual(["Elios 3"]);
+    expect(
+      glossaryTerms(["---\nbegriff: NautiQ\naliases: [Nauti Q]\nhoerfehler: [Nautilus]\nsynonyme: [Nauti Q 360]\n---\n"]),
+    ).toEqual(["NautiQ"]);
   });
 
   it("schreibt das Transkript unter die Überschrift", () => {
@@ -173,6 +190,38 @@ describe("Transkription", () => {
     const next = upsertTranscript("# Titel\n\nText\n", body);
     expect(next).toContain("## Transkript\n\n00:30 Zellspannung");
     expect(upsertTranscript(`${next}\n## Bezüge\n\n- bleibt\n`, "neu")).toContain("## Bezüge");
+  });
+});
+
+describe("Hörfehler", () => {
+  const quelle = "---\nbegriff: NautiQ\nsynonyme: [Eigenbau-Drohne]\nhoerfehler: [Nautilus, Nautik, Nautiq]\n---\n";
+
+  it("liest nur hoerfehler und lässt die richtige Form stehen", () => {
+    const rules = hearingRules([quelle]);
+    expect(rules.map((rule) => rule.wrong)).toEqual(["Nautilus", "Nautik", "Nautiq"]);
+    const text = "die NautiQ, der Nautik, ein Nautilus, der Nautiker und Nautiq 360";
+    const result = replaceHearings(text, rules);
+    expect(result.text).toBe("die NautiQ, der NautiQ, ein NautiQ, der Nautiker und NautiQ 360");
+    expect(result.hits.map((hit) => hit.wrong)).toEqual(["Nautik", "Nautilus", "Nautiq"]);
+    const adjacent = replaceHearings("der Nautik und Nautiq", rules);
+    expect(adjacent.text).toBe("der NautiQ und NautiQ");
+    expect(adjacent.hits[0].snippet).toBe("der Nautik und Nautiq");
+  });
+
+  it("bevorzugt die längere Form", () => {
+    const rules = hearingRules(["---\nbegriff: CloudCompare\nhoerfehler: [Cloud Compare, Cloud]\n---\n"]);
+    expect(replaceHearings("Cloud Compare und Cloud", rules).text).toBe("CloudCompare und CloudCompare");
+  });
+
+  it("lässt das Frontmatter stehen und maskiert Anführungszeichen im Transkript", () => {
+    const note = "---\nbegriff: NautiQ\nhoerfehler: [Nautilus]\n---\n\nIm Text Nautilus.\n";
+    const replaced = replaceHearingsInNote(note, hearingRules([note]));
+    expect(replaced.text).toBe("---\nbegriff: NautiQ\nhoerfehler: [Nautilus]\n---\n\nIm Text NautiQ.\n");
+    const raw = '{\n "text": "der Nautik und"\n}\n';
+    expect(replaceHearings(raw, hearingRules([quelle]), { json: true }).text).toBe(
+      '{\n "text": "der NautiQ und"\n}\n',
+    );
+    expect(replaceHearings("x Foo y", [{ wrong: "Foo", begriff: 'A"B' }], { json: true }).text).toBe('x A\\"B y');
   });
 });
 

@@ -1,7 +1,7 @@
 ---
 typ: Thema
-tags: [akku]
-aliases: [Balancing, Zellprüfer]
+tags: [akku, Balancing, Zellprüfer]
+aliases: [Zellspannung]
 status: erschlossen
 ---
 

@@ -14,6 +14,7 @@ begriff: Erka-Control
 tags: [Erko-Control]
 synonyme: [erko control]
 aliases: [Erka Control]
+hoerfehler: []
 status: erschlossen
 ---
 
@@ -29,9 +30,15 @@ Die Software, mit der die Rotorschutz-Käfige geprüft werden.
 - `aliases` ist der lesbare Dateiname: Bindestriche werden Leerzeichen,
   `Erka-Control` wird `Erka Control`. Fehlt so ein Unterschied, bleibt
   `aliases` leer.
-- Eine andere Schreibweise aus einem Wort steht bei `tags`. Mehrere Wörter,
-  auch falsch gehört, stehen bei `synonyme`. Beides kommt nicht in die
-  Hotword-Liste.
+- Eine andere echte Schreibweise aus einem Wort steht bei `tags`. Mehrere
+  Wörter, die wirklich derselbe Name sind, stehen bei `synonyme`. Beides
+  kommt nicht in die Hotword-Liste.
+- Falsch gehört oder falsch gewählt steht bei `hoerfehler`, zum Beispiel
+  `hoerfehler: [Nautilus, Nautik, Nautiq]` an `begriff: NautiQ`. Das ist
+  keine zweite Bezeichnung. `wortlaut` zeigt, wo diese Formen im Bestand
+  stehen. `wortlaut --anwenden` setzt Transkript und Prosa auf `begriff`.
+  Befunde unter `70_Analysen/` bleiben stehen, das Frontmatter auch, damit
+  die Liste sich nicht selbst löscht. `hoerfehler` wird kein Hotword.
 - Die Definition darf auf andere Begriffe und auf Notizen verweisen.
 - `## Fundstellen` ergänzen, nicht die Definition umschreiben, wenn schon
   eine da ist.

@@ -46,9 +46,9 @@ in der Schreibweise aus `40_Glossar/`.
 
 ## Kapitel
 
-Callouts unter `## Notizen`, das erste aufgeklappt, darin `### mm:ss Titel`,
-darunter der Clip der Aufnahme. Die Muster stehen in `%_kapitel.md` und
-`%_inbox.md`.
+Callouts unter `## Notizen`, das erste aufgeklappt. `### mm:ss Titel` steht
+direkt darüber, nicht im Callout, sonst geht der Verweis nicht auf. Der Clip
+liegt im Callout. Die Muster stehen in `%_kapitel.md` und `%_inbox.md`.
 
 - `mm:ss` oder `h:mm:ss`, die Sekunden immer zweistellig.
 - Die Zeit ist der Anfang der Überschrift. Ohne Titel ist es kein Kapitel.

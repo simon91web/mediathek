@@ -374,7 +374,7 @@ ist im Kanal schlimmer als keiner.
 <!-- kapitelzusammenfassungen:ende -->
 
 <!-- bezuege:start -->
-- [[akku-grundlagen#00:15]] Dort erkläre ich die Zellspannungsmessung genauer
+- [[akku-grundlagen#00:08-00:18]] Dort erkläre ich die Zellspannungsmessung genauer
 - [[messprotokoll-lesen#akku-und-spannung]] Wie das Ergebnis ins Protokoll kommt
 <!-- bezuege:ende -->
 
@@ -486,7 +486,7 @@ Einzelgröße am Akku ist und wie man sie im Feld misst.
 <!-- kapitelzusammenfassungen:ende -->
 
 <!-- bezuege:start -->
-- [[vorflugkontrolle-elios-3#00:30]] Der Akkuteil der Vorflugkontrolle
+- [[vorflugkontrolle-elios-3#00:30-01:20]] Der Akkuteil der Vorflugkontrolle
 <!-- bezuege:ende -->
 `,
   );
@@ -533,7 +533,7 @@ Grenzwerte und der Freitext für Auffälligkeiten.
 <!-- zusammenfassung:ende -->
 
 <!-- bezuege:start -->
-- [[akku-grundlagen#00:15]] Wie die Spannungswerte zustande kommen
+- [[akku-grundlagen#00:08-00:18]] Wie die Spannungswerte zustande kommen
 <!-- bezuege:ende -->
 `,
   );

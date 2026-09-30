@@ -52,7 +52,8 @@ nur, wenn der Dateiname oder der mitgebrachte Text ein Datum hergibt.
 
 Zeilenenden LF. Vorlage für eine Aufnahme ist diese Form. Das erste Kapitel
 ist aufgeklappt, der Rest zugeklappt. Die Überschrift `### mm:ss Titel`
-bleibt im Callout, damit ein Verweis auf das Kapitel aufgeht.
+steht direkt über dem Callout. Im Callout verlinkt Obsidian sie nicht,
+und die Fundstelle geht nicht auf.
 
 ```markdown
 ---
@@ -68,14 +69,15 @@ ausbau: dicht
 > Drei bis sechs Sätze. Was jemand wissen muss, um zu entscheiden, ob er das ansehen will.
 
 ## Notizen
+
+### 05:16 Pfad aus dem HiDrive
 > [!note]+ Kapitel 1: Pfad aus dem HiDrive
-> ### 05:16 Pfad aus dem HiDrive
 > Ein bis drei Sätze, nur das, was gesagt wurde.
 >
 > ![[Stand UNIVERSE 260924.mp4#t=316,412|Kapitel 1: Pfad aus dem HiDrive]]
 
+### 06:52 Nächster Abschnitt
 > [!note]- Kapitel 2: Nächster Abschnitt
-> ### 06:52 Nächster Abschnitt
 > …
 >
 > ![[Stand UNIVERSE 260924.mp4#t=412,515|Kapitel 2: Nächster Abschnitt]]

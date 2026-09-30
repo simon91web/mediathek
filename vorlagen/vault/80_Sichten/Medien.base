@@ -1,6 +1,6 @@
 filters:
   and:
-    - file.inFolder("Medien")
+    - file.inFolder("10_Notizen")
     - 'typ == "Medium"'
 properties:
   art:
@@ -13,7 +13,7 @@ properties:
     displayName: Dauer
 views:
   - type: table
-    name: Medien
+    name: Notizen
     order:
       - file.name
       - art

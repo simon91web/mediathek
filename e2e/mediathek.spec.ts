@@ -72,7 +72,7 @@ test.describe("Mediathek", () => {
 
     // Der eigene Bezug führt an die genannte Zeitstelle …
     await expect(
-      page.locator('a[href="/medien/vorflugkontrolle-elios-3?t=30"]'),
+      page.locator('a[href="/medien/vorflugkontrolle-elios-3?t=30&bis=80"]'),
     ).toBeVisible();
 
     /*
